@@ -1,418 +1,331 @@
-import React, { useEffect, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
-import {
-  ArrowLeft, FileText, GraduationCap, User, Building2,
-  MessageSquare, Send, Paperclip, Dot, Download, ExternalLink
-} from "lucide-react"
-import { PageContainer } from "../components/Layout"
-import {
-  fetchDeal, fetchNotes, fetchOwners, fetchFiles, fetchDealCompany,
-  createNote, Deal, Note, FileItem, Company, BADGE_CLASSES
-} from "../lib/hubspot"
-import { formatDate, formatDateTime, BADGE_CLASSES as BC, initials } from "../lib/utils"
+// ─── HubSpot API Client ───────────────────────────────────────────────────────
+const TOKEN = (import.meta as any).env.VITE_HUBSPOT_TOKEN
+const PIPELINE_ID = (import.meta as any).env.VITE_PIPELINE_ID || ""
+const IS_DEV = (import.meta as any).env.DEV
 
-type Tab = "course" | "student" | "agent" | "chatter" | "documents"
+export const BADGE_CLASSES: Record<string, string> = {
+  blue:    "bg-blue-100 text-blue-700 border-blue-200",
+  amber:   "bg-amber-100 text-amber-700 border-amber-200",
+  green:   "bg-green-100 text-green-700 border-green-200",
+  emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  red:     "bg-red-100 text-red-700 border-red-200",
+  indigo:  "bg-indigo-100 text-indigo-700 border-indigo-200",
+  violet:  "bg-violet-100 text-violet-700 border-violet-200",
+  teal:    "bg-teal-100 text-teal-700 border-teal-200",
+  sky:     "bg-sky-100 text-sky-700 border-sky-200",
+  cyan:    "bg-cyan-100 text-cyan-700 border-cyan-200",
+  gray:    "bg-gray-100 text-gray-700 border-gray-200",
+  purple:  "bg-purple-100 text-purple-700 border-purple-200",
+  stone:   "bg-stone-100 text-stone-700 border-stone-200",
+}
 
-export default function ApplicationDetailPage() {
-  const navigate = useNavigate()
-  const { id } = useParams<{ id: string }>()
-  const [deal, setDeal] = useState<Deal | null>(null)
-  const [notes, setNotes] = useState<Note[]>([])
-  const [owners, setOwners] = useState<Record<string, string>>({})
-  const [files, setFiles] = useState<FileItem[]>([])
-  const [company, setCompany] = useState<Company | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<Tab>("course")
-  const [comment, setComment] = useState("")
-  const [sending, setSending] = useState(false)
+// ── Core fetch wrapper ────────────────────────────────────────────────────────
+async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
+  let url: string
+  let fetchInit: RequestInit
 
-  useEffect(() => {
-    if (!id) return
-    Promise.all([
-      fetchDeal(id),
-      fetchNotes(id),
-      fetchOwners(),
-      fetchFiles(id),
-      fetchDealCompany(id),
-    ]).then(([d, n, o, f, c]) => {
-      setDeal(d); setNotes(n); setOwners(o); setFiles(f); setCompany(c)
-    }).finally(() => setLoading(false))
-  }, [id])
-
-  const handlePostComment = async () => {
-    if (!comment.trim() || !id) return
-    setSending(true)
-    const ok = await createNote(id, comment.trim())
-    if (ok) {
-      setComment("")
-      const updated = await fetchNotes(id)
-      setNotes(updated)
+  if (IS_DEV) {
+    url = `https://api.hubapi.com${path}`
+    fetchInit = {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        "Content-Type": "application/json",
+        ...(init.headers || {}),
+      },
     }
-    setSending(false)
+  } else {
+    // Use Netlify serverless function as proxy to avoid CORS
+    url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}`
+    fetchInit = {
+      ...init,
+      headers: { "Content-Type": "application/json", ...(init.headers || {}) },
+    }
   }
 
-  if (loading) return <PageContainer><p className="animate-pulse text-gray-400 text-sm py-16 text-center">Loading application…</p></PageContainer>
-  if (!deal) return <PageContainer><p className="text-gray-400 text-sm py-16 text-center">Application not found.</p></PageContainer>
-
-  const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: "course",    label: "Course Information", icon: GraduationCap },
-    { id: "student",   label: "Student Details",    icon: User },
-    { id: "agent",     label: "Agent Details",      icon: Building2 },
-    { id: "chatter",   label: "Messages",           icon: MessageSquare },
-    { id: "documents", label: "Documents",          icon: Paperclip },
-  ]
-  const ActiveIcon = tabs.find(t => t.id === activeTab)?.icon || FileText
-
-  return (
-    <PageContainer className="min-w-0 max-w-full overflow-x-hidden">
-      {/* Back */}
-      <button
-        onClick={() => navigate("/applications")}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 transition-colors mb-6 group"
-      >
-        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
-        Back to Applications
-      </button>
-
-      {/* ── Beautiful gradient top card ── */}
-      <div className="relative rounded-xl overflow-hidden mb-6 shadow-lg">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-800 via-red-700 to-red-900" />
-        <div className="absolute inset-0 opacity-10"
-          style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)", backgroundSize: "60px 60px" }}
-        />
-        <div className="relative p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur border-2 border-white/30 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
-                  {initials(deal.studentName)}
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-white leading-tight">{deal.studentName}</h1>
-                  <p className="text-red-200 text-sm mt-0.5">{deal.courseName || "Holmes Education Group"}</p>
-                </div>
-              </div>
-              {/* Stage badge */}
-              <div className="mb-4">
-                <span className="inline-flex items-center gap-2 bg-white/15 backdrop-blur border border-white/25 text-white px-4 py-1.5 rounded-full text-sm font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  {deal.stageLabel}
-                </span>
-              </div>
-              {/* ID pills */}
-              <div className="flex flex-wrap gap-2">
-                <span className="text-xs bg-black/20 text-red-100 px-2.5 py-1 rounded-full font-mono border border-white/10">Deal: {deal.dealId}</span>
-                {deal.studentId && <span className="text-xs bg-black/20 text-red-100 px-2.5 py-1 rounded-full font-mono border border-white/10">Student: {deal.studentId}</span>}
-                {deal.jupiterId && <span className="text-xs bg-black/20 text-red-100 px-2.5 py-1 rounded-full font-mono border border-white/10">Jupiter: {deal.jupiterId}</span>}
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 sm:text-right flex-shrink-0">
-              {deal.campus && (
-                <div className="bg-white/10 backdrop-blur border border-white/20 rounded-lg px-4 py-2">
-                  <p className="text-red-200 text-xs uppercase tracking-wider">Campus</p>
-                  <p className="text-white font-semibold">{deal.campus}</p>
-                </div>
-              )}
-              {deal.intake && (
-                <div className="bg-white/10 backdrop-blur border border-white/20 rounded-lg px-4 py-2">
-                  <p className="text-red-200 text-xs uppercase tracking-wider">Intake</p>
-                  <p className="text-white font-semibold">{deal.intake}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-12 gap-6 min-w-0">
-        {/* Main Left */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Tabs */}
-          <div className="bg-white rounded-xl border border-stone-200 p-1 flex overflow-x-auto gap-1">
-            {tabs.map(tab => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                    activeTab === tab.id ? "bg-red-50 text-red-700" : "text-gray-600 hover:bg-stone-50"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
-                  {tab.id === "documents" && files.length > 0 && (
-                    <span className="ml-1 bg-red-100 text-red-700 text-xs px-1.5 py-0.5 rounded-full font-semibold">{files.length}</span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Tab Content */}
-          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden min-h-[400px]">
-            <div className="px-6 py-4 border-b border-stone-100 flex items-center gap-2 bg-stone-50/30">
-              <ActiveIcon className="h-5 w-5 text-red-600" />
-              <h2 className="font-semibold text-gray-700 text-lg">{tabs.find(t => t.id === activeTab)?.label}</h2>
-            </div>
-            <div className="p-6">
-
-              {/* ── Course ── */}
-              {activeTab === "course" && (
-                <div className="grid md:grid-cols-2 gap-x-8">
-                  <DetailRow label="Course Name"       value={deal.courseName} />
-                  <DetailRow label="Campus"            value={deal.campus} />
-                  <DetailRow label="Intake"            value={deal.intake} />
-                  <DetailRow label="Start Date"        value={formatDate(deal.courseStart)} />
-                  <DetailRow label="End Date"          value={formatDate(deal.courseEnd)} />
-                  <DetailRow label="OSHC"              value={deal.oshc} />
-                  <DetailRow label="EAP"               value={deal.eap} />
-                  <DetailRow label="Advanced Standing" value={deal.advancedStanding} />
-                  <DetailRow label="English Test Type" value={deal.englishTestType} />
-                  <DetailRow label="English Score"     value={deal.englishScore} />
-                  <DetailRow label="Tuition Fees"      value={deal.tuitionFees} />
-                  <DetailRow label="Scholarship"       value={deal.scholarship} />
-                  <DetailRow label="Total Cost"        value={deal.totalCost} />
-                  <DetailRow label="Last Modified"     value={formatDateTime(deal.lastModified)} />
-                </div>
-              )}
-
-              {/* ── Student ── */}
-              {activeTab === "student" && (
-                <div className="grid md:grid-cols-2 gap-x-8">
-                  <DetailRow label="Student Name"     value={deal.studentName} />
-                  <DetailRow label="Nationality"      value={deal.nationality} />
-                  <DetailRow label="Residency Status" value={deal.residencyStatus} />
-                  <DetailRow label="Date of Birth"    value={formatDate(deal.dob)} />
-                  <DetailRow label="Passport Number"  value={deal.passport} />
-                  <DetailRow label="Student ID"       value={deal.studentId} />
-                  <DetailRow label="Jupiter ID"       value={deal.jupiterId} />
-                  <DetailRow label="Deal ID"          value={deal.dealId} />
-                </div>
-              )}
-
-              {/* ── Agent (from Companies) ── */}
-              {activeTab === "agent" && (
-                <div className="grid md:grid-cols-2 gap-x-8">
-                  {company ? (
-                    <>
-                      <DetailRow label="Company Name"   value={company.name} />
-                      <DetailRow label="Phone"          value={company.phone} />
-                      <DetailRow label="Email"          value={company.email} />
-                      <DetailRow label="City"           value={company.city} />
-                      <DetailRow label="Country"        value={company.country} />
-                      <DetailRow label="Address"        value={company.address} />
-                      {company.website && (
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 py-3 border-b border-stone-100">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider sm:w-1/3">Website</span>
-                          <a href={company.website} target="_blank" rel="noopener noreferrer"
-                            className="text-sm text-red-600 hover:underline flex items-center gap-1">
-                            {company.website} <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <DetailRow label="Agent Company" value={deal.agentCompany} />
-                      <DetailRow label="Branch Office" value={deal.branchOffice} />
-                      <div className="col-span-2 mt-4 p-3 bg-amber-50 border border-amber-100 rounded-lg">
-                        <p className="text-xs text-amber-700">No company record linked to this deal in HubSpot.</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* ── Chatter ── */}
-              {activeTab === "chatter" && (
-                <div className="flex flex-col h-[500px]">
-                  {/* Messages list */}
-                  <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
-                    {notes.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-center py-8">
-                        <div className="w-14 h-14 bg-stone-100 rounded-full flex items-center justify-center mb-3">
-                          <MessageSquare className="h-6 w-6 text-stone-400" />
-                        </div>
-                        <p className="text-sm font-medium text-gray-600">No messages yet</p>
-                        <p className="text-xs text-gray-400 mt-1">Send a message below to start the conversation</p>
-                      </div>
-                    ) : notes.map(note => {
-                      let body = note.body
-                      let author = owners[note.ownerId] || "HubSpot User"
-                      const isPortal = body.startsWith("[Portal Comment —")
-                      if (isPortal) {
-                        try {
-                          author = body.split("—")[1].split("]")[0].trim()
-                          body = body.split("]\n\n")[1] || body
-                        } catch {}
-                      }
-                      const authorInitials = initials(author)
-                      return (
-                        <div key={note.id} className="flex gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${isPortal ? "bg-red-100 text-red-700" : "bg-stone-100 text-stone-600"}`}>
-                            {authorInitials}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm font-semibold text-gray-800">{author}</span>
-                              <span className="text-xs text-gray-400">{formatDateTime(note.createdAt)}</span>
-                              {isPortal && <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium">Portal</span>}
-                            </div>
-                            <div className="bg-stone-50 rounded-xl rounded-tl-none px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border border-stone-100">
-                              {body}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {/* Message input */}
-                  <div className="border-t border-stone-100 pt-4">
-                    <div className="bg-stone-50 rounded-xl border border-stone-200 focus-within:border-red-400 focus-within:ring-2 focus-within:ring-red-100 transition-all">
-                      <textarea
-                        value={comment}
-                        onChange={e => setComment(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handlePostComment() }}
-                        placeholder="Write a message... (Ctrl+Enter to send)"
-                        rows={3}
-                        className="w-full px-4 py-3 text-sm bg-transparent focus:outline-none resize-none text-gray-700 placeholder-stone-400"
-                      />
-                      <div className="flex items-center justify-between px-4 pb-3">
-                        <span className="text-xs text-stone-400">Saves directly to HubSpot</span>
-                        <button
-                          onClick={handlePostComment}
-                          disabled={!comment.trim() || sending}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors font-medium shadow-sm"
-                        >
-                          <Send className="h-3.5 w-3.5" />
-                          {sending ? "Sending…" : "Send"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Documents ── */}
-              {activeTab === "documents" && (
-                <div>
-                  {files.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <div className="w-14 h-14 bg-stone-100 rounded-full flex items-center justify-center mb-3">
-                        <Paperclip className="h-6 w-6 text-stone-400" />
-                      </div>
-                      <p className="text-sm font-medium text-gray-600">No documents attached</p>
-                      <p className="text-xs text-gray-400 mt-1">Upload files through HubSpot and they'll appear here</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {files.map((f, i) => {
-                        const ext = (f.name && f.name !== "Unknown" && f.name !== "Document")
-                          ? f.name.split(".").pop()?.toUpperCase() || "FILE"
-                          : "FILE"
-                        const displayName = (f.name && f.name !== "Unknown") ? f.name : `Document ${i + 1}`
-                        const dateStr = f.createdAt ? formatDateTime(new Date(f.createdAt).toISOString()) : "—"
-                        const extColors: Record<string, string> = {
-                          PDF: "bg-red-50 text-red-600", DOC: "bg-blue-50 text-blue-600",
-                          DOCX: "bg-blue-50 text-blue-600", JPG: "bg-green-50 text-green-600",
-                          JPEG: "bg-green-50 text-green-600", PNG: "bg-green-50 text-green-600",
-                          XLSX: "bg-emerald-50 text-emerald-600", XLS: "bg-emerald-50 text-emerald-600",
-                        }
-                        const extColor = extColors[ext] || "bg-stone-100 text-stone-600"
-                        return (
-                          <div key={f.id || i} className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 bg-stone-50/50 hover:bg-stone-100/50 transition-colors group">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${extColor}`}>
-                              {ext}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-800 truncate">{displayName}</p>
-                              <p className="text-xs text-gray-400">{dateStr}</p>
-                            </div>
-                            {f.url ? (
-                              <a
-                                href={f.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
-                              >
-                                <Download className="h-3 w-3" />
-                                Download
-                              </a>
-                            ) : (
-                              <span className="text-xs text-stone-300 opacity-0 group-hover:opacity-100">No URL</span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Sidebar ── */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Key Dates */}
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
-            <div className="font-semibold text-gray-700 text-sm mb-3 flex items-center gap-2">📅 Key Dates</div>
-            <div className="space-y-3 text-sm">
-              <SidebarRow label="Date Added"    value={formatDate(deal.createdAt)} />
-              <SidebarRow label="Last Modified" value={formatDate(deal.lastModified)} />
-              <SidebarRow label="Course Start"  value={formatDate(deal.courseStart)} />
-              <SidebarRow label="Course End"    value={formatDate(deal.courseEnd)} />
-            </div>
-          </div>
-
-          {/* Need Assistance */}
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-800 text-sm">Need Assistance?</h3>
-              <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
-                <Dot className="h-3 w-3 fill-current animate-pulse" />
-                <span className="text-xs font-semibold">Live Now</span>
-              </div>
-            </div>
-            <div className="space-y-2 text-sm mb-3">
-              <div><p className="text-xs text-gray-500">Phone</p><p className="font-medium text-gray-900">+61 3 9564 1444</p></div>
-              <div><p className="text-xs text-gray-500">Email</p><p className="font-medium text-gray-900">admissions@holmes.edu.au</p></div>
-            </div>
-            <div className="pt-3 border-t border-stone-100">
-              <p className="text-xs text-gray-500 font-medium mb-0.5">Available Hours</p>
-              <p className="text-xs text-gray-700">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
-            </div>
-          </div>
-
-          {/* Pro Tip */}
-          <div className="bg-red-50 rounded-xl border border-red-100 p-5">
-            <h3 className="font-semibold text-gray-800 text-sm mb-2 flex items-center gap-2">✓ Pro Tip</h3>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              Keep student documents up to date to ensure faster processing times for visa applications.
-            </p>
-          </div>
-        </div>
-      </div>
-    </PageContainer>
-  )
+  const res = await fetch(url, fetchInit)
+  if (!res.ok) throw new Error(`HubSpot API error: ${res.status}`)
+  return res.json()
 }
 
-function DetailRow({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 py-3 border-b border-stone-100 last:border-0">
-      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider sm:w-1/3">{label}</span>
-      <span className="text-sm text-gray-800">{value || "—"}</span>
-    </div>
-  )
+// ── Deal Properties ───────────────────────────────────────────────────────────
+export const DEAL_PROPS = [
+  "dealname","dealstage","pipeline","response_status",
+  "course_name_australia_","campus","intake","where_applying_from_",
+  "advanced_standing","oshc","eap_required","english_test_type",
+  "english_test_score","course_start_date","course_end_date",
+  "tuition_fees","scholarship","total_cost","hubspot_owner_id",
+  "createdate","hs_lastmodifieddate","nationality_","residency_status_",
+  "date_of_birth","passport_number","agent_company","branch_office",
+  "student_id","jupiter_id","hs_object_id",
+]
+
+// ── Pipeline Stage Map ────────────────────────────────────────────────────────
+export const STAGE_LABELS: Record<string, string> = {
+  // Real Australia Admissions Pipeline stage IDs
+  "1155257364": "New Application Received",
+  "1155257365": "Documentation Outstanding",
+  "1155257366": "Approved for Interview",
+  "1155257367": "GS Checking in Process",
+  "1155257368": "Credit Assessment Team",
+  "1155257369": "English Placement Test",
+  "1155257370": "Offer Letter Requested",
+  "1155163699": "Offer Issued",
+  "1155163705": "Second Agent Application",
+  "1155163700": "Receipting",
+  "1155163701": "COE Request",
+  "1155163702": "COE Team",
+  "1155163703": "Application Completed",
+  "1155163706": "Application Closed",
+  "1175846298": "Enrolled",
+  "1349993739": "Duplicate",
+  "1363564954": "Interview Invitation Sent",
+  "1363564955": "GTE in Process",
+  "1363564956": "Conditional Offer Issued",
+  "1363564957": "Application Refused",
 }
 
-function SidebarRow({ label, value }: { label: string; value?: string }) {
-  return (
-    <div>
-      <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
-      <p className="font-medium text-gray-800">{value || "—"}</p>
-    </div>
+export const PIPELINE_STAGES = [
+  "New Application Received","Documentation Outstanding","Approved for Interview",
+  "GS Checking in Process","Credit Assessment Team","English Placement Test",
+  "Offer Letter Requested","Offer Issued","Second Agent Application","Receipting",
+  "COE Request","COE Team","Application Complete","Application Closed","Enrolled",
+  "Duplicate","Interview","GTE in Process","Conditional Offer Issued","Application Refused",
+]
+
+export const STAGE_COLORS: Record<string, string> = {
+  "1155257364": "blue",
+  "1155257365": "amber",
+  "1155257366": "teal",
+  "1155257367": "cyan",
+  "1155257368": "amber",
+  "1155257369": "sky",
+  "1155257370": "indigo",
+  "1155163699": "indigo",
+  "1155163705": "purple",
+  "1155163700": "amber",
+  "1155163701": "violet",
+  "1155163702": "violet",
+  "1155163703": "emerald",
+  "1155163706": "gray",
+  "1175846298": "emerald",
+  "1349993739": "gray",
+  "1363564954": "teal",
+  "1363564955": "amber",
+  "1363564956": "indigo",
+  "1363564957": "red",
+}
+
+// ── Fetch Deals ───────────────────────────────────────────────────────────────
+export async function fetchDeals(limit = 5000): Promise<Deal[]> {
+  const payload: any = {
+    filterGroups: PIPELINE_ID ? [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }] : [],
+    properties: DEAL_PROPS,
+    limit: 100,
+    sorts: [{ propertyName: "hs_lastmodifieddate", direction: "DESCENDING" }],
+  }
+  const all: Deal[] = []
+  let after: string | undefined
+  while (all.length < limit) {
+    if (after) payload.after = after
+    const data = await hsFetch("/crm/v3/objects/deals/search", { method: "POST", body: JSON.stringify(payload) })
+    all.push(...data.results.map(mapDeal))
+    after = data.paging?.next?.after
+    if (!after) break
+  }
+  return all.slice(0, limit)
+}
+
+// ── Fetch Single Deal ─────────────────────────────────────────────────────────
+export async function fetchDeal(id: string): Promise<Deal> {
+  const data = await hsFetch(`/crm/v3/objects/deals/${id}?properties=${DEAL_PROPS.join(",")}`)
+  return mapDeal(data)
+}
+
+// ── Fetch Notes ───────────────────────────────────────────────────────────────
+export async function fetchNotes(dealId: string): Promise<Note[]> {
+  const assoc = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/notes`)
+  const noteIds: string[] = (assoc.results || []).slice(0, 20).map((a: any) => a.id)
+  if (!noteIds.length) return []
+  const notes = await Promise.all(
+    noteIds.map(async (nid) => {
+      try {
+        return await hsFetch(`/crm/v3/objects/notes/${nid}?properties=hs_note_body,hs_createdate,hubspot_owner_id`)
+      } catch { return null }
+    })
   )
+  return notes.filter(Boolean).map((n: any) => ({
+    id: n.id,
+    body: (n.properties.hs_note_body || "").replace(/<br>/g, "\n"),
+    createdAt: n.properties.hs_createdate,
+    ownerId: n.properties.hubspot_owner_id,
+  })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+// ── Create Note ───────────────────────────────────────────────────────────────
+export async function createNote(dealId: string, body: string): Promise<boolean> {
+  try {
+    const note = await hsFetch("/crm/v3/objects/notes", {
+      method: "POST",
+      body: JSON.stringify({ properties: { hs_note_body: body, hs_timestamp: new Date().toISOString() } }),
+    })
+    await hsFetch("/crm/v3/associations/notes/deals/batch/create", {
+      method: "POST",
+      body: JSON.stringify({ inputs: [{ from: { id: note.id }, to: { id: dealId }, type: "note_to_deal" }] }),
+    })
+    return true
+  } catch { return false }
+}
+
+// ── Fetch Owners ──────────────────────────────────────────────────────────────
+export async function fetchOwners(): Promise<Record<string, string>> {
+  try {
+    const data = await hsFetch("/crm/v3/owners")
+    return Object.fromEntries((data.results || []).map((o: any) => [
+      String(o.id), `${o.firstName || ""} ${o.lastName || ""}`.trim()
+    ]))
+  } catch { return {} }
+}
+
+// ── Fetch Company (Agent Details) ─────────────────────────────────────────────
+export async function fetchDealCompany(dealId: string): Promise<Company | null> {
+  try {
+    const assoc = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/companies`)
+    const companyIds: string[] = (assoc.results || []).slice(0, 1).map((a: any) => a.id)
+    if (!companyIds.length) return null
+    const data = await hsFetch(
+      `/crm/v3/objects/companies/${companyIds[0]}?properties=name,phone,email,city,country,address,website,hubspot_owner_id`
+    )
+    const p = data.properties || {}
+    return {
+      id: data.id,
+      name: p.name || "",
+      phone: p.phone || "",
+      email: p.email || "",
+      city: p.city || "",
+      country: p.country || "",
+      address: p.address || "",
+      website: p.website || "",
+    }
+  } catch { return null }
+}
+
+// ── Fetch Files with download URLs ────────────────────────────────────────────
+export async function fetchFiles(dealId: string): Promise<FileItem[]> {
+  try {
+    // Try engagements API first
+    const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
+    const files: FileItem[] = []
+    for (const eng of data.results || []) {
+      for (const att of eng.attachments || []) {
+        // Fetch the actual file metadata for URL and real name
+        try {
+          const fileData = await hsFetch(`/filemanager/api/v3/files/${att.id}`)
+          files.push({
+            name: fileData.name || att.name || `Document`,
+            id: att.id,
+            url: fileData.url || fileData.s3Url || "",
+            createdAt: eng.engagement?.createdAt,
+          })
+        } catch {
+          files.push({
+            name: att.name && att.name !== "null" ? att.name : `Document`,
+            id: att.id,
+            url: "",
+            createdAt: eng.engagement?.createdAt,
+          })
+        }
+      }
+    }
+    return files
+  } catch { return [] }
+}
+
+// ── Lookup Contact ────────────────────────────────────────────────────────────
+export async function lookupContact(email: string): Promise<{ id: string; name: string; email: string } | null> {
+  try {
+    const data = await hsFetch("/crm/v3/objects/contacts/search", {
+      method: "POST",
+      body: JSON.stringify({
+        filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: email }] }],
+        properties: ["email", "firstname", "lastname"],
+        limit: 1,
+      }),
+    })
+    if (!data.results?.length) return null
+    const c = data.results[0]
+    return {
+      id: c.id,
+      name: `${c.properties.firstname || ""} ${c.properties.lastname || ""}`.trim() || email,
+      email: c.properties.email,
+    }
+  } catch { return null }
+}
+
+// ── Map raw deal ──────────────────────────────────────────────────────────────
+function mapDeal(raw: any): Deal {
+  const p = raw.properties || {}
+  const stageId = p.dealstage || ""
+  const stageLabel = STAGE_LABELS[stageId] || stageId.replace(/_/g, " ")
+  
+  // Helper to get first non-empty value
+  const g = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = p[k]
+      if (v && String(v).trim() && v !== "null") return String(v).trim()
+    }
+    return ""
+  }
+
+  return {
+    id: raw.id,
+    studentName: g("dealname") || `Deal #${raw.id}`,
+    dealstage: stageId,
+    stageLabel,
+    stageColor: STAGE_COLORS[stageId] || "stone",
+    responseStatus: g("response_status"),
+    courseName: g("course_name_australia_", "course_name", "coursename"),
+    campus: g("campus"),
+    intake: g("intake"),
+    applyingFrom: g("where_applying_from_", "where_applying_from", "applying_from"),
+    advancedStanding: g("advanced_standing", "advancedstanding"),
+    oshc: g("oshc"),
+    eap: g("eap_required", "eap"),
+    englishTestType: g("english_test_type", "englishtesttype"),
+    englishScore: g("english_test_score", "englishtestscore"),
+    courseStart: g("course_start_date", "coursestartdate"),
+    courseEnd: g("course_end_date", "courseenddate"),
+    tuitionFees: g("tuition_fees", "tuitionfees"),
+    scholarship: g("scholarship"),
+    totalCost: g("total_cost", "totalcost"),
+    ownerId: g("hubspot_owner_id"),
+    createdAt: g("createdate"),
+    lastModified: g("hs_lastmodifieddate"),
+    nationality: g("nationality_", "nationality"),
+    residencyStatus: g("residency_status_", "residency_status", "residencystatus"),
+    dob: g("date_of_birth", "dateofbirth"),
+    passport: g("passport_number", "passportnumber"),
+    agentCompany: g("agent_company", "agentcompany"),
+    branchOffice: g("branch_office", "branchoffice"),
+    studentId: g("student_id", "studentid"),
+    jupiterId: g("jupiter_id", "jupiterid", "jupiter_oldid"),
+    dealId: raw.id,
+  }
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+export interface Deal {
+  id: string; studentName: string; dealstage: string; stageLabel: string; stageColor: string
+  responseStatus: string; courseName: string; campus: string; intake: string; applyingFrom: string
+  advancedStanding: string; oshc: string; eap: string; englishTestType: string; englishScore: string
+  courseStart: string; courseEnd: string; tuitionFees: string; scholarship: string; totalCost: string
+  ownerId: string; createdAt: string; lastModified: string; nationality: string; residencyStatus: string
+  dob: string; passport: string; agentCompany: string; branchOffice: string
+  studentId: string; jupiterId: string; dealId: string
+}
+export interface Note { id: string; body: string; createdAt: string; ownerId: string }
+export interface FileItem { name: string; id: string; url?: string; createdAt?: number }
+export interface Company {
+  id: string; name: string; phone: string; email: string
+  city: string; country: string; address: string; website: string
 }
