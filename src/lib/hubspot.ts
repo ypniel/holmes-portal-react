@@ -3,12 +3,28 @@
 // All data comes live from HubSpot — no duplication
 
 const BASE = "https://api.hubapi.com"
-const TOKEN = import.meta.env.VITE_HUBSPOT_TOKEN
-const PIPELINE_ID = import.meta.env.VITE_PIPELINE_ID || ""
+const TOKEN = (import.meta as any).env.VITE_HUBSPOT_TOKEN
+const PIPELINE_ID = (import.meta as any).env.VITE_PIPELINE_ID || ""
 
 const headers = {
   Authorization: `Bearer ${TOKEN}`,
   "Content-Type": "application/json",
+}
+
+export const BADGE_CLASSES: Record<string, string> = {
+  blue:    "bg-blue-100 text-blue-700 border-blue-200",
+  amber:   "bg-amber-100 text-amber-700 border-amber-200",
+  green:   "bg-green-100 text-green-700 border-green-200",
+  emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  red:     "bg-red-100 text-red-700 border-red-200",
+  indigo:  "bg-indigo-100 text-indigo-700 border-indigo-200",
+  violet:  "bg-violet-100 text-violet-700 border-violet-200",
+  teal:    "bg-teal-100 text-teal-700 border-teal-200",
+  sky:     "bg-sky-100 text-sky-700 border-sky-200",
+  cyan:    "bg-cyan-100 text-cyan-700 border-cyan-200",
+  gray:    "bg-gray-100 text-gray-700 border-gray-200",
+  purple:  "bg-purple-100 text-purple-700 border-purple-200",
+  stone:   "bg-stone-100 text-stone-700 border-stone-200",
 }
 
 // ── Deal Properties ───────────────────────────────────────────────────────────
