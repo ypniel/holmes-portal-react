@@ -1,7 +1,7 @@
 const https = require("https")
 
 exports.handler = async (event) => {
-  const token = process.env.VITE_HUBSPOT_TOKEN
+const token = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
   const path = event.queryStringParameters?.path || ""
   const method = event.httpMethod
   const body = event.body
