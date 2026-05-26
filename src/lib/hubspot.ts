@@ -1,15 +1,7 @@
 // ─── HubSpot API Client ───────────────────────────────────────────────────────
-// Replaces @stacker/portal-sdk with direct HubSpot REST API calls
-// All data comes live from HubSpot — no duplication
-
-const BASE = "https://api.hubapi.com"
 const TOKEN = (import.meta as any).env.VITE_HUBSPOT_TOKEN
 const PIPELINE_ID = (import.meta as any).env.VITE_PIPELINE_ID || ""
-
-const headers = {
-  Authorization: `Bearer ${TOKEN}`,
-  "Content-Type": "application/json",
-}
+const IS_DEV = (import.meta as any).env.DEV
 
 export const BADGE_CLASSES: Record<string, string> = {
   blue:    "bg-blue-100 text-blue-700 border-blue-200",
@@ -27,6 +19,35 @@ export const BADGE_CLASSES: Record<string, string> = {
   stone:   "bg-stone-100 text-stone-700 border-stone-200",
 }
 
+// ── Core fetch wrapper ────────────────────────────────────────────────────────
+async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
+  let url: string
+  let fetchInit: RequestInit
+
+  if (IS_DEV) {
+    url = `https://api.hubapi.com${path}`
+    fetchInit = {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        "Content-Type": "application/json",
+        ...(init.headers || {}),
+      },
+    }
+  } else {
+    // Use Netlify serverless function as proxy to avoid CORS
+    url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}`
+    fetchInit = {
+      ...init,
+      headers: { "Content-Type": "application/json", ...(init.headers || {}) },
+    }
+  }
+
+  const res = await fetch(url, fetchInit)
+  if (!res.ok) throw new Error(`HubSpot API error: ${res.status}`)
+  return res.json()
+}
+
 // ── Deal Properties ───────────────────────────────────────────────────────────
 export const DEAL_PROPS = [
   "dealname","dealstage","pipeline","response_status",
@@ -41,57 +62,41 @@ export const DEAL_PROPS = [
 
 // ── Pipeline Stage Map ────────────────────────────────────────────────────────
 export const STAGE_LABELS: Record<string, string> = {
-  "New Application Received":    "New Application Received",
-  "Documentation Outstanding":   "Documentation Outstanding",
-  "Approved for Interview":      "Approved for Interview",
-  "GS Checking in Process":      "GS Checking in Process",
-  "Credit Assessment Team":      "Credit Assessment Team",
-  "English Placement Test":      "English Placement Test",
-  "Offer Letter Requested":      "Offer Letter Requested",
-  "Offer Issued":                "Offer Issued",
-  "Second Agent Application":    "Second Agent Application",
-  "Receipting":                  "Receipting",
-  "COE Request":                 "COE Request",
-  "COE Team":                    "COE Team",
-  "Application Complete":        "Application Complete",
-  "Application Closed":          "Application Closed",
-  "Enrolled":                    "Enrolled",
-  "Duplicate":                   "Duplicate",
-  "Interview":                   "Interview",
-  "GTE in Process":              "GTE in Process",
-  "Conditional Offer Issued":    "Conditional Offer Issued",
-  "Application Refused":         "Application Refused",
-  // Fallback HubSpot internal IDs
-  appointmentscheduled:          "New Application Received",
-  qualifiedtobuy:                "Documentation Outstanding",
-  presentationscheduled:         "Offer Issued",
-  decisionmakerboughtin:         "Receipting",
-  contractsent:                  "COE Request",
-  closedwon:                     "Application Complete",
-  closedlost:                    "Application Refused",
+  "New Application Received":   "New Application Received",
+  "Documentation Outstanding":  "Documentation Outstanding",
+  "Approved for Interview":     "Approved for Interview",
+  "GS Checking in Process":     "GS Checking in Process",
+  "Credit Assessment Team":     "Credit Assessment Team",
+  "English Placement Test":     "English Placement Test",
+  "Offer Letter Requested":     "Offer Letter Requested",
+  "Offer Issued":               "Offer Issued",
+  "Second Agent Application":   "Second Agent Application",
+  "Receipting":                 "Receipting",
+  "COE Request":                "COE Request",
+  "COE Team":                   "COE Team",
+  "Application Complete":       "Application Complete",
+  "Application Closed":         "Application Closed",
+  "Enrolled":                   "Enrolled",
+  "Duplicate":                  "Duplicate",
+  "Interview":                  "Interview",
+  "GTE in Process":             "GTE in Process",
+  "Conditional Offer Issued":   "Conditional Offer Issued",
+  "Application Refused":        "Application Refused",
+  appointmentscheduled:         "New Application Received",
+  qualifiedtobuy:               "Documentation Outstanding",
+  presentationscheduled:        "Offer Issued",
+  decisionmakerboughtin:        "Receipting",
+  contractsent:                 "COE Request",
+  closedwon:                    "Application Complete",
+  closedlost:                   "Application Refused",
 }
 
 export const PIPELINE_STAGES = [
-  "New Application Received",
-  "Documentation Outstanding",
-  "Approved for Interview",
-  "GS Checking in Process",
-  "Credit Assessment Team",
-  "English Placement Test",
-  "Offer Letter Requested",
-  "Offer Issued",
-  "Second Agent Application",
-  "Receipting",
-  "COE Request",
-  "COE Team",
-  "Application Complete",
-  "Application Closed",
-  "Enrolled",
-  "Duplicate",
-  "Interview",
-  "GTE in Process",
-  "Conditional Offer Issued",
-  "Application Refused",
+  "New Application Received","Documentation Outstanding","Approved for Interview",
+  "GS Checking in Process","Credit Assessment Team","English Placement Test",
+  "Offer Letter Requested","Offer Issued","Second Agent Application","Receipting",
+  "COE Request","COE Team","Application Complete","Application Closed","Enrolled",
+  "Duplicate","Interview","GTE in Process","Conditional Offer Issued","Application Refused",
 ]
 
 export const STAGE_COLORS: Record<string, string> = {
@@ -119,28 +124,17 @@ export const STAGE_COLORS: Record<string, string> = {
 
 // ── Fetch Deals ───────────────────────────────────────────────────────────────
 export async function fetchDeals(limit = 500): Promise<Deal[]> {
-  const url = `${BASE}/crm/v3/objects/deals/search`
   const payload: any = {
-    filterGroups: PIPELINE_ID ? [{
-      filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
-    }] : [],
+    filterGroups: PIPELINE_ID ? [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }] : [],
     properties: DEAL_PROPS,
     limit: 100,
     sorts: [{ propertyName: "hs_lastmodifieddate", direction: "DESCENDING" }],
   }
-
   const all: Deal[] = []
   let after: string | undefined
-
   while (all.length < limit) {
     if (after) payload.after = after
-    const res = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) throw new Error(`HubSpot API error: ${res.status}`)
-    const data = await res.json()
+    const data = await hsFetch("/crm/v3/objects/deals/search", { method: "POST", body: JSON.stringify(payload) })
     all.push(...data.results.map(mapDeal))
     after = data.paging?.next?.after
     if (!after) break
@@ -150,235 +144,121 @@ export async function fetchDeals(limit = 500): Promise<Deal[]> {
 
 // ── Fetch Single Deal ─────────────────────────────────────────────────────────
 export async function fetchDeal(id: string): Promise<Deal> {
-  const res = await fetch(
-    `${BASE}/crm/v3/objects/deals/${id}?properties=${DEAL_PROPS.join(",")}`,
-    { headers }
-  )
-  if (!res.ok) throw new Error(`HubSpot API error: ${res.status}`)
-  const data = await res.json()
+  const data = await hsFetch(`/crm/v3/objects/deals/${id}?properties=${DEAL_PROPS.join(",")}`)
   return mapDeal(data)
 }
 
-// ── Fetch Notes for a Deal ────────────────────────────────────────────────────
+// ── Fetch Notes ───────────────────────────────────────────────────────────────
 export async function fetchNotes(dealId: string): Promise<Note[]> {
-  const assocRes = await fetch(
-    `${BASE}/crm/v3/objects/deals/${dealId}/associations/notes`,
-    { headers }
-  )
-  if (!assocRes.ok) return []
-  const assocData = await assocRes.json()
-  const noteIds: string[] = (assocData.results || []).slice(0, 20).map((a: any) => a.id)
+  const assoc = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/notes`)
+  const noteIds: string[] = (assoc.results || []).slice(0, 20).map((a: any) => a.id)
   if (!noteIds.length) return []
-
   const notes = await Promise.all(
     noteIds.map(async (nid) => {
-      const r = await fetch(
-        `${BASE}/crm/v3/objects/notes/${nid}?properties=hs_note_body,hs_createdate,hubspot_owner_id`,
-        { headers }
-      )
-      if (!r.ok) return null
-      return r.json()
+      try {
+        return await hsFetch(`/crm/v3/objects/notes/${nid}?properties=hs_note_body,hs_createdate,hubspot_owner_id`)
+      } catch { return null }
     })
   )
-
-  return notes
-    .filter(Boolean)
-    .map((n: any) => ({
-      id: n.id,
-      body: (n.properties.hs_note_body || "").replace(/<br>/g, "\n"),
-      createdAt: n.properties.hs_createdate,
-      ownerId: n.properties.hubspot_owner_id,
-    }))
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  return notes.filter(Boolean).map((n: any) => ({
+    id: n.id,
+    body: (n.properties.hs_note_body || "").replace(/<br>/g, "\n"),
+    createdAt: n.properties.hs_createdate,
+    ownerId: n.properties.hubspot_owner_id,
+  })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 
 // ── Create Note ───────────────────────────────────────────────────────────────
 export async function createNote(dealId: string, body: string): Promise<boolean> {
-  const noteRes = await fetch(`${BASE}/crm/v3/objects/notes`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      properties: {
-        hs_note_body: body,
-        hs_timestamp: new Date().toISOString(),
-      },
-    }),
-  })
-  if (!noteRes.ok) return false
-  const note = await noteRes.json()
-
-  const assocRes = await fetch(
-    `${BASE}/crm/v3/associations/notes/deals/batch/create`,
-    {
+  try {
+    const note = await hsFetch("/crm/v3/objects/notes", {
       method: "POST",
-      headers,
-      body: JSON.stringify({
-        inputs: [{ from: { id: note.id }, to: { id: dealId }, type: "note_to_deal" }],
-      }),
-    }
-  )
-  return assocRes.ok
+      body: JSON.stringify({ properties: { hs_note_body: body, hs_timestamp: new Date().toISOString() } }),
+    })
+    await hsFetch("/crm/v3/associations/notes/deals/batch/create", {
+      method: "POST",
+      body: JSON.stringify({ inputs: [{ from: { id: note.id }, to: { id: dealId }, type: "note_to_deal" }] }),
+    })
+    return true
+  } catch { return false }
 }
 
 // ── Fetch Owners ──────────────────────────────────────────────────────────────
 export async function fetchOwners(): Promise<Record<string, string>> {
-  const res = await fetch(`${BASE}/crm/v3/owners`, { headers })
-  if (!res.ok) return {}
-  const data = await res.json()
-  return Object.fromEntries(
-    (data.results || []).map((o: any) => [
-      String(o.id),
-      `${o.firstName || ""} ${o.lastName || ""}`.trim(),
-    ])
-  )
-}
-
-// ── Fetch Pipeline Stages ─────────────────────────────────────────────────────
-export async function fetchPipelineStages(): Promise<Record<string, string>> {
-  const res = await fetch(`${BASE}/crm/v3/pipelines/deals`, { headers })
-  if (!res.ok) return {}
-  const data = await res.json()
-  const map: Record<string, string> = {}
-  for (const pl of data.results || []) {
-    for (const s of pl.stages || []) {
-      map[s.id] = s.label
-    }
-  }
-  return map
+  try {
+    const data = await hsFetch("/crm/v3/owners")
+    return Object.fromEntries((data.results || []).map((o: any) => [
+      String(o.id), `${o.firstName || ""} ${o.lastName || ""}`.trim()
+    ]))
+  } catch { return {} }
 }
 
 // ── Fetch Files ───────────────────────────────────────────────────────────────
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
-  const res = await fetch(
-    `${BASE}/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`,
-    { headers }
-  )
-  if (!res.ok) return []
-  const data = await res.json()
-  const files: FileItem[] = []
-  for (const eng of data.results || []) {
-    for (const att of eng.attachments || []) {
-      files.push({
-        name: att.name || "Unknown",
-        id: att.id,
-        createdAt: eng.engagement?.createdAt,
-      })
+  try {
+    const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
+    const files: FileItem[] = []
+    for (const eng of data.results || []) {
+      for (const att of eng.attachments || []) {
+        files.push({ name: att.name || "Unknown", id: att.id, createdAt: eng.engagement?.createdAt })
+      }
     }
-  }
-  return files
+    return files
+  } catch { return [] }
 }
 
-// ── Auth (Magic Link via HubSpot Forms) ──────────────────────────────────────
-// We store a simple JWT in localStorage after verifying the user's email
-// against HubSpot Contacts. For production, use a proper auth backend.
+// ── Lookup Contact ────────────────────────────────────────────────────────────
 export async function lookupContact(email: string): Promise<{ id: string; name: string; email: string } | null> {
-  const res = await fetch(`${BASE}/crm/v3/objects/contacts/search`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: email }] }],
-      properties: ["email", "firstname", "lastname"],
-      limit: 1,
-    }),
-  })
-  if (!res.ok) return null
-  const data = await res.json()
-  if (!data.results?.length) return null
-  const c = data.results[0]
-  const p = c.properties
-  return {
-    id: c.id,
-    name: `${p.firstname || ""} ${p.lastname || ""}`.trim() || email,
-    email: p.email,
-  }
+  try {
+    const data = await hsFetch("/crm/v3/objects/contacts/search", {
+      method: "POST",
+      body: JSON.stringify({
+        filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: email }] }],
+        properties: ["email", "firstname", "lastname"],
+        limit: 1,
+      }),
+    })
+    if (!data.results?.length) return null
+    const c = data.results[0]
+    return {
+      id: c.id,
+      name: `${c.properties.firstname || ""} ${c.properties.lastname || ""}`.trim() || email,
+      email: c.properties.email,
+    }
+  } catch { return null }
 }
 
-// ── Map raw HubSpot deal to Deal type ─────────────────────────────────────────
+// ── Map raw deal ──────────────────────────────────────────────────────────────
 function mapDeal(raw: any): Deal {
   const p = raw.properties || {}
   const stageId = p.dealstage || ""
   const stageLabel = STAGE_LABELS[stageId] || stageId.replace(/_/g, " ")
   return {
-    id: raw.id,
-    studentName: p.dealname || `Deal #${raw.id}`,
-    dealstage: stageId,
-    stageLabel,
-    stageColor: STAGE_COLORS[stageLabel] || "stone",
-    responseStatus: p.response_status || "",
-    courseName: p.course_name_australia_ || "",
-    campus: p.campus || "",
-    intake: p.intake || "",
-    applyingFrom: p.where_applying_from_ || "",
-    advancedStanding: p.advanced_standing || "",
-    oshc: p.oshc || "",
-    eap: p.eap_required || "",
-    englishTestType: p.english_test_type || "",
-    englishScore: p.english_test_score || "",
-    courseStart: p.course_start_date || "",
-    courseEnd: p.course_end_date || "",
-    tuitionFees: p.tuition_fees || "",
-    scholarship: p.scholarship || "",
-    totalCost: p.total_cost || "",
-    ownerId: p.hubspot_owner_id || "",
-    createdAt: p.createdate || "",
-    lastModified: p.hs_lastmodifieddate || "",
-    nationality: p.nationality_ || "",
-    residencyStatus: p.residency_status_ || "",
-    dob: p.date_of_birth || "",
-    passport: p.passport_number || "",
-    agentCompany: p.agent_company || "",
-    branchOffice: p.branch_office || "",
-    studentId: p.student_id || "",
-    jupiterId: p.jupiter_id || "",
-    dealId: raw.id,
+    id: raw.id, studentName: p.dealname || `Deal #${raw.id}`,
+    dealstage: stageId, stageLabel, stageColor: STAGE_COLORS[stageLabel] || "stone",
+    responseStatus: p.response_status || "", courseName: p.course_name_australia_ || "",
+    campus: p.campus || "", intake: p.intake || "", applyingFrom: p.where_applying_from_ || "",
+    advancedStanding: p.advanced_standing || "", oshc: p.oshc || "", eap: p.eap_required || "",
+    englishTestType: p.english_test_type || "", englishScore: p.english_test_score || "",
+    courseStart: p.course_start_date || "", courseEnd: p.course_end_date || "",
+    tuitionFees: p.tuition_fees || "", scholarship: p.scholarship || "", totalCost: p.total_cost || "",
+    ownerId: p.hubspot_owner_id || "", createdAt: p.createdate || "", lastModified: p.hs_lastmodifieddate || "",
+    nationality: p.nationality_ || "", residencyStatus: p.residency_status_ || "",
+    dob: p.date_of_birth || "", passport: p.passport_number || "",
+    agentCompany: p.agent_company || "", branchOffice: p.branch_office || "",
+    studentId: p.student_id || "", jupiterId: p.jupiter_id || "", dealId: raw.id,
   }
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface Deal {
-  id: string
-  studentName: string
-  dealstage: string
-  stageLabel: string
-  stageColor: string
-  responseStatus: string
-  courseName: string
-  campus: string
-  intake: string
-  applyingFrom: string
-  advancedStanding: string
-  oshc: string
-  eap: string
-  englishTestType: string
-  englishScore: string
-  courseStart: string
-  courseEnd: string
-  tuitionFees: string
-  scholarship: string
-  totalCost: string
-  ownerId: string
-  createdAt: string
-  lastModified: string
-  nationality: string
-  residencyStatus: string
-  dob: string
-  passport: string
-  agentCompany: string
-  branchOffice: string
-  studentId: string
-  jupiterId: string
-  dealId: string
+  id: string; studentName: string; dealstage: string; stageLabel: string; stageColor: string
+  responseStatus: string; courseName: string; campus: string; intake: string; applyingFrom: string
+  advancedStanding: string; oshc: string; eap: string; englishTestType: string; englishScore: string
+  courseStart: string; courseEnd: string; tuitionFees: string; scholarship: string; totalCost: string
+  ownerId: string; createdAt: string; lastModified: string; nationality: string; residencyStatus: string
+  dob: string; passport: string; agentCompany: string; branchOffice: string
+  studentId: string; jupiterId: string; dealId: string
 }
-
-export interface Note {
-  id: string
-  body: string
-  createdAt: string
-  ownerId: string
-}
-
-export interface FileItem {
-  name: string
-  id: string
-  createdAt?: number
-}
+export interface Note { id: string; body: string; createdAt: string; ownerId: string }
+export interface FileItem { name: string; id: string; createdAt?: number }
