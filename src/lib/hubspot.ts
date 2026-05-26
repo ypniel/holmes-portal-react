@@ -227,20 +227,49 @@ function mapDeal(raw: any): Deal {
   const p = raw.properties || {}
   const stageId = p.dealstage || ""
   const stageLabel = STAGE_LABELS[stageId] || stageId.replace(/_/g, " ")
+  
+  // Helper to get first non-empty value
+  const g = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = p[k]
+      if (v && String(v).trim() && v !== "null") return String(v).trim()
+    }
+    return ""
+  }
+
   return {
-    id: raw.id, studentName: p.dealname || `Deal #${raw.id}`,
-    dealstage: stageId, stageLabel, stageColor: STAGE_COLORS[stageLabel] || "stone",
-    responseStatus: p.response_status || "", courseName: p.course_name_australia_ || "",
-    campus: p.campus || "", intake: p.intake || "", applyingFrom: p.where_applying_from_ || "",
-    advancedStanding: p.advanced_standing || "", oshc: p.oshc || "", eap: p.eap_required || "",
-    englishTestType: p.english_test_type || "", englishScore: p.english_test_score || "",
-    courseStart: p.course_start_date || "", courseEnd: p.course_end_date || "",
-    tuitionFees: p.tuition_fees || "", scholarship: p.scholarship || "", totalCost: p.total_cost || "",
-    ownerId: p.hubspot_owner_id || "", createdAt: p.createdate || "", lastModified: p.hs_lastmodifieddate || "",
-    nationality: p.nationality_ || "", residencyStatus: p.residency_status_ || "",
-    dob: p.date_of_birth || "", passport: p.passport_number || "",
-    agentCompany: p.agent_company || "", branchOffice: p.branch_office || "",
-    studentId: p.student_id || "", jupiterId: p.jupiter_id || "", dealId: raw.id,
+    id: raw.id,
+    studentName: g("dealname") || `Deal #${raw.id}`,
+    dealstage: stageId,
+    stageLabel,
+    stageColor: STAGE_COLORS[stageId] || "stone",
+    responseStatus: g("response_status"),
+    courseName: g("course_name_australia_", "course_name", "coursename"),
+    campus: g("campus"),
+    intake: g("intake"),
+    applyingFrom: g("where_applying_from_", "where_applying_from", "applying_from"),
+    advancedStanding: g("advanced_standing", "advancedstanding"),
+    oshc: g("oshc"),
+    eap: g("eap_required", "eap"),
+    englishTestType: g("english_test_type", "englishtesttype"),
+    englishScore: g("english_test_score", "englishtestscore"),
+    courseStart: g("course_start_date", "coursestartdate"),
+    courseEnd: g("course_end_date", "courseenddate"),
+    tuitionFees: g("tuition_fees", "tuitionfees"),
+    scholarship: g("scholarship"),
+    totalCost: g("total_cost", "totalcost"),
+    ownerId: g("hubspot_owner_id"),
+    createdAt: g("createdate"),
+    lastModified: g("hs_lastmodifieddate"),
+    nationality: g("nationality_", "nationality"),
+    residencyStatus: g("residency_status_", "residency_status", "residencystatus"),
+    dob: g("date_of_birth", "dateofbirth"),
+    passport: g("passport_number", "passportnumber"),
+    agentCompany: g("agent_company", "agentcompany"),
+    branchOffice: g("branch_office", "branchoffice"),
+    studentId: g("student_id", "studentid"),
+    jupiterId: g("jupiter_id", "jupiterid", "jupiter_oldid"),
+    dealId: raw.id,
   }
 }
 
