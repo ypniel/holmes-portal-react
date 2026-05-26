@@ -22,27 +22,17 @@ export default function LoginPage() {
     e.preventDefault()
     setStatus("loading")
     setErrorMessage(null)
-
-    try {
-      // Look up contact in HubSpot by email
-      const contact = await lookupContact(email.trim().toLowerCase())
-      if (contact) {
-        // In production: send a magic link email. For now, log in directly.
-        login({
-          id: contact.id,
-          name: contact.name,
-          fullName: contact.name,
-          email: contact.email,
-        })
-        setStatus("success")
-        setTimeout(() => navigate("/"), 1000)
-      } else {
-        setStatus("not_found")
-      }
-    } catch (err) {
-      setStatus("error")
-      setErrorMessage("Something went wrong. Please try again.")
-    }
+    // Demo mode: accept any email
+    setTimeout(() => {
+      login({
+        id: "demo",
+        name: email.split("@")[0],
+        fullName: email.split("@")[0],
+        email: email.trim().toLowerCase(),
+      })
+      setStatus("success")
+      setTimeout(() => navigate("/"), 800)
+    }, 800)
   }
 
   const reset = () => { setStatus("idle"); setEmail(""); setErrorMessage(null) }
