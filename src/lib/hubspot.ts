@@ -123,7 +123,7 @@ export const STAGE_COLORS: Record<string, string> = {
 }
 
 // ── Fetch Deals ───────────────────────────────────────────────────────────────
-export async function fetchDeals(limit = 500): Promise<Deal[]> {
+export async function fetchDeals(limit = 5000): Promise<Deal[]> {
   const payload: any = {
     filterGroups: PIPELINE_ID ? [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }] : [],
     properties: DEAL_PROPS,
