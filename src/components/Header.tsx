@@ -76,14 +76,17 @@ export function Header() {
 
           {/* Right: Live status + user */}
           <div className="flex items-center gap-3 relative">
-            {/* Live/Closed indicator */}
-            <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${
+            {/* Live/Closed indicator — expanded with context */}
+            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${
               isLive
                 ? "bg-emerald-500/20 border-emerald-400/30 text-emerald-300"
                 : "bg-stone-500/20 border-stone-400/30 text-stone-300"
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isLive ? "bg-emerald-400 animate-pulse" : "bg-stone-400"}`} />
-              {isLive ? "Live" : "Closed"}
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isLive ? "bg-emerald-400 animate-pulse" : "bg-stone-400"}`} />
+              {isLive
+                ? "Admissions Open · Mon–Fri 9AM–5PM AEST"
+                : "Admissions Closed · Mon–Fri 9AM–5PM AEST"
+              }
             </div>
 
             <button onClick={() => setProfileOpen(!profileOpen)}
