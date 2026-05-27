@@ -16,7 +16,7 @@ const DEMO_MIN = 60398451062
 const DEMO_MAX = 60405111109
 const IS_DEMO  = true // flip to false after boss demo
 
-const NEW_APP_URL = "https://share.hsforms.com/2nrqky_hbSQu2wZj0XxTnVgnrkx6"
+const NEW_APP_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
 
 export default function ApplicationsPage() {
   const navigate = useNavigate()
@@ -25,9 +25,13 @@ export default function ApplicationsPage() {
   const [error, setError] = useState(false)
 
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter]   = useState("all")
-  const [campusFilter, setCampusFilter]   = useState("all")
+  const [statusFilter, setStatusFilter]     = useState("all")
+  const [campusFilter, setCampusFilter]     = useState("all")
   const [responseFilter, setResponseFilter] = useState("all")
+  const [nationalityFilter, setNationalityFilter] = useState("all")
+  const [residencyFilter, setResidencyFilter]     = useState("all")
+  const [courseFilter, setCourseFilter]           = useState("all")
+  const [intakeFilter, setIntakeFilter]           = useState("all")
   const [openDropdown, setOpenDropdown]   = useState<string | null>(null)
   const [sortKey, setSortKey]   = useState<SortKey>("lastModified")
   const [sortDir, setSortDir]   = useState<SortDir>("desc")
@@ -46,8 +50,12 @@ export default function ApplicationsPage() {
     }).catch(() => setError(true)).finally(() => setLoading(false))
   }, [])
 
-  const campuses  = useMemo(() => [...new Set(deals.map(d => d.campus).filter(Boolean))].sort(), [deals])
-  const stages    = useMemo(() => [...new Set(deals.map(d => d.stageLabel).filter(Boolean))].sort(), [deals])
+  const campuses     = useMemo(() => [...new Set(deals.map(d => d.campus).filter(Boolean))].sort(), [deals])
+  const stages       = useMemo(() => [...new Set(deals.map(d => d.stageLabel).filter(Boolean))].sort(), [deals])
+  const nationalities = useMemo(() => [...new Set(deals.map(d => d.nationality).filter(Boolean))].sort(), [deals])
+  const residencies  = useMemo(() => [...new Set(deals.map(d => d.residencyStatus).filter(Boolean))].sort(), [deals])
+  const courses      = useMemo(() => [...new Set(deals.map(d => d.courseName).filter(Boolean))].sort(), [deals])
+  const intakes      = useMemo(() => [...new Set(deals.map(d => d.intake).filter(Boolean))].sort(), [deals])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -62,10 +70,14 @@ export default function ApplicationsPage() {
         d.agentCompany.toLowerCase().includes(q) ||
         d.passport.toLowerCase().includes(q) ||
         d.studentId.toLowerCase().includes(q)
-      const mst = statusFilter === "all"   || d.stageLabel === statusFilter
-      const mc  = campusFilter === "all"   || d.campus === campusFilter
-      const mr  = responseFilter === "all" || d.responseStatus === responseFilter
-      return ms && mst && mc && mr
+      const mst = statusFilter === "all"      || d.stageLabel === statusFilter
+      const mc  = campusFilter === "all"       || d.campus === campusFilter
+      const mr  = responseFilter === "all"     || d.responseStatus === responseFilter
+      const mn  = nationalityFilter === "all"  || d.nationality === nationalityFilter
+      const mre = residencyFilter === "all"    || d.residencyStatus === residencyFilter
+      const mco = courseFilter === "all"       || d.courseName === courseFilter
+      const mi  = intakeFilter === "all"       || d.intake === intakeFilter
+      return ms && mst && mc && mr && mn && mre && mco && mi
     }).sort((a, b) => {
       let av: any = a[sortKey as keyof Deal]
       let bv: any = b[sortKey as keyof Deal]
@@ -151,7 +163,7 @@ export default function ApplicationsPage() {
           { icon: <FileText className="h-5 w-5 text-stone-600" />,    bg: "bg-stone-100",   label: "Total Applications",              value: stats.total },
           { icon: <Clock className="h-5 w-5 text-amber-600" />,       bg: "bg-amber-50",    label: "Requires Action / Waiting on Agent", value: stats.waiting },
           { icon: <CheckCircle2 className="h-5 w-5 text-blue-600" />, bg: "bg-blue-50",     label: "Offers Issued",                   value: stats.offers },
-          { icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: "bg-emerald-50", label: "Enrolled / Complete",            value: stats.coes },
+          { icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: "bg-emerald-50", label: "COE Issued",                       value: stats.coes },
         ].map((s, i) => (
           <div key={i} className="bg-white border border-stone-200 rounded-xl p-4 flex items-center gap-4">
             <div className={`p-3 rounded-full ${s.bg}`}>{s.icon}</div>
@@ -174,9 +186,13 @@ export default function ApplicationsPage() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <FilterDropdown label="Case Status"      value={statusFilter}   options={stages}  onSelect={v => { setStatusFilter(v);   setPage(1) }} open={openDropdown==="status"}   onToggle={() => setOpenDropdown(openDropdown==="status"   ? null : "status")} />
-            <FilterDropdown label="Campus"           value={campusFilter}   options={campuses} onSelect={v => { setCampusFilter(v);   setPage(1) }} open={openDropdown==="campus"}   onToggle={() => setOpenDropdown(openDropdown==="campus"   ? null : "campus")} />
-            <FilterDropdown label="Response Status"  value={responseFilter} options={["Holmes Received","Waiting on Agent"]} onSelect={v => { setResponseFilter(v); setPage(1) }} open={openDropdown==="response"} onToggle={() => setOpenDropdown(openDropdown==="response" ? null : "response")} />
+            <FilterDropdown label="Case Status"      value={statusFilter}      options={stages}       onSelect={v => { setStatusFilter(v);      setPage(1) }} open={openDropdown==="status"}      onToggle={() => setOpenDropdown(openDropdown==="status"      ? null : "status")} />
+            <FilterDropdown label="Campus"           value={campusFilter}      options={campuses}     onSelect={v => { setCampusFilter(v);      setPage(1) }} open={openDropdown==="campus"}      onToggle={() => setOpenDropdown(openDropdown==="campus"      ? null : "campus")} />
+            <FilterDropdown label="Response Status"  value={responseFilter}    options={["Holmes Received","Waiting on Agent"]} onSelect={v => { setResponseFilter(v); setPage(1) }} open={openDropdown==="response"} onToggle={() => setOpenDropdown(openDropdown==="response" ? null : "response")} />
+            <FilterDropdown label="Nationality"      value={nationalityFilter} options={nationalities} onSelect={v => { setNationalityFilter(v); setPage(1) }} open={openDropdown==="nationality"} onToggle={() => setOpenDropdown(openDropdown==="nationality" ? null : "nationality")} />
+            <FilterDropdown label="Residency"        value={residencyFilter}   options={residencies}  onSelect={v => { setResidencyFilter(v);   setPage(1) }} open={openDropdown==="residency"}   onToggle={() => setOpenDropdown(openDropdown==="residency"   ? null : "residency")} />
+            <FilterDropdown label="Course"           value={courseFilter}      options={courses}      onSelect={v => { setCourseFilter(v);      setPage(1) }} open={openDropdown==="course"}      onToggle={() => setOpenDropdown(openDropdown==="course"      ? null : "course")} />
+            <FilterDropdown label="Intake"           value={intakeFilter}      options={intakes}      onSelect={v => { setIntakeFilter(v);      setPage(1) }} open={openDropdown==="intake"}      onToggle={() => setOpenDropdown(openDropdown==="intake"      ? null : "intake")} />
           </div>
         </div>
       </div>
