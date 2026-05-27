@@ -74,7 +74,8 @@ export default function ApplicationsPage() {
         d.responseStatus.toLowerCase().includes(q) ||
         d.agentCompany.toLowerCase().includes(q) ||
         d.passport.toLowerCase().includes(q) ||
-        d.studentId.toLowerCase().includes(q)
+        d.studentId.toLowerCase().includes(q) ||
+        d.dealId.toLowerCase().includes(q)
       const mst = statusFilter === "all"      || d.stageLabel === statusFilter
       const mc  = campusFilter === "all"       || d.campus === campusFilter
       const mr  = responseFilter === "all"     || d.responseStatus === responseFilter
@@ -169,7 +170,7 @@ export default function ApplicationsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { icon: <FileText className="h-5 w-5 text-stone-600" />,    bg: "bg-stone-100",   label: "Total Applications",              value: stats.total },
-          { icon: <Clock className="h-5 w-5 text-amber-600" />,       bg: "bg-amber-50",    label: "Requires Action / Waiting on Agent", value: stats.waiting },
+          { icon: <Clock className="h-5 w-5 text-amber-600" />,       bg: "bg-amber-50",    label: "Action Required",                    value: stats.waiting },
           { icon: <CheckCircle2 className="h-5 w-5 text-blue-600" />, bg: "bg-blue-50",     label: "Offers Issued",                   value: stats.offers },
           { icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: "bg-emerald-50", label: "COE Issued",                       value: stats.coes },
         ].map((s, i) => (
@@ -208,7 +209,7 @@ export default function ApplicationsPage() {
         <div className="flex flex-col xl:flex-row xl:items-center gap-3">
           <div className="relative flex-1 min-w-0 xl:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
-            <input type="text" placeholder="Search all fields…" value={search}
+            <input type="text" placeholder="Search by name, deal ID, passport, nationality…" value={search}
               onChange={e => { setSearch(e.target.value); setPage(1) }}
               className="w-full pl-10 pr-4 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             />
@@ -244,6 +245,8 @@ export default function ApplicationsPage() {
                 <tr className="border-b border-stone-200 bg-stone-50/50">
                   {[
                     { key: "studentName" as SortKey, label: "Student Name" },
+                    { key: null, label: "Deal ID" },
+                    { key: null, label: "Passport" },
                     { key: null, label: "Nationality" },
                     { key: null, label: "Residency" },
                     { key: null, label: "Course Name" },
@@ -284,6 +287,12 @@ export default function ApplicationsPage() {
                           </div>
                           <span className="font-medium text-gray-700 group-hover:text-red-600 transition-colors">{deal.studentName}</span>
                         </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className="text-xs font-mono text-stone-500 bg-stone-50 px-2 py-0.5 rounded">{deal.dealId}</span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className="text-xs font-mono text-stone-600">{deal.passport || "—"}</span>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-stone-600">
                         <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-stone-400" />{deal.nationality || "—"}</span>
