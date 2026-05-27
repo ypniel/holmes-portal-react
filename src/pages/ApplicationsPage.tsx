@@ -6,7 +6,7 @@ import {
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
 import { fetchDeals, Deal, PIPELINE_STAGES } from "../lib/hubspot"
-import { initials, formatDate, BADGE_CLASSES as BC } from "../lib/utils"
+import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
 
 type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
 type SortDir  = "asc" | "desc"
@@ -289,10 +289,10 @@ export default function ApplicationsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className="text-xs font-mono text-stone-500 bg-stone-50 px-2 py-0.5 rounded">{deal.dealId}</span>
+                        <span className="text-xs text-stone-500 bg-stone-50 px-2 py-0.5 rounded">{deal.dealId}</span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className="text-xs font-mono text-stone-600">{deal.passport || "—"}</span>
+                        <span className="text-xs text-stone-600">{deal.passport || "—"}</span>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-stone-600">
                         <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-stone-400" />{deal.nationality || "—"}</span>
@@ -304,7 +304,7 @@ export default function ApplicationsPage() {
                       </td>
                       <td className="px-4 py-3.5 text-sm text-stone-600 max-w-[200px] truncate" title={deal.courseName}>{deal.courseName || "—"}</td>
                       <td className="px-4 py-3.5 text-sm text-stone-600">
-                        <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-stone-400" />{deal.intake || "—"}</span>
+                        <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-stone-400" />{formatIntake(deal.intake)}</span>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-stone-600">
                         <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-stone-400" />{deal.campus || "—"}</span>
