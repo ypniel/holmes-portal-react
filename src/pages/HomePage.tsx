@@ -55,7 +55,7 @@ function useLiveStatus() {
   return isLive
 }
 
-const NEW_APP_URL = "https://share.hsforms.com/2nrqky_hbSQu2wZj0XxTnVgnrkx6"
+const NEW_APP_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -110,7 +110,7 @@ export default function HomePage() {
         <StatCard icon={<Users className="h-5 w-5 text-red-700" />}     bg="bg-red-50"     label="Total"   value={stats.total}   desc="Applications" />
         <StatCard icon={<FileText className="h-5 w-5 text-amber-600" />} bg="bg-amber-50"   label="Active"  value={stats.offers}  desc="Offers Issued" />
         <StatCard icon={<CheckCircle className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Success" value={stats.coes} desc="COEs Completed" />
-        <StatCard icon={<Clock className="h-5 w-5 text-rose-600" />}    bg="bg-rose-50"    label="Requires Action" value={stats.waiting} desc="Waiting on Agent" />
+        <StatCard icon={<Clock className="h-5 w-5 text-rose-600" />}    bg="bg-rose-50"    label="Requires Action / Waiting on Agent" value={stats.waiting} desc="Waiting on Agent" />
       </div>
 
       {/* Main Grid */}
@@ -139,7 +139,7 @@ export default function HomePage() {
                 <div className="w-8 h-8 bg-white/15 rounded-full flex items-center justify-center flex-shrink-0">⏳</div>
                 <div>
                   <div className="font-semibold text-sm text-white">Waiting on Agent</div>
-                  <div className="text-xs text-white/60 mt-0.5">{stats.waiting} items waiting on Agent</div>
+                  <div className="text-xs text-white/60 mt-0.5">{stats.waiting} items require action</div>
                 </div>
               </button>
 
