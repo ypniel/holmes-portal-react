@@ -89,7 +89,7 @@ export default function ApplicationDetailPage() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-white leading-tight">{deal.studentName}</h1>
-                  <p className="text-red-200 text-sm mt-0.5">{deal.courseName || "Holmes Education Group"}</p>
+                  <p className="text-red-200 text-sm mt-0.5">{company?.name || deal.agentCompany || "Holmes Education Group"}</p>
                 </div>
               </div>
               {/* Stage badge */}
@@ -99,11 +99,24 @@ export default function ApplicationDetailPage() {
                   {deal.stageLabel}
                 </span>
               </div>
-              {/* ID pills */}
+              {/* ID pills — clean and pretty */}
               <div className="flex flex-wrap gap-2">
-                <span className="text-xs bg-black/20 text-red-100 px-2.5 py-1 rounded-full font-mono border border-white/10">Deal: {deal.dealId}</span>
-                {deal.studentId && <span className="text-xs bg-black/20 text-red-100 px-2.5 py-1 rounded-full font-mono border border-white/10">Student: {deal.studentId}</span>}
-                {deal.jupiterId && <span className="text-xs bg-black/20 text-red-100 px-2.5 py-1 rounded-full font-mono border border-white/10">Jupiter: {deal.jupiterId}</span>}
+                <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
+                  <span className="text-white/50 text-[10px] uppercase tracking-widest">Deal</span>
+                  <span className="font-mono">{deal.dealId}</span>
+                </span>
+                {deal.studentId && (
+                  <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
+                    <span className="text-white/50 text-[10px] uppercase tracking-widest">Student</span>
+                    <span className="font-mono">{deal.studentId}</span>
+                  </span>
+                )}
+                {deal.jupiterId && (
+                  <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
+                    <span className="text-white/50 text-[10px] uppercase tracking-widest">Jupiter Legacy System ID</span>
+                    <span className="font-mono">{deal.jupiterId}</span>
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:text-right flex-shrink-0">
@@ -298,56 +311,52 @@ export default function ApplicationDetailPage() {
               {/* ── Documents ── */}
               {activeTab === "documents" && (
                 <div>
-                  {files.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <div className="w-14 h-14 bg-stone-100 rounded-full flex items-center justify-center mb-3">
-                        <Paperclip className="h-6 w-6 text-stone-400" />
+                  {/* Upload area */}
+                  <DocumentUploader dealId={deal.id} onUploaded={() => {
+                    fetchFiles(deal.id).then(setFiles)
+                  }} />
+
+                  <div className="mt-4">
+                    {files.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <Paperclip className="h-8 w-8 text-stone-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">No documents attached yet.</p>
+                        <p className="text-xs text-gray-400 mt-1">Drag and drop files above or upload through HubSpot.</p>
                       </div>
-                      <p className="text-sm font-medium text-gray-600">No documents attached</p>
-                      <p className="text-xs text-gray-400 mt-1">Upload files through HubSpot and they'll appear here</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {files.map((f, i) => {
-                        const ext = (f.name && f.name !== "Unknown" && f.name !== "Document")
-                          ? f.name.split(".").pop()?.toUpperCase() || "FILE"
-                          : "FILE"
-                        const displayName = (f.name && f.name !== "Unknown") ? f.name : `Document ${i + 1}`
-                        const dateStr = f.createdAt ? formatDateTime(new Date(f.createdAt).toISOString()) : "—"
-                        const extColors: Record<string, string> = {
-                          PDF: "bg-red-50 text-red-600", DOC: "bg-blue-50 text-blue-600",
-                          DOCX: "bg-blue-50 text-blue-600", JPG: "bg-green-50 text-green-600",
-                          JPEG: "bg-green-50 text-green-600", PNG: "bg-green-50 text-green-600",
-                          XLSX: "bg-emerald-50 text-emerald-600", XLS: "bg-emerald-50 text-emerald-600",
-                        }
-                        const extColor = extColors[ext] || "bg-stone-100 text-stone-600"
-                        return (
-                          <div key={f.id || i} className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 bg-stone-50/50 hover:bg-stone-100/50 transition-colors group">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${extColor}`}>
-                              {ext}
+                    ) : (
+                      <div className="space-y-2">
+                        {files.map((f, i) => {
+                          const ext = (f.name && f.name !== "Unknown" && f.name !== "Document")
+                            ? f.name.split(".").pop()?.toUpperCase() || "FILE" : "FILE"
+                          const displayName = (f.name && f.name !== "Unknown") ? f.name : `Document ${i + 1}`
+                          const dateStr = f.createdAt ? formatDateTime(new Date(f.createdAt).toISOString()) : "—"
+                          const extColors: Record<string, string> = {
+                            PDF: "bg-red-50 text-red-600", DOC: "bg-blue-50 text-blue-600",
+                            DOCX: "bg-blue-50 text-blue-600", JPG: "bg-green-50 text-green-600",
+                            JPEG: "bg-green-50 text-green-600", PNG: "bg-green-50 text-green-600",
+                            XLSX: "bg-emerald-50 text-emerald-600", XLS: "bg-emerald-50 text-emerald-600",
+                          }
+                          const extColor = extColors[ext] || "bg-stone-100 text-stone-600"
+                          return (
+                            <div key={f.id || i} className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 bg-stone-50/50 hover:bg-stone-100/50 transition-colors group">
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${extColor}`}>{ext}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">{displayName}</p>
+                                <p className="text-xs text-gray-400">{dateStr}</p>
+                              </div>
+                              {f.url && (
+                                <a href={f.url} target="_blank" rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
+                                >
+                                  <Download className="h-3 w-3" />Download
+                                </a>
+                              )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-800 truncate">{displayName}</p>
-                              <p className="text-xs text-gray-400">{dateStr}</p>
-                            </div>
-                            {f.url ? (
-                              <a
-                                href={f.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
-                              >
-                                <Download className="h-3 w-3" />
-                                Download
-                              </a>
-                            ) : (
-                              <span className="text-xs text-stone-300 opacity-0 group-hover:opacity-100">No URL</span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -413,6 +422,70 @@ function SidebarRow({ label, value }: { label: string; value?: string }) {
     <div>
       <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
       <p className="font-medium text-gray-800">{value || "—"}</p>
+    </div>
+  )
+}
+
+function DocumentUploader({ dealId, onUploaded }: { dealId: string; onUploaded: () => void }) {
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploading(true)
+    setUploadMsg(null)
+    try {
+      for (const file of Array.from(files)) {
+        // Upload to HubSpot Files API via proxy
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("folderPath", "/portal-uploads")
+        formData.append("options", JSON.stringify({ access: "PRIVATE", overwrite: false }))
+
+        const res = await fetch(`/.netlify/functions/upload?dealId=${dealId}`, {
+          method: "POST",
+          body: formData,
+        })
+        if (!res.ok) throw new Error("Upload failed")
+      }
+      setUploadMsg(`✅ ${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully`)
+      onUploaded()
+    } catch {
+      setUploadMsg("❌ Upload failed. Please try uploading directly in HubSpot.")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div>
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
+        onClick={() => inputRef.current?.click()}
+        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+          dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"
+        }`}
+      >
+        <input ref={inputRef} type="file" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
+        <Paperclip className={`h-8 w-8 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
+        {uploading ? (
+          <p className="text-sm text-gray-500 animate-pulse">Uploading…</p>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
+            <p className="text-xs text-gray-400 mt-1">or click to browse · Syncs directly to HubSpot</p>
+          </>
+        )}
+      </div>
+      {uploadMsg && (
+        <p className={`text-xs mt-2 text-center ${uploadMsg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>
+          {uploadMsg}
+        </p>
+      )}
     </div>
   )
 }
