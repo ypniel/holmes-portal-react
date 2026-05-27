@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useMemo, useRef } from "react"
+import React, { useEffect, useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   CheckCircle2, Clock, FileText, GraduationCap, Globe, MapPin,
   Search, ChevronDown, ChevronsUpDown, ChevronUp, Calendar, Download
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
-import { fetchDeals, Deal, PIPELINE_STAGES } from "../lib/hubspot"
+import { fetchDeals, Deal } from "../lib/hubspot"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
 
 type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
