@@ -51,13 +51,23 @@ async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
 // ── Deal Properties ───────────────────────────────────────────────────────────
 export const DEAL_PROPS = [
   "dealname","dealstage","pipeline","response_status",
-  "course_name_australia_","campus","intake","where_applying_from_",
-  "advanced_standing","oshc","eap_required","english_test_type",
-  "english_test_score","course_start_date","course_end_date",
-  "tuition_fees","scholarship","total_cost","hubspot_owner_id",
-  "createdate","hs_lastmodifieddate","nationality_","residency_status_",
-  "date_of_birth","passport_number","agent_company","branch_office",
-  "student_id","jupiter_id","hs_object_id",
+  // Course fields — try multiple possible names
+  "course_name_australia_","course_name","coursename","course",
+  "campus","campus_","intake","intake_date",
+  "where_applying_from_","where_applying_from","applying_from",
+  "advanced_standing","oshc","eap_required","eap",
+  "english_test_type","english_test","english_score",
+  "english_test_score","ielts_score","toefl_score",
+  "course_start_date","start_date","course_end_date","end_date",
+  "tuition_fees","tuition","scholarship","total_cost",
+  "hubspot_owner_id","createdate","hs_lastmodifieddate",
+  // Student fields
+  "nationality_","nationality","residency_status_","residency_status","residency",
+  "date_of_birth","dob","passport_number","passport",
+  "student_id","student_number","jupiter_id","jupiter_oldid",
+  // Agent fields
+  "agent_company","agent","branch_office","branch",
+  "hs_object_id",
 ]
 
 // ── Pipeline Stage Map ────────────────────────────────────────────────────────
@@ -283,7 +293,7 @@ function mapDeal(raw: any): Deal {
     dealstage: stageId,
     stageLabel,
     stageColor: STAGE_COLORS[stageId] || "stone",
-    responseStatus: g("response_status"),
+    responseStatus: g("response_status").replace(/_/g, " "),
     courseName: g("course_name_australia_", "course_name", "coursename"),
     campus: g("campus"),
     intake: g("intake"),
