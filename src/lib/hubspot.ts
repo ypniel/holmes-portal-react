@@ -233,12 +233,13 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
       for (const att of eng.attachments || []) {
         try {
           const fileData = await hsFetch(`/filemanager/api/v3/files/${att.id}`)
-          // Strip the ugly hash prefix from filename (e.g. "699bad896f41b-filename.pdf" -> "filename.pdf")
+          // Strip hash prefix from filename
           let name = fileData.name || att.name || "Document"
           const hashMatch = name.match(/^[a-f0-9]{13}-(.+)$/)
           if (hashMatch) name = hashMatch[1]
-          // Use default_hosting_url — no HubSpot login required
-          const url = fileData.default_hosting_url || fileData.s3_url || ""
+          // Use signed URL via our proxy — this adds auth token server-side
+          const signedPath = `/filemanager/api/v2/files/${att.id}/signed-url-redirect?portalId=39917994`
+          const url = `/.netlify/functions/hubspot?path=${encodeURIComponent(signedPath)}&redirect=true`
           files.push({ name, id: att.id, url, createdAt: eng.engagement?.createdAt })
         } catch {
           files.push({
