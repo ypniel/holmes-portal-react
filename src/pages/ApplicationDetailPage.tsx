@@ -113,20 +113,20 @@ export default function ApplicationDetailPage() {
                   {deal.stageLabel}
                 </span>
               </div>
-              {/* ID pills — clean and pretty */}
+              {/* ID pills */}
               <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
+                <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
                   <span className="text-white/50 text-[10px] uppercase tracking-widest">Deal</span>
                   <span className="font-mono">{deal.dealId}</span>
                 </span>
                 {deal.studentId && (
-                  <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
-                    <span className="text-white/50 text-[10px] uppercase tracking-widest">Student</span>
+                  <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
+                    <span className="text-white/50 text-[10px] uppercase tracking-widest">Student ID</span>
                     <span className="font-mono">{deal.studentId}</span>
                   </span>
                 )}
                 {deal.jupiterId && (
-                  <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
+                  <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
                     <span className="text-white/50 text-[10px] uppercase tracking-widest">Jupiter Legacy System ID</span>
                     <span className="font-mono">{deal.jupiterId}</span>
                   </span>
@@ -409,13 +409,8 @@ export default function ApplicationDetailPage() {
             </div>
           </div>
 
-          {/* Pro Tip */}
-          <div className="bg-red-50 rounded-xl border border-red-100 p-5">
-            <h3 className="font-semibold text-gray-800 text-sm mb-2 flex items-center gap-2">✓ Pro Tip</h3>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              Keep student documents up to date to ensure faster processing times for visa applications.
-            </p>
-          </div>
+          {/* Pro Tip — rotating */}
+          <RotatingProTip />
         </div>
       </div>
     </PageContainer>
@@ -436,6 +431,37 @@ function SidebarRow({ label, value }: { label: string; value?: string }) {
     <div>
       <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
       <p className="font-medium text-gray-800">{value || "—"}</p>
+    </div>
+  )
+}
+
+const PRO_TIPS = [
+  "Keep student documents up to date to ensure faster processing times for visa applications.",
+  "Submit IELTS or English test results early — verification delays are the most common cause of offer letter hold-ups.",
+  "Double-check passport expiry dates before submitting — passports must be valid for at least 6 months beyond the course end date.",
+  "Ensure the student's name on all documents exactly matches the passport. Discrepancies cause significant delays.",
+  "OSHC must be arranged before the COE can be issued. Remind students to arrange health cover early.",
+  "Advanced Standing applications take longer to assess — submit these cases as early as possible before intake.",
+  "For onshore students, make sure their current visa allows them to study before submitting an application.",
+]
+
+function RotatingProTip() {
+  const [idx, setIdx] = React.useState(0)
+  React.useEffect(() => {
+    const t = setInterval(() => setIdx(i => (i + 1) % PRO_TIPS.length), 8000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <div className="bg-red-50 rounded-xl border border-red-100 p-5">
+      <h3 className="font-semibold text-gray-800 text-sm mb-2 flex items-center gap-2">
+        <span className="text-red-600">✓</span> Pro Tip
+      </h3>
+      <p key={idx} className="text-sm text-gray-600 leading-relaxed">{PRO_TIPS[idx]}</p>
+      <div className="flex gap-1 mt-3">
+        {PRO_TIPS.map((_, i) => (
+          <div key={i} className={`h-1 rounded-full transition-all duration-500 ${i === idx ? "bg-red-400 w-4" : "bg-red-200 w-1"}`} />
+        ))}
+      </div>
     </div>
   )
 }
