@@ -173,7 +173,7 @@ export default function LoginPage() {
                   >
                     <div>
                       <p className="text-sm font-bold text-red-700">Applying as a Direct Student?</p>
-                      <p className="text-xs text-red-500 mt-0.5">Register here — no agent required</p>
+                      <p className="text-xs text-red-500 mt-0.5">Register your application here</p>
                     </div>
                     <ArrowRight className="h-4 w-4 text-red-600 flex-shrink-0" />
                   </a>
