@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Users, FileText, CheckCircle, Clock, ArrowRight, GraduationCap, MapPin } from "lucide-react"
 import { PageContainer } from "../components/Layout"
 import { useAuth } from "../lib/auth"
-import { fetchDeals, Deal } from "../lib/hubspot"
+import { fetchDeals, Deal, BADGE_CLASSES } from "../lib/hubspot"
 import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
 
 // ── Rotating Pro Tips ─────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ export default function HomePage() {
         <StatCard icon={<Users className="h-5 w-5 text-red-700" />}     bg="bg-red-50"     label="Total"   value={stats.total}   desc="Applications" />
         <StatCard icon={<FileText className="h-5 w-5 text-amber-600" />} bg="bg-amber-50"   label="Active"  value={stats.offers}  desc="Offers Issued" />
         <StatCard icon={<CheckCircle className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Success" value={stats.coes} desc="COEs Completed" />
-        <StatCard icon={<Clock className="h-5 w-5 text-rose-600" />}    bg="bg-rose-50"    label="Requires Action / Waiting on Agent" value={stats.waiting} desc="Waiting on Agent" />
+        <StatCard icon={<Clock className="h-5 w-5 text-rose-600" />}    bg="bg-rose-50"    label="Requires Action" value={stats.waiting} desc="Waiting on Agent" />
       </div>
 
       {/* Main Grid */}
@@ -178,9 +178,7 @@ export default function HomePage() {
             <div className="divide-y divide-stone-100">
               {loading && <p className="p-8 text-center text-gray-400 text-sm animate-pulse">Loading…</p>}
               {!loading && recent.length === 0 && <p className="p-8 text-center text-gray-400 text-sm">No applications yet.</p>}
-              {recent.map(deal => {
-                const [dispStatus, color] = STATUS_DISP[deal.stageLabel] || [deal.stageLabel, "#57534e"]
-                return (
+              {recent.map(deal => (
                   <div key={deal.id} onClick={() => navigate(`/applications/${deal.id}`)}
                     className="p-4 hover:bg-red-50 transition-colors cursor-pointer group"
                   >
@@ -205,7 +203,9 @@ export default function HomePage() {
                               )}
                             </div>
                           </div>
-                          <span className="text-xs font-semibold flex-shrink-0" style={{ color }}>{dispStatus}</span>
+                          <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border flex-shrink-0 ${BC[deal.stageColor] || BC.stone}`}>
+                            {deal.stageLabel}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between mt-1">
                           <span className="text-xs text-stone-400">{deal.nationality}</span>
@@ -214,8 +214,7 @@ export default function HomePage() {
                       </div>
                     </div>
                   </div>
-                )
-              })}
+                ))}
             </div>
           </div>
         </div>
@@ -270,16 +269,6 @@ export default function HomePage() {
             <p key={tip} className="text-sm text-gray-600 leading-relaxed transition-all duration-500">{tip}</p>
           </div>
 
-          {/* Direct Student option */}
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
-            <h3 className="font-semibold text-gray-800 text-sm mb-2">Direct Student?</h3>
-            <p className="text-xs text-gray-500 mb-3">Not applying through an agent? Register directly as an applicant.</p>
-            <a href="https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6" target="_blank" rel="noopener noreferrer"
-              className="block w-full text-center py-2 px-4 bg-red-700 hover:bg-red-800 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              Register as Applicant
-            </a>
-          </div>
         </div>
       </div>
     </PageContainer>
