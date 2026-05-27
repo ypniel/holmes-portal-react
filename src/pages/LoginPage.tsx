@@ -152,6 +152,18 @@ export default function LoginPage() {
                 <p className="mt-4 text-center text-xs text-gray-400">
                   For portal access, contact your Holmes admissions representative.
                 </p>
+
+                <div className="mt-4 pt-4 border-t border-stone-100 text-center">
+                  <p className="text-xs text-gray-500 mb-2">Applying without an agent?</p>
+                  <a
+                    href="https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-red-700 hover:text-red-800 transition-colors"
+                  >
+                    Register as a Direct Student →
+                  </a>
+                </div>
               </>
             )}
           </div>
