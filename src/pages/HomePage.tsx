@@ -31,13 +31,26 @@ function useLiveStatus() {
   const [isLive, setIsLive] = useState(false)
   useEffect(() => {
     const check = () => {
-      const melb = new Date(new Date().toLocaleString("en-AU", { timeZone: "Australia/Melbourne" }))
-      const h = melb.getHours(), day = melb.getDay()
-      setIsLive(day >= 1 && day <= 5 && h >= 9 && h < 17)
+      // Force Melbourne timezone
+      const melbStr = new Date().toLocaleString("en-AU", { timeZone: "Australia/Melbourne", hour12: false })
+      // Parse "dd/mm/yyyy, HH:MM:SS"
+      const parts = melbStr.split(", ")
+      if (parts.length < 2) return
+      const timePart = parts[1] // "HH:MM:SS"
+      const h = parseInt(timePart.split(":")[0])
+      const datePart = parts[0] // "dd/mm/yyyy"
+      const dateSegments = datePart.split("/")
+      const day = new Date(
+        parseInt(dateSegments[2]),
+        parseInt(dateSegments[1]) - 1,
+        parseInt(dateSegments[0])
+      ).getDay() // 0=Sun, 6=Sat
+      const isWeekday = day >= 1 && day <= 5
+      setIsLive(isWeekday && h >= 9 && h < 17)
     }
     check()
-    const i = setInterval(check, 60000)
-    return () => clearInterval(i)
+    const interval = setInterval(check, 30000)
+    return () => clearInterval(interval)
   }, [])
   return isLive
 }
