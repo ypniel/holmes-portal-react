@@ -13,17 +13,16 @@ function useLiveStatus() {
   const [isLive, setIsLive] = useState(false)
   useEffect(() => {
     const check = () => {
-      const now = new Date()
-      // AEST = UTC+10, AEDT = UTC+11 — use simple hour check in local time
-      // Convert to Melbourne time
-      const melb = new Date(now.toLocaleString("en-AU", { timeZone: "Australia/Melbourne" }))
-      const h = melb.getHours()
-      const day = melb.getDay() // 0=Sun, 6=Sat
-      const isWeekday = day >= 1 && day <= 5
-      setIsLive(isWeekday && h >= 9 && h < 17)
+      const melbStr = new Date().toLocaleString("en-AU", { timeZone: "Australia/Melbourne", hour12: false })
+      const parts = melbStr.split(", ")
+      if (parts.length < 2) return
+      const h = parseInt(parts[1].split(":")[0])
+      const dateSegments = parts[0].split("/")
+      const day = new Date(parseInt(dateSegments[2]), parseInt(dateSegments[1]) - 1, parseInt(dateSegments[0])).getDay()
+      setIsLive(day >= 1 && day <= 5 && h >= 9 && h < 17)
     }
     check()
-    const interval = setInterval(check, 60000)
+    const interval = setInterval(check, 30000)
     return () => clearInterval(interval)
   }, [])
   return isLive
