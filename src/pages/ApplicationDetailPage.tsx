@@ -7,7 +7,7 @@ import {
 import { PageContainer } from "../components/Layout"
 import {
   fetchDeal, fetchNotes, fetchOwners, fetchFiles, fetchDealCompany,
-  createNote, Deal, Note, FileItem, Company, BADGE_CLASSES
+  createNote, Deal, Note, FileItem, Company
 } from "../lib/hubspot"
 import { formatDate, formatDateTime, formatIntake, BADGE_CLASSES as BC, initials } from "../lib/utils"
 
