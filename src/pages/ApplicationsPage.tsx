@@ -104,6 +104,9 @@ export default function ApplicationsPage() {
     waiting: deals.filter(d => d.responseStatus.toLowerCase().includes("waiting")).length,
     offers:  deals.filter(d => d.stageLabel.includes("Offer")).length,
     coes:    deals.filter(d => ["Application Completed","Enrolled"].includes(d.stageLabel)).length,
+    conversionRate: deals.length > 0
+      ? Math.round((deals.filter(d => ["Application Completed","Enrolled"].includes(d.stageLabel)).length / deals.length) * 100)
+      : 0,
   }), [deals])
 
   function handleSort(key: SortKey) {
@@ -180,7 +183,27 @@ export default function ApplicationsPage() {
         ))}
       </div>
 
-      {/* Filters */}
+      {/* Conversion Rate */}
+      <div className="bg-white border border-stone-200 rounded-xl p-4 mb-6 flex items-center gap-6">
+        <div className="flex-shrink-0">
+          <p className="text-xs text-stone-500 font-medium uppercase tracking-wider">Conversion Rate</p>
+          <p className="text-2xl font-bold text-gray-800">{stats.conversionRate}%</p>
+          <p className="text-xs text-stone-400">COE Issued ÷ Total Applications</p>
+        </div>
+        <div className="flex-1">
+          <div className="w-full bg-stone-100 rounded-full h-3">
+            <div
+              className="bg-gradient-to-r from-red-500 to-emerald-500 h-3 rounded-full transition-all duration-700"
+              style={{ width: `${stats.conversionRate}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-stone-400 mt-1">
+            <span>0%</span>
+            <span>{stats.coes} COEs from {stats.total} applications</span>
+            <span>100%</span>
+          </div>
+        </div>
+      </div>
       <div className="bg-white rounded-t-xl border border-stone-200 border-b-0 p-4">
         <div className="flex flex-col xl:flex-row xl:items-center gap-3">
           <div className="relative flex-1 min-w-0 xl:max-w-md">
