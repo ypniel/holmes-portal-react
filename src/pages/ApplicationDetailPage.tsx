@@ -9,7 +9,7 @@ import {
   fetchDeal, fetchNotes, fetchOwners, fetchFiles, fetchDealCompany,
   createNote, Deal, Note, FileItem, Company, BADGE_CLASSES
 } from "../lib/hubspot"
-import { formatDate, formatDateTime, BADGE_CLASSES as BC, initials } from "../lib/utils"
+import { formatDate, formatDateTime, formatIntake, BADGE_CLASSES as BC, initials } from "../lib/utils"
 
 type Tab = "course" | "student" | "agent" | "chatter" | "documents"
 
@@ -94,7 +94,7 @@ export default function ApplicationDetailPage() {
                     {deal.passport && (
                       <span className="inline-flex items-center gap-1.5 bg-white/15 text-white/90 text-xs px-2.5 py-1 rounded-full border border-white/20">
                         <span className="text-white/50 text-[10px] uppercase tracking-widest">Passport</span>
-                        <span className="font-mono font-medium">{deal.passport}</span>
+                        <span className="font-medium">{deal.passport}</span>
                       </span>
                     )}
                     {deal.dob && (
@@ -117,18 +117,18 @@ export default function ApplicationDetailPage() {
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
                   <span className="text-white/50 text-[10px] uppercase tracking-widest">Deal</span>
-                  <span className="font-mono">{deal.dealId}</span>
+                  <span>{deal.dealId}</span>
                 </span>
                 {deal.studentId && (
                   <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
                     <span className="text-white/50 text-[10px] uppercase tracking-widest">Student ID</span>
-                    <span className="font-mono">{deal.studentId}</span>
+                    <span>{deal.studentId}</span>
                   </span>
                 )}
                 {deal.jupiterId && (
                   <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
                     <span className="text-white/50 text-[10px] uppercase tracking-widest">Jupiter Legacy System ID</span>
-                    <span className="font-mono">{deal.jupiterId}</span>
+                    <span>{deal.jupiterId}</span>
                   </span>
                 )}
               </div>
@@ -143,7 +143,7 @@ export default function ApplicationDetailPage() {
               {deal.intake && (
                 <div className="bg-white/10 backdrop-blur border border-white/20 rounded-lg px-4 py-2">
                   <p className="text-red-200 text-xs uppercase tracking-wider">Intake</p>
-                  <p className="text-white font-semibold">{deal.intake}</p>
+                  <p className="text-white font-semibold">{formatIntake(deal.intake)}</p>
                 </div>
               )}
             </div>
@@ -189,7 +189,7 @@ export default function ApplicationDetailPage() {
                 <div className="grid md:grid-cols-2 gap-x-8">
                   <DetailRow label="Course Name"       value={deal.courseName} />
                   <DetailRow label="Campus"            value={deal.campus} />
-                  <DetailRow label="Intake"            value={deal.intake} />
+                  <DetailRow label="Intake"            value={formatIntake(deal.intake)} />
                   <DetailRow label="Start Date"        value={formatDate(deal.courseStart)} />
                   <DetailRow label="End Date"          value={formatDate(deal.courseEnd)} />
                   <DetailRow label="OSHC"              value={deal.oshc} />
