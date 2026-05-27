@@ -6,6 +6,11 @@ const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
+      // Handle redirects for file downloads
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        resolve({ status: 302, location: res.headers.location, body: "" })
+        return
+      }
       let data = ""
       res.on("data", chunk => { data += chunk })
       res.on("end", () => resolve({ status: res.statusCode, body: data }))
@@ -24,20 +29,17 @@ exports.handler = async (event) => {
     "Content-Type": "application/json",
   }
 
-  // Handle preflight
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: corsHeaders, body: "" }
-  }
+  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
 
   const path = event.queryStringParameters?.path || ""
+  const isRedirect = event.queryStringParameters?.redirect === "true"
   if (!path) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No path" }) }
 
   try {
-    const isSearch = event.httpMethod === "POST"
+    const isPost = event.httpMethod === "POST"
     let bodyToSend = event.body || ""
 
-    // For deal searches, always inject the pipeline filter
-    if (isSearch && path.includes("/deals/search")) {
+    if (isPost && path.includes("/deals/search")) {
       const parsed = event.body ? JSON.parse(event.body) : {}
       parsed.filterGroups = [{
         filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
@@ -45,18 +47,32 @@ exports.handler = async (event) => {
       bodyToSend = JSON.stringify(parsed)
     }
 
+    const bodyBuf = Buffer.from(bodyToSend || "", "utf8")
+
     const options = {
       hostname: "api.hubapi.com",
       path: path,
-      method: isSearch ? "POST" : "GET",
+      method: isPost ? "POST" : "GET",
       headers: {
         "Authorization": `Bearer ${TOKEN}`,
         "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(bodyToSend),
+        "Content-Length": bodyBuf.length,
       },
     }
 
-    const result = await makeRequest(options, bodyToSend)
+    const result = await makeRequest(options, bodyBuf.length > 0 ? bodyToSend : undefined)
+
+    // For file redirects — redirect the browser to the signed S3 URL
+    if (isRedirect && result.status === 302 && result.location) {
+      return {
+        statusCode: 302,
+        headers: {
+          "Location": result.location,
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: "",
+      }
+    }
 
     return {
       statusCode: result.status,
@@ -64,10 +80,6 @@ exports.handler = async (event) => {
       body: result.body,
     }
   } catch (err) {
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ error: err.message }),
-    }
+    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
   }
 }
