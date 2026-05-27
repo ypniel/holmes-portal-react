@@ -55,6 +55,13 @@ function useLiveStatus() {
   return isLive
 }
 
+// ── Marketers contact list ────────────────────────────────────────────────────
+const MARKETERS = [
+  { name: "Indra Adhikari", title: "Victoria Representative", email: "iadhikari@holmes.edu.au" },
+  { name: "Dinesh Chetwani", title: "Queensland Representative", email: "dchetwani@holmes.edu.au" },
+  { name: "Don Kauffman", title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
+]
+
 const NEW_APP_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
 
 export default function HomePage() {
@@ -62,8 +69,22 @@ export default function HomePage() {
   const { user } = useAuth()
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
   const tip = useRotatingTip()
+  const tipIdx = PRO_TIPS.indexOf(tip)
   const isLive = useLiveStatus()
+
+  function exportCSV() {
+    const rows = [
+      ["Student Name","Nationality","Residency","Course","Intake","Campus","Response Status","Case Status","Last Modified"],
+      ...deals.map(d => [d.studentName, d.nationality, d.residencyStatus, d.courseName, d.intake, d.campus, d.responseStatus, d.stageLabel, d.lastModified])
+    ]
+    const csv = rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g,'""')}"`).join(",")).join("\n")
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }))
+    a.download = "Holmes_Applications.csv"
+    a.click()
+  }
 
   useEffect(() => {
     fetchDeals(500).then(setDeals).finally(() => setLoading(false))
@@ -143,23 +164,25 @@ export default function HomePage() {
                 </div>
               </button>
 
-              <button onClick={() => navigate("/applications")}
+              {/* Send a Message */}
+              <button onClick={() => setShowModal(true)}
                 className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
               >
-                <div className="w-8 h-8 bg-white/15 rounded-full flex items-center justify-center flex-shrink-0">💬</div>
+                <div className="w-8 h-8 bg-white/15 rounded-full flex items-center justify-center flex-shrink-0">✉️</div>
                 <div>
-                  <div className="font-semibold text-sm text-white">Messages</div>
-                  <div className="text-xs text-white/60 mt-0.5">Check communications</div>
+                  <div className="font-semibold text-sm text-white">Send a Message</div>
+                  <div className="text-xs text-white/60 mt-0.5">Contact your Holmes rep</div>
                 </div>
               </button>
 
-              <button onClick={() => navigate("/applications")}
+              {/* Export CSV */}
+              <button onClick={exportCSV}
                 className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
               >
-                <div className="w-8 h-8 bg-white/15 rounded-full flex items-center justify-center flex-shrink-0">📊</div>
+                <div className="w-8 h-8 bg-white/15 rounded-full flex items-center justify-center flex-shrink-0">📤</div>
                 <div>
-                  <div className="font-semibold text-sm text-white">Reports</div>
-                  <div className="text-xs text-white/60 mt-0.5">Analytics &amp; insights</div>
+                  <div className="font-semibold text-sm text-white">Export to CSV</div>
+                  <div className="text-xs text-white/60 mt-0.5">Download student list</div>
                 </div>
               </button>
             </div>
@@ -266,11 +289,52 @@ export default function HomePage() {
               <CheckCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
               <h3 className="font-semibold text-gray-800 text-sm">Pro Tip</h3>
             </div>
-            <p key={tip} className="text-sm text-gray-600 leading-relaxed transition-all duration-500">{tip}</p>
+            <p key={tip} className="text-sm text-gray-600 leading-relaxed">{tip}</p>
+            <div className="flex gap-1 mt-3">
+              {PRO_TIPS.map((_, i) => (
+                <div key={i} className={`h-1 rounded-full transition-all duration-500 ${i === tipIdx ? "bg-red-400 w-4" : "bg-red-200 w-1"}`} />
+              ))}
+            </div>
           </div>
 
         </div>
       </div>
+
+      {/* Send a Message Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-5 border-b border-stone-100">
+              <h2 className="text-lg font-bold text-gray-800">Contact Your Holmes Representative</h2>
+              <p className="text-sm text-gray-500 mt-1">Click an email to open in your mail app</p>
+            </div>
+            <div className="p-4 space-y-3">
+              {MARKETERS.map(m => (
+                <a
+                  key={m.email}
+                  href={`mailto:${m.email}`}
+                  className="flex items-center gap-4 p-4 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm flex-shrink-0">
+                    {m.name.split(" ").map(n => n[0]).join("").slice(0,2)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
+                    <p className="text-xs text-gray-500">{m.title}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
+                  </div>
+                  <span className="text-red-400 text-lg">✉️</span>
+                </a>
+              ))}
+            </div>
+            <div className="px-6 py-4 border-t border-stone-100">
+              <button onClick={() => setShowModal(false)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageContainer>
   )
 }
