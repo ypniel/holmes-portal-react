@@ -89,7 +89,21 @@ export default function ApplicationDetailPage() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-white leading-tight">{deal.studentName}</h1>
-                  <p className="text-red-200 text-sm mt-0.5">{company?.name || deal.agentCompany || "Holmes Education Group"}</p>
+                  {/* Passport + DOB instead of course name */}
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    {deal.passport && (
+                      <span className="inline-flex items-center gap-1.5 bg-white/15 text-white/90 text-xs px-2.5 py-1 rounded-full border border-white/20">
+                        <span className="text-white/50 text-[10px] uppercase tracking-widest">Passport</span>
+                        <span className="font-mono font-medium">{deal.passport}</span>
+                      </span>
+                    )}
+                    {deal.dob && (
+                      <span className="inline-flex items-center gap-1.5 bg-white/15 text-white/90 text-xs px-2.5 py-1 rounded-full border border-white/20">
+                        <span className="text-white/50 text-[10px] uppercase tracking-widest">DOB</span>
+                        <span className="font-medium">{formatDate(deal.dob)}</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               {/* Stage badge */}
