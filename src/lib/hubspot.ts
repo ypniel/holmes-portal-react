@@ -51,23 +51,20 @@ async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
 // ── Deal Properties ───────────────────────────────────────────────────────────
 export const DEAL_PROPS = [
   "dealname","dealstage","pipeline","response_status",
-  // Course fields — try multiple possible names
-  "course_name_australia_","course_name","coursename","course",
-  "campus","campus_","intake","intake_date",
-  "where_applying_from_","where_applying_from","applying_from",
-  "advanced_standing","oshc","eap_required","eap",
-  "english_test_type","english_test","english_score",
-  "english_test_score","ielts_score","toefl_score",
-  "course_start_date","start_date","course_end_date","end_date",
-  "tuition_fees","tuition","scholarship","total_cost",
+  "course_name_australia_","course_name_australia","course_name","coursename",
+  "campus_australia_","campus_australia","campus",
+  "intake_australia_","intake_australia","intake",
+  "where_applying_from_","where_applying_from",
+  "advanced_standing","oshc","eap_required",
+  "english_test_type","english_test_score",
+  "course_start_date","course_end_date",
+  "tuition_fees","scholarship","total_cost",
   "hubspot_owner_id","createdate","hs_lastmodifieddate",
-  // Student fields
-  "nationality_","nationality","residency_status_","residency_status","residency",
-  "date_of_birth","dob","passport_number","passport",
-  "student_id","student_number","jupiter_id","jupiter_oldid",
-  // Agent fields
-  "agent_company","agent","branch_office","branch",
-  "hs_object_id",
+  "nationality_","nationality",
+  "residency_status_","residency_status",
+  "date_of_birth","passport_number",
+  "agent_company","branch_office",
+  "student_id","jupiter_id","hs_object_id",
 ]
 
 // ── Pipeline Stage Map ────────────────────────────────────────────────────────
@@ -204,18 +201,25 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
     const companyIds: string[] = (assoc.results || []).slice(0, 1).map((a: any) => a.id)
     if (!companyIds.length) return null
     const data = await hsFetch(
-      `/crm/v3/objects/companies/${companyIds[0]}?properties=name,phone,email,city,country,address,website,hubspot_owner_id`
+      `/crm/v3/objects/companies/${companyIds[0]}?properties=name,agency_name_import_use_only,agent_city,agentcountry,agent_email,agent_mobile_no,phone,email,city,country,address,website`
     )
     const p = data.properties || {}
+    const g = (...keys: string[]) => {
+      for (const k of keys) {
+        const v = p[k]
+        if (v && String(v).trim() && v !== "null") return String(v).trim()
+      }
+      return ""
+    }
     return {
       id: data.id,
-      name: p.name || "",
-      phone: p.phone || "",
-      email: p.email || "",
-      city: p.city || "",
-      country: p.country || "",
-      address: p.address || "",
-      website: p.website || "",
+      name: g("agency_name_import_use_only", "name"),
+      phone: g("agent_mobile_no", "phone"),
+      email: g("agent_email", "email"),
+      city: g("agent_city", "city"),
+      country: g("agentcountry", "country"),
+      address: g("address"),
+      website: g("website"),
     }
   } catch { return null }
 }
@@ -223,26 +227,23 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
 // ── Fetch Files with download URLs ────────────────────────────────────────────
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
-    // Try engagements API first
     const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
     const files: FileItem[] = []
     for (const eng of data.results || []) {
       for (const att of eng.attachments || []) {
-        // Fetch the actual file metadata for URL and real name
         try {
           const fileData = await hsFetch(`/filemanager/api/v3/files/${att.id}`)
-          files.push({
-            name: fileData.name || att.name || `Document`,
-            id: att.id,
-            url: fileData.url || fileData.s3Url || "",
-            createdAt: eng.engagement?.createdAt,
-          })
+          // Strip the ugly hash prefix from filename (e.g. "699bad896f41b-filename.pdf" -> "filename.pdf")
+          let name = fileData.name || att.name || "Document"
+          const hashMatch = name.match(/^[a-f0-9]{13}-(.+)$/)
+          if (hashMatch) name = hashMatch[1]
+          // Use default_hosting_url — no HubSpot login required
+          const url = fileData.default_hosting_url || fileData.s3_url || ""
+          files.push({ name, id: att.id, url, createdAt: eng.engagement?.createdAt })
         } catch {
           files.push({
-            name: att.name && att.name !== "null" ? att.name : `Document`,
-            id: att.id,
-            url: "",
-            createdAt: eng.engagement?.createdAt,
+            name: att.name && att.name !== "null" ? att.name : "Document",
+            id: att.id, url: "", createdAt: eng.engagement?.createdAt,
           })
         }
       }
@@ -294,31 +295,31 @@ function mapDeal(raw: any): Deal {
     stageLabel,
     stageColor: STAGE_COLORS[stageId] || "stone",
     responseStatus: g("response_status").replace(/_/g, " "),
-    courseName: g("course_name_australia_", "course_name", "coursename"),
-    campus: g("campus"),
-    intake: g("intake"),
-    applyingFrom: g("where_applying_from_", "where_applying_from", "applying_from"),
-    advancedStanding: g("advanced_standing", "advancedstanding"),
+    courseName: g("course_name_australia_", "course_name_australia", "course_name", "coursename"),
+    campus: g("campus_australia_", "campus_australia", "campus"),
+    intake: g("intake_australia_", "intake_australia", "intake"),
+    applyingFrom: g("where_applying_from_", "where_applying_from"),
+    advancedStanding: g("advanced_standing"),
     oshc: g("oshc"),
-    eap: g("eap_required", "eap"),
-    englishTestType: g("english_test_type", "englishtesttype"),
-    englishScore: g("english_test_score", "englishtestscore"),
-    courseStart: g("course_start_date", "coursestartdate"),
-    courseEnd: g("course_end_date", "courseenddate"),
-    tuitionFees: g("tuition_fees", "tuitionfees"),
+    eap: g("eap_required"),
+    englishTestType: g("english_test_type"),
+    englishScore: g("english_test_score"),
+    courseStart: g("course_start_date"),
+    courseEnd: g("course_end_date"),
+    tuitionFees: g("tuition_fees"),
     scholarship: g("scholarship"),
-    totalCost: g("total_cost", "totalcost"),
+    totalCost: g("total_cost"),
     ownerId: g("hubspot_owner_id"),
     createdAt: g("createdate"),
     lastModified: g("hs_lastmodifieddate"),
     nationality: g("nationality_", "nationality"),
-    residencyStatus: g("residency_status_", "residency_status", "residencystatus"),
-    dob: g("date_of_birth", "dateofbirth"),
-    passport: g("passport_number", "passportnumber"),
-    agentCompany: g("agent_company", "agentcompany"),
-    branchOffice: g("branch_office", "branchoffice"),
-    studentId: g("student_id", "studentid"),
-    jupiterId: g("jupiter_id", "jupiterid", "jupiter_oldid"),
+    residencyStatus: g("residency_status_", "residency_status"),
+    dob: g("date_of_birth"),
+    passport: g("passport_number"),
+    agentCompany: g("agent_company"),
+    branchOffice: g("branch_office"),
+    studentId: g("student_id"),
+    jupiterId: g("jupiter_id"),
     dealId: raw.id,
   }
 }
