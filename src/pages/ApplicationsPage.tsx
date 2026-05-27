@@ -11,10 +11,20 @@ import { initials, formatDate, BADGE_CLASSES as BC } from "../lib/utils"
 type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
 type SortDir  = "asc" | "desc"
 
-// ── Demo mode: only show cases in this ID range ───────────────────────────────
-const DEMO_MIN = 60398451062
-const DEMO_MAX = 60405111109
-const IS_DEMO  = true // flip to false after boss demo
+// ── Demo mode: hardcoded deal IDs for boss demo ──────────────────────────────
+const DEMO_IDS = new Set([
+  "60377889436","60377734532","60377570926","60404652881","60404652880",
+  "60404354432","60403421051","60402177953","60401875861","60400941634",
+  "60400779898","60400779896","60400331806","60400331805","60391520295",
+  "60390052951","60389899074","60386647366","60385095027","60385095026",
+  "60384081581","60383001006","60382690718","60381605507","60381605506",
+  "60379753308","60379753307","60379584139","60378658609","60378658608",
+  "60378509405","60377889435","60377428665","60377428664","60377428663",
+  "60377428662","60371533728","60371533727","60405277728","60405277727",
+  "60402953760","60402803048","60399552282","60392443757","60391834766",
+  "60388200077","60384081580","60382078105","60377428736","60371688281",
+])
+const IS_DEMO = true // flip to false after boss demo
 
 const NEW_APP_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
 
@@ -40,13 +50,8 @@ export default function ApplicationsPage() {
 
   useEffect(() => {
     fetchDeals(5000).then(d => {
-      const filtered = IS_DEMO
-        ? d.filter(deal => {
-            const id = Number(deal.id)
-            return id >= DEMO_MIN && id <= DEMO_MAX
-          })
-        : d
-      setDeals(filtered)
+      const result = IS_DEMO ? d.filter(deal => DEMO_IDS.has(deal.id)) : d
+      setDeals(result)
     }).catch(() => setError(true)).finally(() => setLoading(false))
   }, [])
 
