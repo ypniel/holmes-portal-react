@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle } from "lucide-react"
+import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X } from "lucide-react"
 import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
 import { useAuth } from "../lib/auth"
-import { lookupContact } from "../lib/hubspot"
 
 type Status = "idle" | "loading" | "success" | "not_found" | "error"
+
+const MARKETERS = [
+  { name: "Indra Adhikari",   title: "Victoria Representative",        email: "iadhikari@holmes.edu.au" },
+  { name: "Dinesh Chetwani",  title: "Queensland Representative",       email: "dchetwani@holmes.edu.au" },
+  { name: "Don Kauffman",     title: "New South Wales Representative",  email: "dkauffman@holmes.edu.au" },
+]
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -13,6 +18,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [status, setStatus] = useState<Status>("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
     if (user) navigate("/")
@@ -22,7 +28,6 @@ export default function LoginPage() {
     e.preventDefault()
     setStatus("loading")
     setErrorMessage(null)
-    // Demo mode: accept any email
     setTimeout(() => {
       login({
         id: "demo",
@@ -36,7 +41,6 @@ export default function LoginPage() {
   }
 
   const reset = () => { setStatus("idle"); setEmail(""); setErrorMessage(null) }
-
   const primaryColor = "#991b1b"
 
   return (
@@ -48,11 +52,14 @@ export default function LoginPage() {
         <div className="flex items-center gap-2.5">
           <img
             src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
-            alt="Holmes"
+            alt="Holmes Institute Australia"
             className="h-8 w-auto"
             onError={(e) => { e.currentTarget.style.display = "none" }}
           />
-          <span className="text-lg font-semibold text-white">Holmes Admissions</span>
+          <div className="hidden sm:flex flex-col leading-tight">
+            <span className="text-white text-sm font-bold leading-none">Holmes Institute Australia</span>
+            <span className="text-red-200 text-xs leading-none mt-0.5">Admissions Portal</span>
+          </div>
         </div>
       </div>
 
@@ -65,7 +72,7 @@ export default function LoginPage() {
               <div className="text-center">
                 <CheckCircle className="h-10 w-10 mx-auto mb-4 text-emerald-500" />
                 <h2 className="text-2xl font-bold text-gray-800">Welcome back!</h2>
-                <p className="mt-1 text-sm text-gray-500 mb-4">Signing you in…</p>
+                <p className="mt-1 text-sm text-gray-500">Signing you in…</p>
               </div>
             )}
 
@@ -79,15 +86,11 @@ export default function LoginPage() {
                 </p>
                 <div className="rounded-lg p-4 mb-6 bg-red-50 border border-red-100">
                   <p className="text-sm text-red-700">
-                    Make sure you're using the email address registered for this portal.
+                    Make sure you're using the email registered for this portal.
                     If you believe this is an error, contact admissions@holmes.edu.au
                   </p>
                 </div>
-                <button
-                  onClick={reset}
-                  className="px-6 py-2 rounded-lg text-white text-sm font-medium"
-                  style={{ background: primaryColor }}
-                >
+                <button onClick={reset} className="px-6 py-2 rounded-lg text-white text-sm font-medium" style={{ background: primaryColor }}>
                   Try again
                 </button>
               </div>
@@ -110,7 +113,7 @@ export default function LoginPage() {
               <>
                 <div className="text-center mb-8">
                   <h2 className="text-2xl font-bold text-gray-800">Welcome back</h2>
-                  <p className="mt-1 text-sm text-gray-500">Sign in to the Holmes Agent Portal</p>
+                  <p className="mt-1 text-sm text-gray-500">Sign in to Holmes Institute Australia Admissions Portal</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -149,19 +152,30 @@ export default function LoginPage() {
                   </button>
                 </form>
 
+                {/* Contact rep — clickable */}
                 <p className="mt-4 text-center text-xs text-gray-400">
-                  For portal access, contact your Holmes admissions representative.
+                  Need portal access?{" "}
+                  <button
+                    onClick={() => setShowModal(true)}
+                    className="text-red-600 hover:text-red-700 underline underline-offset-2 font-medium transition-colors"
+                  >
+                    Contact your Holmes admissions representative
+                  </button>
                 </p>
 
-                <div className="mt-4 pt-4 border-t border-stone-100 text-center">
-                  <p className="text-xs text-gray-500 mb-2">Applying without an agent?</p>
+                {/* Direct Student — bigger */}
+                <div className="mt-5 pt-5 border-t border-stone-100">
                   <a
                     href="https://share.hsforms.com/2nrqky_hbSQu2wZj0XxTnVgnrkx6"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-red-700 hover:text-red-800 transition-colors"
+                    className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl border-2 border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-colors"
                   >
-                    Register as a Direct Student →
+                    <div>
+                      <p className="text-sm font-bold text-red-700">Applying as a Direct Student?</p>
+                      <p className="text-xs text-red-500 mt-0.5">Register here — no agent required</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-red-600 flex-shrink-0" />
                   </a>
                 </div>
               </>
@@ -169,10 +183,52 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* Footer */}
         <p className="mt-3 text-center text-xs text-white/40">
-          Holmes Education Group · Agent Portal
+          © {new Date().getFullYear()} Holmes Institute Australia. All rights reserved.
         </p>
       </div>
+
+      {/* Contact Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Contact Your Holmes Representative</h2>
+                <p className="text-sm text-gray-500 mt-0.5">Click an email to open in your mail app</p>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-stone-400 hover:text-stone-600 p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {MARKETERS.map(m => (
+                <a
+                  key={m.email}
+                  href={`mailto:${m.email}`}
+                  className="flex items-center gap-4 p-4 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm flex-shrink-0">
+                    {m.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
+                    <p className="text-xs text-gray-500">{m.title}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
+                  </div>
+                  <span className="text-lg">✉️</span>
+                </a>
+              ))}
+            </div>
+            <div className="px-6 py-4 border-t border-stone-100">
+              <button onClick={() => setShowModal(false)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
