@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Users, FileText, CheckCircle, Clock, ArrowRight, GraduationCap, MapPin } from "lucide-react"
 import { PageContainer } from "../components/Layout"
 import { useAuth } from "../lib/auth"
-import { fetchDeals, Deal, BADGE_CLASSES } from "../lib/hubspot"
+import { fetchDeals, Deal } from "../lib/hubspot"
 import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
 
 // ── Rotating Pro Tips ─────────────────────────────────────────────────────────
