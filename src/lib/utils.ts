@@ -2,7 +2,19 @@ export function cn(...classes: (string | undefined | null | false)[]): string {
   return classes.filter(Boolean).join(" ")
 }
 
-export function formatDate(value?: string | null): string {
+export function formatIntake(value?: string | null): string {
+  if (!value) return "—"
+  // If it looks like a date (contains numbers and separators), parse it
+  const d = new Date(value)
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleDateString("en-AU", { month: "long", year: "numeric" })
+  }
+  // If it already has text like "July_2026_20_07_2026", extract month + year
+  const monthYearMatch = value.match(/(January|February|March|April|May|June|July|August|September|October|November|December)[_\s,]?(\d{4})/i)
+  if (monthYearMatch) return `${monthYearMatch[1]} ${monthYearMatch[2]}`
+  // Return as-is if can't parse
+  return value
+}
   if (!value) return "—"
   const d = new Date(value)
   if (isNaN(d.getTime())) return String(value)
