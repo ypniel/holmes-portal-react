@@ -7,6 +7,7 @@ import {
 import { PageContainer } from "../components/Layout"
 import { fetchDeals, Deal } from "../lib/hubspot"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
+import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
 
 type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
 type SortDir  = "asc" | "desc"
@@ -168,20 +169,24 @@ export default function ApplicationsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { icon: <FileText className="h-5 w-5 text-stone-600" />,    bg: "bg-stone-100",   label: "Total Applications",              value: stats.total },
-          { icon: <Clock className="h-5 w-5 text-amber-600" />,       bg: "bg-amber-50",    label: "Action Required",                    value: stats.waiting },
-          { icon: <CheckCircle2 className="h-5 w-5 text-blue-600" />, bg: "bg-blue-50",     label: "Offers Issued",                   value: stats.offers },
-          { icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: "bg-emerald-50", label: "COE Issued",                       value: stats.coes },
-        ].map((s, i) => (
-          <div key={i} className="bg-white border border-stone-200 rounded-xl p-4 flex items-center gap-4">
-            <div className={`p-3 rounded-full ${s.bg}`}>{s.icon}</div>
-            <div>
-              <p className="text-xs text-stone-500 font-medium leading-tight">{s.label}</p>
-              <p className="text-2xl font-bold text-gray-800">{s.value}</p>
-            </div>
-          </div>
-        ))}
+        {loading ? [1,2,3,4].map(i => <StatCardSkeleton key={i} />) : (
+          <>
+            {[
+              { icon: <FileText className="h-5 w-5 text-stone-600" />,       bg: "bg-stone-100",   label: "Total Applications", value: stats.total },
+              { icon: <Clock className="h-5 w-5 text-amber-600" />,          bg: "bg-amber-50",    label: "Action Required",    value: stats.waiting },
+              { icon: <CheckCircle2 className="h-5 w-5 text-blue-600" />,    bg: "bg-blue-50",     label: "Offers Issued",      value: stats.offers },
+              { icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: "bg-emerald-50",  label: "COE Issued",         value: stats.coes },
+            ].map((s, i) => (
+              <div key={i} className="bg-white border border-stone-200 rounded-xl p-4 flex items-center gap-4">
+                <div className={`p-3 rounded-full ${s.bg}`}>{s.icon}</div>
+                <div>
+                  <p className="text-xs text-stone-500 font-medium leading-tight">{s.label}</p>
+                  <p className="text-2xl font-bold text-gray-800">{s.value}</p>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
       {/* Conversion Rate */}
@@ -228,8 +233,14 @@ export default function ApplicationsPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="bg-white border border-stone-200 rounded-b-xl p-12 text-center">
-          <p className="animate-pulse text-stone-400 text-sm">Loading applications…</p>
+        <div className="bg-white border border-stone-200 rounded-b-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <tbody>
+                {[1,2,3,4,5,6,7,8,9,10].map(i => <TableRowSkeleton key={i} />)}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : pageRows.length === 0 ? (
         <div className="bg-white border border-stone-200 rounded-b-xl p-12 text-center">
