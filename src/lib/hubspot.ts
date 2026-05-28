@@ -1,5 +1,6 @@
 // ─── HubSpot API Client ───────────────────────────────────────────────────────
 const TOKEN = (import.meta as any).env.VITE_HUBSPOT_TOKEN
+const COMPANY_TOKEN = (import.meta as any).env.VITE_HUBSPOT_PERSONAL_ACCESS_KEY || TOKEN
 const PIPELINE_ID = (import.meta as any).env.VITE_PIPELINE_ID || ""
 const IS_DEV = (import.meta as any).env.DEV
 
@@ -20,7 +21,8 @@ export const BADGE_CLASSES: Record<string, string> = {
 }
 
 // ── Core fetch wrapper ────────────────────────────────────────────────────────
-async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
+async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = false): Promise<any> {
+  const token = useCompanyToken ? COMPANY_TOKEN : TOKEN
   let url: string
   let fetchInit: RequestInit
 
@@ -29,14 +31,15 @@ async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
     fetchInit = {
       ...init,
       headers: {
-        Authorization: `Bearer ${TOKEN}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         ...(init.headers || {}),
       },
     }
   } else {
     // Use Netlify serverless function as proxy to avoid CORS
-    url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}`
+    const extra = useCompanyToken ? "&useCompanyToken=true" : ""
+    url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}${extra}`
     fetchInit = {
       ...init,
       headers: { "Content-Type": "application/json", ...(init.headers || {}) },
@@ -197,20 +200,21 @@ export async function fetchOwners(): Promise<Record<string, string>> {
 // ── Fetch Company (Agent Details) ─────────────────────────────────────────────
 export async function fetchDealCompany(dealId: string): Promise<Company | null> {
   try {
-    // Try v4 associations API first
-    const assoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/companies`)
+    // Try v4 associations API first — use company token for permissions
+    const assoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/companies`, {}, true)
     let companyIds: string[] = (assoc.results || []).slice(0, 1).map((a: any) => String(a.toObjectId || a.id))
 
     // Fallback: try v3
     if (!companyIds.length) {
-      const assocV3 = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/companies`)
+      const assocV3 = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/companies`, {}, true)
       const v3Ids = (assocV3.results || []).slice(0, 1).map((a: any) => String(a.id))
       if (!v3Ids.length) return null
       companyIds.push(...v3Ids)
     }
 
     const data = await hsFetch(
-      `/crm/v3/objects/companies/${companyIds[0]}?properties=name,agency_name_import_use_only,agent_city,agentcountry,agent_email,agent_mobile_no,phone,email,city,country,address,website`
+      `/crm/v3/objects/companies/${companyIds[0]}?properties=name,agency_name_import_use_only,agent_city,agentcountry,agent_email,agent_mobile_no,phone,email,city,country,address,website`,
+      {}, true
     )
     const p = data.properties || {}
     const g = (...keys: string[]) => {
