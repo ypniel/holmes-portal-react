@@ -199,14 +199,12 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
   try {
     // Try v4 associations API first
     const assoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/companies`)
-    console.log("v4 associations response:", JSON.stringify(assoc))
-    let companyIds: string[] = (assoc.results || []).slice(0, 1).map((a: any) => a.toObjectId || a.id)
+    let companyIds: string[] = (assoc.results || []).slice(0, 1).map((a: any) => String(a.toObjectId || a.id))
 
     // Fallback: try v3
     if (!companyIds.length) {
       const assocV3 = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/companies`)
-      console.log("v3 associations response:", JSON.stringify(assocV3))
-      const v3Ids = (assocV3.results || []).slice(0, 1).map((a: any) => a.id)
+      const v3Ids = (assocV3.results || []).slice(0, 1).map((a: any) => String(a.id))
       if (!v3Ids.length) return null
       companyIds.push(...v3Ids)
     }
