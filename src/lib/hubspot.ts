@@ -67,6 +67,7 @@ export const DEAL_PROPS = [
   "residency_status_","residency_status",
   "date_of_birth","passport_number",
   "agent_company","agency_name_import_use_only","branch_office",
+  "agent_email","agent_company_name","agent_mobile_number","agent_contact_name",
   "student_id","jupiter_id","hs_object_id",
 ]
 
@@ -330,7 +331,10 @@ function mapDeal(raw: any): Deal {
     residencyStatus: g("residency_status_", "residency_status"),
     dob: g("date_of_birth"),
     passport: g("passport_number"),
-    agentCompany: g("agent_company", "agency_name_import_use_only"),
+    agentCompany: g("agent_company_name", "agent_company", "agency_name_import_use_only"),
+    agentEmail: g("agent_email"),
+    agentPhone: g("agent_mobile_number"),
+    agentContact: g("agent_contact_name"),
     branchOffice: g("branch_office"),
     studentId: g("student_id"),
     jupiterId: g("jupiter_id"),
@@ -345,7 +349,8 @@ export interface Deal {
   advancedStanding: string; oshc: string; eap: string; englishTestType: string; englishScore: string
   courseStart: string; courseEnd: string; tuitionFees: string; scholarship: string; totalCost: string
   ownerId: string; createdAt: string; lastModified: string; nationality: string; residencyStatus: string
-  dob: string; passport: string; agentCompany: string; branchOffice: string
+  dob: string; passport: string; agentCompany: string; agentEmail: string
+  agentPhone: string; agentContact: string; branchOffice: string
   studentId: string; jupiterId: string; dealId: string
 }
 export interface Note { id: string; body: string; createdAt: string; ownerId: string }
