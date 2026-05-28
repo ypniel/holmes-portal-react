@@ -63,7 +63,7 @@ export const DEAL_PROPS = [
   "nationality_","nationality",
   "residency_status_","residency_status",
   "date_of_birth","passport_number",
-  "agent_company","branch_office",
+  "agent_company","agency_name_import_use_only","branch_office",
   "student_id","jupiter_id","hs_object_id",
 ]
 
@@ -197,9 +197,20 @@ export async function fetchOwners(): Promise<Record<string, string>> {
 // ── Fetch Company (Agent Details) ─────────────────────────────────────────────
 export async function fetchDealCompany(dealId: string): Promise<Company | null> {
   try {
-    const assoc = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/companies`)
-    const companyIds: string[] = (assoc.results || []).slice(0, 1).map((a: any) => a.id)
-    if (!companyIds.length) return null
+    // Try v4 associations API first
+    const assoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/companies`)
+    console.log("v4 associations response:", JSON.stringify(assoc))
+    let companyIds: string[] = (assoc.results || []).slice(0, 1).map((a: any) => a.toObjectId || a.id)
+
+    // Fallback: try v3
+    if (!companyIds.length) {
+      const assocV3 = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/companies`)
+      console.log("v3 associations response:", JSON.stringify(assocV3))
+      const v3Ids = (assocV3.results || []).slice(0, 1).map((a: any) => a.id)
+      if (!v3Ids.length) return null
+      companyIds.push(...v3Ids)
+    }
+
     const data = await hsFetch(
       `/crm/v3/objects/companies/${companyIds[0]}?properties=name,agency_name_import_use_only,agent_city,agentcountry,agent_email,agent_mobile_no,phone,email,city,country,address,website`
     )
@@ -317,7 +328,7 @@ function mapDeal(raw: any): Deal {
     residencyStatus: g("residency_status_", "residency_status"),
     dob: g("date_of_birth"),
     passport: g("passport_number"),
-    agentCompany: g("agent_company"),
+    agentCompany: g("agent_company", "agency_name_import_use_only"),
     branchOffice: g("branch_office"),
     studentId: g("student_id"),
     jupiterId: g("jupiter_id"),
