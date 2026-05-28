@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { Home, FileText, Menu, X, Settings, LogOut } from "lucide-react"
+import { Home, FileText, Menu, X, Settings, LogOut, Search } from "lucide-react"
 import { useAuth } from "../lib/auth"
 import { initials } from "../lib/utils"
 
@@ -34,7 +34,17 @@ export function Header() {
   const { user, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const searchRef = useRef<HTMLInputElement>(null)
   const isLive = useLiveStatus()
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!searchQuery.trim()) return
+    navigate(`/applications?search=${encodeURIComponent(searchQuery.trim())}`)
+    setSearchQuery("")
+    setMobileOpen(false)
+  }
 
   const handleNav = (path: string) => { navigate(path); setMobileOpen(false) }
 
@@ -43,17 +53,17 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 md:px-6">
         <div className="flex items-center justify-between h-16">
 
-          {/* Logo — left aligned, tighter gap */}
-          <button onClick={() => handleNav("/")} className="flex items-center gap-2 flex-shrink-0">
+          {/* Logo — compact, left aligned */}
+          <button onClick={() => handleNav("/")} className="flex items-center gap-2 flex-shrink-0 mr-4">
             <img
               src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
               alt="Holmes Institute Australia"
               className="h-7 w-auto"
               onError={(e) => { e.currentTarget.style.display = "none" }}
             />
-            <div className="hidden sm:flex flex-col leading-tight text-left">
-              <span className="text-white text-sm font-bold leading-none">Holmes Institute Australia</span>
-              <span className="text-red-200 text-xs leading-none mt-0.5">Admissions Portal</span>
+            <div className="hidden lg:flex flex-col leading-tight text-left">
+              <span className="text-white text-xs font-bold leading-none">Holmes Institute Australia</span>
+              <span className="text-red-200 text-[10px] leading-none mt-0.5">Admissions Portal</span>
             </div>
           </button>
 
@@ -73,6 +83,21 @@ export function Header() {
               )
             })}
           </nav>
+
+          {/* Global Search — wider */}
+          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-lg mx-4">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-300 pointer-events-none" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search students, passport, deal ID…"
+                className="w-full pl-9 pr-4 py-1.5 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-red-300 focus:outline-none focus:bg-white/20 focus:border-white/40 transition-all"
+              />
+            </div>
+          </form>
 
           {/* Right: Live status + user */}
           <div className="flex items-center gap-3 relative">
