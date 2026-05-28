@@ -127,12 +127,10 @@ export default function ApplicationDetailPage() {
                   <span className="text-white/50 text-[10px] uppercase tracking-widest">Deal</span>
                   <span>{deal.dealId}</span>
                 </span>
-                {deal.studentId && (
-                  <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
-                    <span className="text-white/50 text-[10px] uppercase tracking-widest">Student ID</span>
-                    <span>{deal.studentId}</span>
-                  </span>
-                )}
+                <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
+                  <span className="text-white/50 text-[10px] uppercase tracking-widest">Student ID</span>
+                  <span>{deal.studentId || "—"}</span>
+                </span>
                 {deal.jupiterId && (
                   <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
                     <span className="text-white/50 text-[10px] uppercase tracking-widest">Jupiter Legacy System ID</span>
@@ -226,36 +224,14 @@ export default function ApplicationDetailPage() {
                 </div>
               )}
 
-              {/* ── Agent (from Companies) ── */}
+              {/* ── Agent ── */}
               {activeTab === "agent" && (
                 <div className="grid md:grid-cols-2 gap-x-8">
-                  {company ? (
-                    <>
-                      <DetailRow label="Company Name"   value={company.name} />
-                      <DetailRow label="Phone"          value={company.phone} />
-                      <DetailRow label="Email"          value={company.email} />
-                      <DetailRow label="City"           value={company.city} />
-                      <DetailRow label="Country"        value={company.country} />
-                      <DetailRow label="Address"        value={company.address} />
-                      {company.website && (
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 py-3 border-b border-stone-100">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider sm:w-1/3">Website</span>
-                          <a href={company.website} target="_blank" rel="noopener noreferrer"
-                            className="text-sm text-red-600 hover:underline flex items-center gap-1">
-                            {company.website} <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <DetailRow label="Agent Company" value={deal.agentCompany} />
-                      <DetailRow label="Branch Office" value={deal.branchOffice} />
-                      <div className="col-span-2 mt-4 p-3 bg-amber-50 border border-amber-100 rounded-lg">
-                        <p className="text-xs text-amber-700">No company record linked to this deal in HubSpot.</p>
-                      </div>
-                    </>
-                  )}
+                  <DetailRow label="Agent Company"  value={deal.agentCompany} />
+                  <DetailRow label="Contact Name"   value={deal.agentContact} />
+                  <DetailRow label="Email"          value={deal.agentEmail} />
+                  <DetailRow label="Mobile"         value={deal.agentPhone} />
+                  <DetailRow label="Branch Office"  value={deal.branchOffice} />
                 </div>
               )}
 
@@ -348,9 +324,14 @@ export default function ApplicationDetailPage() {
                     ) : (
                       <div className="space-y-2">
                         {files.map((f, i) => {
-                          const ext = (f.name && f.name !== "Unknown" && f.name !== "Document")
-                            ? f.name.split(".").pop()?.toUpperCase() || "FILE" : "FILE"
-                          const displayName = (f.name && f.name !== "Unknown") ? f.name : `Document ${i + 1}`
+                          // Strip hash prefix e.g. "699bad896f41b-filename.pdf" → "filename.pdf"
+                          let cleanName = f.name || `Document ${i + 1}`
+                          const hashMatch = cleanName.match(/^[a-f0-9]{13}-(.+)$/)
+                          if (hashMatch) cleanName = hashMatch[1]
+                          // Replace underscores with spaces for readability
+                          cleanName = cleanName.replace(/_/g, " ")
+                          const ext = cleanName.includes(".")
+                            ? cleanName.split(".").pop()?.toUpperCase() || "FILE" : "FILE"
                           const dateStr = f.createdAt ? formatDateTime(new Date(f.createdAt).toISOString()) : "—"
                           const extColors: Record<string, string> = {
                             PDF: "bg-red-50 text-red-600", DOC: "bg-blue-50 text-blue-600",
@@ -363,16 +344,17 @@ export default function ApplicationDetailPage() {
                             <div key={f.id || i} className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 bg-stone-50/50 hover:bg-stone-100/50 transition-colors group">
                               <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${extColor}`}>{ext}</div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-800 truncate">{displayName}</p>
+                                <p className="text-sm font-medium text-gray-800 truncate">{cleanName}</p>
                                 <p className="text-xs text-gray-400">{dateStr}</p>
                               </div>
-                              {f.url && (
-                                <a href={f.url} target="_blank" rel="noopener noreferrer"
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
-                                >
-                                  <Download className="h-3 w-3" />Download
-                                </a>
-                              )}
+                              <a
+                                href={`https://app.hubspot.com/files/39917994/file/${f.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <Download className="h-3 w-3" />Open
+                              </a>
                             </div>
                           )
                         })}
