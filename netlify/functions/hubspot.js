@@ -1,12 +1,12 @@
 const https = require("https")
 
 const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+const COMPANY_TOKEN = process.env.HUBSPOT_PERSONAL_ACCESS_KEY || TOKEN
 const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
 
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
-      // Handle redirects for file downloads
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         resolve({ status: 302, location: res.headers.location, body: "" })
         return
@@ -33,7 +33,12 @@ exports.handler = async (event) => {
 
   const path = event.queryStringParameters?.path || ""
   const isRedirect = event.queryStringParameters?.redirect === "true"
+  const useCompanyToken = event.queryStringParameters?.useCompanyToken === "true"
+  
   if (!path) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No path" }) }
+
+  // Use company token for company-related requests
+  const token = useCompanyToken ? COMPANY_TOKEN : TOKEN
 
   try {
     const isPost = event.httpMethod === "POST"
@@ -54,7 +59,7 @@ exports.handler = async (event) => {
       path: path,
       method: isPost ? "POST" : "GET",
       headers: {
-        "Authorization": `Bearer ${TOKEN}`,
+        "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json",
         "Content-Length": bodyBuf.length,
       },
@@ -62,23 +67,15 @@ exports.handler = async (event) => {
 
     const result = await makeRequest(options, bodyBuf.length > 0 ? bodyToSend : undefined)
 
-    // For file redirects — redirect the browser to the signed S3 URL
     if (isRedirect && result.status === 302 && result.location) {
       return {
         statusCode: 302,
-        headers: {
-          "Location": result.location,
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: { "Location": result.location, "Access-Control-Allow-Origin": "*" },
         body: "",
       }
     }
 
-    return {
-      statusCode: result.status,
-      headers: corsHeaders,
-      body: result.body,
-    }
+    return { statusCode: result.status, headers: corsHeaders, body: result.body }
   } catch (err) {
     return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
   }
