@@ -39,6 +39,11 @@ exports.handler = async (event) => {
 
   // Use company token for company-related requests
   const token = useCompanyToken ? COMPANY_TOKEN : TOKEN
+  
+  // Debug — remove after fixing
+  if (useCompanyToken) {
+    console.log("Using company token, starts with:", token ? token.substring(0, 15) : "MISSING")
+  }
 
   try {
     const isPost = event.httpMethod === "POST"
