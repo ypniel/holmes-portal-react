@@ -10,6 +10,7 @@ import {
   createNote, Deal, Note, FileItem, Company
 } from "../lib/hubspot"
 import { formatDate, formatDateTime, formatIntake, BADGE_CLASSES as BC, initials } from "../lib/utils"
+import { DetailPageSkeleton } from "../components/Skeleton"
 
 type Tab = "course" | "student" | "agent" | "chatter" | "documents"
 
@@ -51,7 +52,14 @@ export default function ApplicationDetailPage() {
     setSending(false)
   }
 
-  if (loading) return <PageContainer><p className="animate-pulse text-gray-400 text-sm py-16 text-center">Loading application…</p></PageContainer>
+  if (loading) return (
+    <PageContainer>
+      <button onClick={() => navigate("/applications")} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 transition-colors mb-6 group">
+        <ArrowLeft className="h-4 w-4" /> Back to Applications
+      </button>
+      <DetailPageSkeleton />
+    </PageContainer>
+  )
   if (!deal) return <PageContainer><p className="text-gray-400 text-sm py-16 text-center">Application not found.</p></PageContainer>
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
