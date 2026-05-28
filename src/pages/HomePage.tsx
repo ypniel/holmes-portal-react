@@ -5,6 +5,7 @@ import { PageContainer } from "../components/Layout"
 import { useAuth } from "../lib/auth"
 import { fetchDeals, Deal } from "../lib/hubspot"
 import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
+import { StatCardSkeleton, ActivityRowSkeleton } from "../components/Skeleton"
 
 // ── Rotating Pro Tips ─────────────────────────────────────────────────────────
 const PRO_TIPS = [
@@ -128,10 +129,16 @@ export default function HomePage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<Users className="h-5 w-5 text-red-700" />}     bg="bg-red-50"     label="Total"   value={stats.total}   desc="Applications" />
-        <StatCard icon={<FileText className="h-5 w-5 text-amber-600" />} bg="bg-amber-50"   label="Active"  value={stats.offers}  desc="Offers Issued" />
-        <StatCard icon={<CheckCircle className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Success" value={stats.coes} desc="COEs Completed" />
-        <StatCard icon={<Clock className="h-5 w-5 text-rose-600" />}    bg="bg-rose-50"    label="Action Required" value={stats.waiting} desc="Action Required" />
+        {loading ? (
+          [1,2,3,4].map(i => <StatCardSkeleton key={i} />)
+        ) : (
+          <>
+            <StatCard icon={<Users className="h-5 w-5 text-red-700" />}     bg="bg-red-50"     label="Total"   value={stats.total}   desc="Applications" />
+            <StatCard icon={<FileText className="h-5 w-5 text-amber-600" />} bg="bg-amber-50"   label="Active"  value={stats.offers}  desc="Offers Issued" />
+            <StatCard icon={<CheckCircle className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Success" value={stats.coes} desc="COEs Completed" />
+            <StatCard icon={<Clock className="h-5 w-5 text-rose-600" />}    bg="bg-rose-50"    label="Action Required" value={stats.waiting} desc="Action Required" />
+          </>
+        )}
       </div>
 
       {/* Main Grid */}
@@ -199,7 +206,7 @@ export default function HomePage() {
               </button>
             </div>
             <div className="divide-y divide-stone-100">
-              {loading && <p className="p-8 text-center text-gray-400 text-sm animate-pulse">Loading…</p>}
+              {loading && [1,2,3,4,5].map(i => <ActivityRowSkeleton key={i} />)}
               {!loading && recent.length === 0 && <p className="p-8 text-center text-gray-400 text-sm">No applications yet.</p>}
               {recent.map(deal => (
                   <div key={deal.id} onClick={() => navigate(`/applications/${deal.id}`)}
