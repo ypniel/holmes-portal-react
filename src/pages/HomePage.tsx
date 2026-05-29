@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Users, FileText, CheckCircle, Clock, ArrowRight, GraduationCap, MapPin } from "lucide-react"
 import { PageContainer } from "../components/Layout"
-import { useAuth } from "../lib/auth"
+import { useAuth, isHolmesStaff } from "../lib/auth"
 import { fetchDeals, Deal } from "../lib/hubspot"
 import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
 import { StatCardSkeleton, ActivityRowSkeleton } from "../components/Skeleton"
@@ -111,9 +111,16 @@ export default function HomePage() {
 ])
   useEffect(() => {
     fetchDeals(5000).then(d => {
-      setDeals(d.filter(deal => DEMO_IDS.has(deal.id)))
+      let result = d.filter(deal => DEMO_IDS.has(deal.id))
+      // Agents only see their own deals
+      if (user?.email && !isHolmesStaff(user.email)) {
+        result = result.filter(deal =>
+          deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
+        )
+      }
+      setDeals(result)
     }).finally(() => setLoading(false))
-  }, [])
+  }, [user])
 
   const stats = useMemo(() => ({
     total: deals.length,
@@ -148,7 +155,12 @@ export default function HomePage() {
         <h1 className="text-2xl font-semibold text-gray-800">
           Welcome back, {user?.fullName?.split(" ")[0] || "Agent"}!
         </h1>
-        <p className="text-sm text-gray-500 mt-1">Here's what's happening with your student applications today.</p>
+        <p className="text-sm text-gray-500 mt-1">
+          {user?.email && isHolmesStaff(user.email)
+            ? "You are viewing all applications across the Australia Admissions Pipeline."
+            : "Here's what's happening with your student applications today."
+          }
+        </p>
       </div>
 
       {/* Stats */}
