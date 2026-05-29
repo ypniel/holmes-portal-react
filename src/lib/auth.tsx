@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from "react"
 
+// Holmes staff emails — these users see ALL applications
+const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
+
+export function isHolmesStaff(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase() || ""
+  return HOLMES_DOMAINS.some(d => domain === d)
+}
+
 interface User {
   id: string
   name: string
@@ -12,6 +20,7 @@ interface User {
 interface AuthContextType {
   user: User | null
   isLoading: boolean
+  isStaff: boolean
   login: (user: User) => void
   logout: () => void
 }
@@ -19,6 +28,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
+  isStaff: false,
   login: () => {},
   logout: () => {},
 })
@@ -47,8 +57,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(STORAGE_KEY)
   }
 
+  const isStaff = user ? isHolmesStaff(user.email) : false
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, isStaff, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
