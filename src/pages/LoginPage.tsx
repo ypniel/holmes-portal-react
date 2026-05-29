@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X } from "lucide-react"
 import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
-import { useAuth } from "../lib/auth"
+import { isHolmesStaff } from "../lib/auth"
+import { fetchDeals } from "../lib/hubspot"
 
 type Status = "idle" | "loading" | "success" | "not_found" | "error"
 
@@ -28,16 +29,37 @@ export default function LoginPage() {
     e.preventDefault()
     setStatus("loading")
     setErrorMessage(null)
-    setTimeout(() => {
-      login({
-        id: "demo",
-        name: email.split("@")[0],
-        fullName: email.split("@")[0],
-        email: email.trim().toLowerCase(),
-      })
+
+    try {
+      const cleanEmail = email.trim().toLowerCase()
+      let name = cleanEmail.split("@")[0]
+      let fullName = name
+      let companyName = isHolmesStaff(cleanEmail) ? "Holmes Institute Australia" : ""
+
+      // For agents — fetch real name and company from their deals
+      if (!isHolmesStaff(cleanEmail)) {
+        try {
+          const deals = await fetchDeals(5000)
+          const agentDeal = deals.find(d =>
+            d.agentEmail?.toLowerCase() === cleanEmail
+          )
+          if (agentDeal) {
+            if (agentDeal.agentContact) {
+              fullName = agentDeal.agentContact
+              name = agentDeal.agentContact.split(" ")[0]
+            }
+            if (agentDeal.agentCompany) companyName = agentDeal.agentCompany
+          }
+        } catch {}
+      }
+
+      login({ id: "demo", name, fullName, email: cleanEmail, companyName })
       setStatus("success")
       setTimeout(() => navigate("/"), 800)
-    }, 800)
+    } catch {
+      setStatus("error")
+      setErrorMessage("Something went wrong. Please try again.")
+    }
   }
 
   const reset = () => { setStatus("idle"); setEmail(""); setErrorMessage(null) }
