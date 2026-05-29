@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import {
   CheckCircle2, Clock, FileText, GraduationCap, Globe, MapPin,
   Search, ChevronDown, ChevronsUpDown, ChevronUp, Calendar, Download
@@ -7,7 +7,7 @@ import {
 import { PageContainer } from "../components/Layout"
 import { fetchDeals, Deal } from "../lib/hubspot"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
-import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
+import { useAuth, isHolmesStaff } from "../lib/auth"
 
 type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
 type SortDir  = "asc" | "desc"
@@ -41,11 +41,14 @@ const NEW_APP_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
 
 export default function ApplicationsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  const [search, setSearch] = useState("")
+  // Pre-fill search from URL param (e.g. from header search)
+  const urlSearch = new URLSearchParams(location.search).get("search") || ""
+  const [search, setSearch] = useState(urlSearch)
   const [statusFilter, setStatusFilter]     = useState("all")
   const [campusFilter, setCampusFilter]     = useState("all")
   const [responseFilter, setResponseFilter] = useState("all")
@@ -59,12 +62,20 @@ export default function ApplicationsPage() {
   const [page, setPage]         = useState(1)
   const PER_PAGE = 10
 
+  const { user } = useAuth()
+
   useEffect(() => {
     fetchDeals(5000).then(d => {
-      const result = IS_DEMO ? d.filter(deal => DEMO_IDS.has(deal.id)) : d
+      let result = IS_DEMO ? d.filter(deal => DEMO_IDS.has(deal.id)) : d
+      // Agents only see their own deals — Holmes staff see everything
+      if (user?.email && !isHolmesStaff(user.email)) {
+        result = result.filter(deal =>
+          deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
+        )
+      }
       setDeals(result)
     }).catch(() => setError(true)).finally(() => setLoading(false))
-  }, [])
+  }, [user])
 
   const campuses     = useMemo(() => [...new Set(deals.map(d => d.campus).filter(Boolean))].sort(), [deals])
   const stages       = useMemo(() => [...new Set(deals.map(d => d.stageLabel).filter(Boolean))].sort(), [deals])
