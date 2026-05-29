@@ -8,6 +8,7 @@ import { PageContainer } from "../components/Layout"
 import { fetchDeals, Deal } from "../lib/hubspot"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
 import { useAuth, isHolmesStaff } from "../lib/auth"
+import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
 
 type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
 type SortDir  = "asc" | "desc"
