@@ -199,7 +199,40 @@ export async function fetchOwners(): Promise<Record<string, string>> {
 }
 
 // ── Fetch Company (Agent Details) ─────────────────────────────────────────────
-export async function fetchDealCompany(dealId: string): Promise<Company | null> {
+// ── Fetch the main agent email for a sub-agent ────────────────────────────────
+// 1. Find the contact by email
+// 2. Get their associated company
+// 3. Return the company's agent_email
+export async function fetchMainAgentEmail(subAgentEmail: string): Promise<string | null> {
+  try {
+    // Step 1 — find contact by email
+    const contactRes = await hsFetch(
+      `/crm/v3/objects/contacts/search`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: subAgentEmail }] }],
+          properties: ["email", "firstname", "lastname"],
+          limit: 1,
+        })
+      }
+    )
+    const contact = contactRes.results?.[0]
+    if (!contact) return null
+
+    // Step 2 — get associated company
+    const assoc = await hsFetch(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)
+    const companyId = assoc.results?.[0]?.toObjectId
+    if (!companyId) return null
+
+    // Step 3 — get company's agent_email
+    const company = await hsFetch(
+      `/crm/v3/objects/companies/${companyId}?properties=agent_email,name`,
+      {}, true
+    )
+    return company.properties?.agent_email || null
+  } catch { return null }
+}
   try {
     // Try v4 associations API first — use company token for permissions
     const assoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/companies`, {}, true)
