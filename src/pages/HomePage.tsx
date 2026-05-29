@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Users, FileText, CheckCircle, Clock, ArrowRight, GraduationCap, MapPin } from "lucide-react"
 import { PageContainer } from "../components/Layout"
 import { useAuth, isHolmesStaff } from "../lib/auth"
-import { fetchDeals, Deal } from "../lib/hubspot"
+import { fetchDeals, Deal, fetchMainAgentEmail } from "../lib/hubspot"
 import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
 import { StatCardSkeleton, ActivityRowSkeleton } from "../components/Skeleton"
 
@@ -110,16 +110,24 @@ export default function HomePage() {
   "60388974629","60387728241","60387728240","60385868040","60385406372",
 ])
   useEffect(() => {
-    fetchDeals(5000).then(d => {
-      let result = d.filter(deal => DEMO_IDS.has(deal.id))
-      // Agents only see their own deals
-      if (user?.email && !isHolmesStaff(user.email)) {
-        result = result.filter(deal =>
-          deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
-        )
-      }
-      setDeals(result)
-    }).finally(() => setLoading(false))
+    const load = async () => {
+      try {
+        const d = await fetchDeals(5000)
+        let result = d.filter(deal => DEMO_IDS.has(deal.id))
+
+        if (user?.email && !isHolmesStaff(user.email)) {
+          // Resolve sub-agent to main agent email
+          const mainEmail = await fetchMainAgentEmail(user.email)
+          const filterEmail = mainEmail || user.email
+          result = result.filter(deal =>
+            deal.agentEmail?.toLowerCase() === filterEmail.toLowerCase()
+          )
+        }
+        setDeals(result)
+      } catch {}
+      finally { setLoading(false) }
+    }
+    load()
   }, [user])
 
   const stats = useMemo(() => ({
