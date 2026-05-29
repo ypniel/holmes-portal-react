@@ -8,12 +8,18 @@ function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        resolve({ status: 302, location: res.headers.location, body: "" })
+        resolve({ status: 302, location: res.headers.location, body: "", headers: res.headers })
         return
       }
-      let data = ""
-      res.on("data", chunk => { data += chunk })
-      res.on("end", () => resolve({ status: res.statusCode, body: data }))
+      // For binary files, collect as buffer
+      const chunks = []
+      res.on("data", chunk => chunks.push(chunk))
+      res.on("end", () => resolve({
+        status: res.statusCode,
+        body: Buffer.concat(chunks),
+        headers: res.headers,
+        isBuffer: true,
+      }))
     })
     req.on("error", reject)
     if (body) req.write(body)
@@ -26,24 +32,104 @@ exports.handler = async (event) => {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Content-Type": "application/json",
   }
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
 
   const path = event.queryStringParameters?.path || ""
-  const isRedirect = event.queryStringParameters?.redirect === "true"
+  const isDownload = event.queryStringParameters?.download === "true"
   const useCompanyToken = event.queryStringParameters?.useCompanyToken === "true"
-  
-  if (!path) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No path" }) }
+  const fileId = event.queryStringParameters?.fileId || ""
 
-  // Use company token for company-related requests
-  const token = useCompanyToken ? COMPANY_TOKEN : TOKEN
-  
-  // Debug — remove after fixing
-  if (useCompanyToken) {
-    console.log("Using company token, starts with:", token ? token.substring(0, 15) : "MISSING")
+  // ── File download route ──────────────────────────────────────────────────────
+  // Step 1: Get signed URL from HubSpot file API
+  // Step 2: Fetch the actual file using that signed URL
+  // Step 3: Stream it back to the browser
+  if (isDownload && fileId) {
+    try {
+      // Step 1 — get file metadata including signed URL
+      const metaOptions = {
+        hostname: "api.hubapi.com",
+        path: `/filemanager/api/v3/files/${fileId}`,
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      }
+      const metaResult = await makeRequest(metaOptions)
+      const meta = JSON.parse(metaResult.body.toString())
+
+      // Get the best available URL
+      const fileUrl = meta.url || meta.s3_url || meta.default_hosting_url || ""
+      if (!fileUrl) {
+        return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: "File URL not found" }) }
+      }
+
+      // Strip hash prefix from filename
+      let filename = meta.name || `file-${fileId}`
+      const hashMatch = filename.match(/^[a-f0-9]{13}-(.+)$/)
+      if (hashMatch) filename = hashMatch[1]
+      filename = filename.replace(/_/g, " ")
+
+      // Step 2 — fetch the actual file from the URL
+      const fileUrlObj = new URL(fileUrl)
+      const fetchOptions = {
+        hostname: fileUrlObj.hostname,
+        path: fileUrlObj.pathname + fileUrlObj.search,
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${TOKEN}`,
+        },
+      }
+
+      const fileResult = await makeRequest(fetchOptions)
+
+      // Handle redirect from S3 signed URL
+      if (fileResult.status === 302 && fileResult.location) {
+        const redirectUrl = new URL(fileResult.location)
+        const redirectOptions = {
+          hostname: redirectUrl.hostname,
+          path: redirectUrl.pathname + redirectUrl.search,
+          method: "GET",
+          headers: {},
+        }
+        const redirectResult = await makeRequest(redirectOptions)
+        const contentType = redirectResult.headers["content-type"] || "application/octet-stream"
+        return {
+          statusCode: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": contentType,
+            "Content-Disposition": `attachment; filename="${filename}"`,
+          },
+          body: redirectResult.body.toString("base64"),
+          isBase64Encoded: true,
+        }
+      }
+
+      // Step 3 — return file to browser
+      const contentType = fileResult.headers["content-type"] || "application/octet-stream"
+      return {
+        statusCode: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": contentType,
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+        body: fileResult.body.toString("base64"),
+        isBase64Encoded: true,
+      }
+    } catch (err) {
+      console.error("File download error:", err.message)
+      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
+    }
   }
+
+  // ── Standard HubSpot API proxy ────────────────────────────────────────────────
+  if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
+
+  const token = useCompanyToken ? COMPANY_TOKEN : TOKEN
 
   try {
     const isPost = event.httpMethod === "POST"
@@ -72,16 +158,12 @@ exports.handler = async (event) => {
 
     const result = await makeRequest(options, bodyBuf.length > 0 ? bodyToSend : undefined)
 
-    if (isRedirect && result.status === 302 && result.location) {
-      return {
-        statusCode: 302,
-        headers: { "Location": result.location, "Access-Control-Allow-Origin": "*" },
-        body: "",
-      }
+    return {
+      statusCode: result.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      body: result.body.toString(),
     }
-
-    return { statusCode: result.status, headers: corsHeaders, body: result.body }
   } catch (err) {
-    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
+    return { statusCode: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: err.message }) }
   }
 }
