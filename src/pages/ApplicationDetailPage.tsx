@@ -19,8 +19,8 @@ export default function ApplicationDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
-  const isDirectStudent = user?.companyName === "Direct Student" || 
-    (!!user && !isHolmesStaff(user.email) && user.email === "yesyrpniel@gmail.com")
+  const DIRECT_STUDENT_EMAILS = ["yesyrpniel@gmail.com"]
+  const isDirectStudent = !!user && DIRECT_STUDENT_EMAILS.includes(user.email)
   const [deal, setDeal] = useState<Deal | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [owners, setOwners] = useState<Record<string, string>>({})
@@ -69,7 +69,7 @@ export default function ApplicationDetailPage() {
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "course",    label: "Course Information", icon: GraduationCap },
     { id: "student",   label: "Student Details",    icon: User },
-    { id: "agent",     label: "Agent Details",      icon: Building2 },
+    ...(!isDirectStudent ? [{ id: "agent" as Tab, label: "Agent Details", icon: Building2 }] : []),
     { id: "chatter",   label: "Messages",           icon: MessageSquare },
     { id: "documents", label: "Documents",          icon: Paperclip },
   ]
