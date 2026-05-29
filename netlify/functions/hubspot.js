@@ -73,13 +73,14 @@ exports.handler = async (event) => {
       filename = filename.replace(/_/g, " ")
 
       // Step 2 — fetch the actual file from the URL
+      // Note: do NOT send HubSpot auth token to S3/CDN URLs
       const fileUrlObj = new URL(fileUrl)
       const fetchOptions = {
         hostname: fileUrlObj.hostname,
         path: fileUrlObj.pathname + fileUrlObj.search,
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${TOKEN}`,
+          "User-Agent": "Mozilla/5.0",
         },
       }
 
