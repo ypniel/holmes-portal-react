@@ -233,6 +233,8 @@ export async function fetchMainAgentEmail(subAgentEmail: string): Promise<string
     return company.properties?.agent_email || null
   } catch { return null }
 }
+
+export async function fetchDealCompany(dealId: string): Promise<Company | null> {
   try {
     // Try v4 associations API first — use company token for permissions
     const assoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/companies`, {}, true)
