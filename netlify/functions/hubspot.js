@@ -95,13 +95,19 @@ exports.handler = async (event) => {
           headers: {},
         }
         const redirectResult = await makeRequest(redirectOptions)
-        const contentType = redirectResult.headers["content-type"] || "application/octet-stream"
+        const contentType = redirectResult.headers["content-type"] || meta.type || "application/octet-stream"
+        const ext = (meta.extension || meta.name?.split(".").pop() || "").toLowerCase()
+        if (ext && !filename.toLowerCase().endsWith(`.${ext}`)) {
+          filename = `${filename}.${ext}`
+        }
+        const viewable = ["pdf","jpg","jpeg","png","gif","webp","svg"].includes(ext)
+        const disposition = viewable ? `inline; filename="${filename}"` : `attachment; filename="${filename}"`
         return {
           statusCode: 200,
           headers: {
             ...corsHeaders,
             "Content-Type": contentType,
-            "Content-Disposition": `attachment; filename="${filename}"`,
+            "Content-Disposition": disposition,
           },
           body: redirectResult.body.toString("base64"),
           isBase64Encoded: true,
@@ -109,13 +115,20 @@ exports.handler = async (event) => {
       }
 
       // Step 3 — return file to browser
-      const contentType = fileResult.headers["content-type"] || "application/octet-stream"
+      const contentType = fileResult.headers["content-type"] || meta.type || "application/octet-stream"
+      const ext = (meta.extension || meta.name?.split(".").pop() || "").toLowerCase()
+      if (ext && !filename.toLowerCase().endsWith(`.${ext}`)) {
+        filename = `${filename}.${ext}`
+      }
+      // View inline for PDFs and images, download for everything else
+      const viewable = ["pdf","jpg","jpeg","png","gif","webp","svg"].includes(ext)
+      const disposition = viewable ? `inline; filename="${filename}"` : `attachment; filename="${filename}"`
       return {
         statusCode: 200,
         headers: {
           ...corsHeaders,
           "Content-Type": contentType,
-          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Content-Disposition": disposition,
         },
         body: fileResult.body.toString("base64"),
         isBase64Encoded: true,
