@@ -5,6 +5,8 @@ import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBack
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { fetchDeals } from "../lib/hubspot"
 
+type Status = "idle" | "loading" | "success" | "not_found" | "error"
+
 // ── Demo direct students ──────────────────────────────────────────────────────
 const DEMO_DIRECT_STUDENTS: Record<string, string> = {
   "yesyrpniel@gmail.com": "60381605507",
