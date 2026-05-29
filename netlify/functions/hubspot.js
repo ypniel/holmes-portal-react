@@ -59,6 +59,16 @@ exports.handler = async (event) => {
       }
       const metaResult = await makeRequest(metaOptions)
       const meta = JSON.parse(metaResult.body.toString())
+      console.log("File meta:", JSON.stringify({ 
+        id: meta.id, 
+        name: meta.name, 
+        url: meta.url, 
+        s3_url: meta.s3_url,
+        default_hosting_url: meta.default_hosting_url,
+        type: meta.type,
+        extension: meta.extension,
+        allows_anonymous_access: meta.allows_anonymous_access
+      }))
 
       // Get the best available URL
       const fileUrl = meta.url || meta.s3_url || meta.default_hosting_url || ""
