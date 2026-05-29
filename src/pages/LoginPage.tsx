@@ -5,7 +5,10 @@ import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBack
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { fetchDeals } from "../lib/hubspot"
 
-type Status = "idle" | "loading" | "success" | "not_found" | "error"
+// ── Demo direct students ──────────────────────────────────────────────────────
+const DEMO_DIRECT_STUDENTS: Record<string, string> = {
+  "yesyrpniel@gmail.com": "60381605507",
+}
 
 const MARKETERS = [
   { name: "Indra Adhikari",   title: "Victoria Representative",        email: "iadhikari@holmes.edu.au" },
@@ -36,7 +39,6 @@ export default function LoginPage() {
       let fullName = name
       let companyName = isHolmesStaff(cleanEmail) ? "Holmes Institute Australia" : ""
 
-      // For agents — fetch real name and company from their deals
       if (!isHolmesStaff(cleanEmail)) {
         try {
           const deals = await fetchDeals(5000)
@@ -55,7 +57,13 @@ export default function LoginPage() {
 
       login({ id: "demo", name, fullName, email: cleanEmail, companyName })
       setStatus("success")
-      setTimeout(() => navigate("/"), 800)
+
+      // Demo direct student — redirect straight to their application
+      if (DEMO_DIRECT_STUDENTS[cleanEmail]) {
+        setTimeout(() => navigate(`/applications/${DEMO_DIRECT_STUDENTS[cleanEmail]}`), 800)
+      } else {
+        setTimeout(() => navigate("/"), 800)
+      }
     } catch {
       setStatus("error")
       setErrorMessage("Something went wrong. Please try again.")
