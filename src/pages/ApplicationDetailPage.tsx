@@ -348,12 +348,13 @@ export default function ApplicationDetailPage() {
                                 <p className="text-xs text-gray-400">{dateStr}</p>
                               </div>
                               <a
-                                href={`https://app.hubspot.com/files/39917994/file/${f.id}`}
+                                href={f.url}
+                                download={cleanName}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
                               >
-                                <Download className="h-3 w-3" />Open
+                                <Download className="h-3 w-3" />Download
                               </a>
                             </div>
                           )
