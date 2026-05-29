@@ -63,7 +63,7 @@ const MARKETERS = [
   { name: "Don Kauffman", title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
 ]
 
-const NEW_APP_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
+const BASE_APP_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -71,9 +71,21 @@ export default function HomePage() {
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [formUrl, setFormUrl] = useState(BASE_APP_URL)
   const tip = useRotatingTip()
   const tipIdx = PRO_TIPS.indexOf(tip)
   const isLive = useLiveStatus()
+
+  // Resolve form URL — pre-fill agent email (use main agent email for sub-agents)
+  useEffect(() => {
+    if (!user?.email || isHolmesStaff(user.email)) return
+    fetchMainAgentEmail(user.email).then(mainEmail => {
+      const emailToUse = mainEmail || user.email
+      setFormUrl(`${BASE_APP_URL}?agent_email=${encodeURIComponent(emailToUse)}`)
+    }).catch(() => {
+      setFormUrl(`${BASE_APP_URL}?agent_email=${encodeURIComponent(user.email)}`)
+    })
+  }, [user])
 
   function exportCSV() {
     const rows = [
@@ -194,7 +206,7 @@ export default function HomePage() {
             <h2 className="text-lg font-semibold mb-5">Quick Actions</h2>
             <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
               {/* New Application → HubSpot form */}
-              <a href={NEW_APP_URL} target="_blank" rel="noopener noreferrer"
+              <a href={formUrl} target="_blank" rel="noopener noreferrer"
                 className="bg-white rounded-lg p-4 flex items-start gap-3 hover:bg-red-50 transition-colors"
               >
                 <div className="w-8 h-8 bg-red-50 rounded-full flex items-center justify-center text-red-700 flex-shrink-0">➕</div>
