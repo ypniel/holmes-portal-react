@@ -228,7 +228,7 @@ export default function ApplicationDetailPage() {
               {activeTab === "agent" && (
                 <div className="grid md:grid-cols-2 gap-x-8">
                   <DetailRow label="Agent Company"  value={deal.agentCompany} />
-                  <DetailRow label="Contact Name"   value={deal.agentContact} />
+                  <DetailRow label="Contact Person" value={deal.agentContact} />
                   <DetailRow label="Email"          value={deal.agentEmail} />
                   <DetailRow label="Mobile"         value={deal.agentPhone} />
                   <DetailRow label="Branch Office"  value={deal.branchOffice} />
