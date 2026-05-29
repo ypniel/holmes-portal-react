@@ -5,7 +5,7 @@ import {
   Search, ChevronDown, ChevronsUpDown, ChevronUp, Calendar, Download
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
-import { fetchDeals, Deal } from "../lib/hubspot"
+import { fetchDeals, Deal, fetchMainAgentEmail } from "../lib/hubspot"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
@@ -66,16 +66,24 @@ export default function ApplicationsPage() {
   const { user } = useAuth()
 
   useEffect(() => {
-    fetchDeals(5000).then(d => {
-      let result = IS_DEMO ? d.filter(deal => DEMO_IDS.has(deal.id)) : d
-      // Agents only see their own deals — Holmes staff see everything
-      if (user?.email && !isHolmesStaff(user.email)) {
-        result = result.filter(deal =>
-          deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
-        )
-      }
-      setDeals(result)
-    }).catch(() => setError(true)).finally(() => setLoading(false))
+    const load = async () => {
+      try {
+        const d = await fetchDeals(5000)
+        let result = IS_DEMO ? d.filter(deal => DEMO_IDS.has(deal.id)) : d
+
+        if (user?.email && !isHolmesStaff(user.email)) {
+          // Try to find main agent email (in case this is a sub-agent)
+          const mainEmail = await fetchMainAgentEmail(user.email)
+          const filterEmail = mainEmail || user.email
+          result = result.filter(deal =>
+            deal.agentEmail?.toLowerCase() === filterEmail.toLowerCase()
+          )
+        }
+        setDeals(result)
+      } catch { setError(true) }
+      finally { setLoading(false) }
+    }
+    load()
   }, [user])
 
   const campuses     = useMemo(() => [...new Set(deals.map(d => d.campus).filter(Boolean))].sort(), [deals])
