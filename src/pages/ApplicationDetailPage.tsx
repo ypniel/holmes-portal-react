@@ -324,14 +324,13 @@ export default function ApplicationDetailPage() {
                     ) : (
                       <div className="space-y-2">
                         {files.map((f, i) => {
-                          // Strip hash prefix e.g. "699bad896f41b-filename.pdf" → "filename.pdf"
                           let cleanName = f.name || `Document ${i + 1}`
                           const hashMatch = cleanName.match(/^[a-f0-9]{13}-(.+)$/)
                           if (hashMatch) cleanName = hashMatch[1]
-                          // Replace underscores with spaces for readability
                           cleanName = cleanName.replace(/_/g, " ")
-                          const ext = cleanName.includes(".")
-                            ? cleanName.split(".").pop()?.toUpperCase() || "FILE" : "FILE"
+                          const ext = cleanName.includes(".") ? cleanName.split(".").pop()?.toUpperCase() || "FILE" : "FILE"
+                          const extLower = ext.toLowerCase()
+                          const isViewable = ["pdf","jpg","jpeg","png","gif","webp","svg"].includes(extLower)
                           const dateStr = f.createdAt ? formatDateTime(new Date(f.createdAt).toISOString()) : "—"
                           const extColors: Record<string, string> = {
                             PDF: "bg-red-50 text-red-600", DOC: "bg-blue-50 text-blue-600",
@@ -347,15 +346,20 @@ export default function ApplicationDetailPage() {
                                 <p className="text-sm font-medium text-gray-800 truncate">{cleanName}</p>
                                 <p className="text-xs text-gray-400">{dateStr}</p>
                               </div>
-                              <a
-                                href={f.url}
-                                download={cleanName}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
-                              >
-                                <Download className="h-3 w-3" />Download
-                              </a>
+                              {f.url && (
+                                <a
+                                  href={f.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  {...(!isViewable ? { download: cleanName } : {})}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
+                                >
+                                  {isViewable
+                                    ? <><ExternalLink className="h-3 w-3" />View</>
+                                    : <><Download className="h-3 w-3" />Download</>
+                                  }
+                                </a>
+                              )}
                             </div>
                           )
                         })}
