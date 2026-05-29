@@ -38,7 +38,7 @@ const DEMO_IDS = new Set([
 ])
 const IS_DEMO = true // flip to false after boss demo
 
-const NEW_APP_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
+const BASE_APP_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
 
 export default function ApplicationsPage() {
   const navigate = useNavigate()
@@ -64,6 +64,17 @@ export default function ApplicationsPage() {
   const PER_PAGE = 10
 
   const { user } = useAuth()
+  const [formUrl, setFormUrl] = useState(BASE_APP_URL)
+
+  useEffect(() => {
+    if (!user?.email || isHolmesStaff(user.email)) return
+    fetchMainAgentEmail(user.email).then(mainEmail => {
+      const emailToUse = mainEmail || user.email
+      setFormUrl(`${BASE_APP_URL}?agent_email=${encodeURIComponent(emailToUse)}`)
+    }).catch(() => {
+      setFormUrl(`${BASE_APP_URL}?agent_email=${encodeURIComponent(user.email)}`)
+    })
+  }, [user])
 
   useEffect(() => {
     const load = async () => {
@@ -188,7 +199,7 @@ export default function ApplicationsPage() {
               <Download className="h-4 w-4" />Export CSV
             </button>
             {/* New Application → HubSpot form */}
-            <a href={NEW_APP_URL} target="_blank" rel="noopener noreferrer"
+            <a href={formUrl} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-medium transition-colors"
             >
               <GraduationCap className="h-4 w-4" />New Application
