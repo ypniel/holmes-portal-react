@@ -165,6 +165,9 @@ exports.handler = async (event) => {
         filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
       }]
       bodyToSend = JSON.stringify(parsed)
+    } else if (isPost) {
+      // Pass through other POST requests (e.g. contact search) unchanged
+      bodyToSend = event.body || ""
     }
 
     const bodyBuf = Buffer.from(bodyToSend || "", "utf8")
