@@ -68,6 +68,7 @@ export const DEAL_PROPS = [
   "date_of_birth","passport_number",
   "agent_company","agency_name_import_use_only","branch_office",
   "agent_email","agent_company_name","agent_mobile_number","agent_contact_name",
+  "contact_person_name","name",
   "student_id","jupiter_id","hs_object_id",
 ]
 
@@ -249,7 +250,7 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
     }
 
     const data = await hsFetch(
-      `/crm/v3/objects/companies/${companyIds[0]}?properties=name,agency_name_import_use_only,agent_city,agentcountry,agent_email,agent_mobile_no,phone,email,city,country,address,website`,
+      `/crm/v3/objects/companies/${companyIds[0]}?properties=name,contact_person_name,agency_name_import_use_only,agent_city,agentcountry,agent_email,agent_mobile_no,phone,email,city,country,address,website`,
       {}, true
     )
     const p = data.properties || {}
@@ -262,7 +263,8 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
     }
     return {
       id: data.id,
-      name: g("agency_name_import_use_only", "name"),
+      name: g("name", "agency_name_import_use_only"),
+      contactPerson: g("contact_person_name"),
       phone: g("agent_mobile_no", "phone"),
       email: g("agent_email", "email"),
       city: g("agent_city", "city"),
@@ -365,10 +367,10 @@ function mapDeal(raw: any): Deal {
     residencyStatus: g("residency_status_", "residency_status"),
     dob: g("date_of_birth"),
     passport: g("passport_number"),
-    agentCompany: g("agent_company_name", "agent_company", "agency_name_import_use_only"),
+    agentCompany: g("agent_company_name", "name", "agent_company", "agency_name_import_use_only"),
     agentEmail: g("agent_email"),
     agentPhone: g("agent_mobile_number"),
-    agentContact: g("agent_contact_name"),
+    agentContact: g("contact_person_name", "agent_contact_name"),
     branchOffice: g("branch_office"),
     studentId: g("student_id"),
     jupiterId: g("jupiter_id"),
@@ -390,6 +392,6 @@ export interface Deal {
 export interface Note { id: string; body: string; createdAt: string; ownerId: string }
 export interface FileItem { name: string; id: string; url?: string; createdAt?: number }
 export interface Company {
-  id: string; name: string; phone: string; email: string
+  id: string; name: string; contactPerson: string; phone: string; email: string
   city: string; country: string; address: string; website: string
 }
