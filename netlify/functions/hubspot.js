@@ -8,23 +8,36 @@ function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        resolve({ status: 302, location: res.headers.location, body: "", headers: res.headers })
+        resolve({ status: 302, location: res.headers.location, body: Buffer.alloc(0), headers: res.headers })
         return
       }
-      // For binary files, collect as buffer
       const chunks = []
-      res.on("data", chunk => chunks.push(chunk))
-      res.on("end", () => resolve({
-        status: res.statusCode,
-        body: Buffer.concat(chunks),
-        headers: res.headers,
-        isBuffer: true,
-      }))
+      res.on("data", chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
+      res.on("end", () => resolve({ status: res.statusCode, body: Buffer.concat(chunks), headers: res.headers }))
     })
     req.on("error", reject)
     if (body) req.write(body)
     req.end()
   })
+}
+
+async function followRedirects(url, maxRedirects = 5) {
+  let currentUrl = new URL(url)
+  for (let i = 0; i < maxRedirects; i++) {
+    const options = {
+      hostname: currentUrl.hostname,
+      path: currentUrl.pathname + currentUrl.search,
+      method: "GET",
+      headers: { "User-Agent": "Mozilla/5.0" },
+    }
+    const result = await makeRequest(options)
+    if (result.status === 302 && result.location) {
+      currentUrl = new URL(result.location)
+      continue
+    }
+    return result
+  }
+  throw new Error("Too many redirects")
 }
 
 exports.handler = async (event) => {
@@ -41,99 +54,69 @@ exports.handler = async (event) => {
   const useCompanyToken = event.queryStringParameters?.useCompanyToken === "true"
   const fileId = event.queryStringParameters?.fileId || ""
 
-  // ── File download route ──────────────────────────────────────────────────────
-  // Step 1: Get signed URL from HubSpot file API
-  // Step 2: Fetch the actual file using that signed URL
-  // Step 3: Stream it back to the browser
+  // ── File download ────────────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
-      // Step 1 — get file metadata including signed URL
-      const metaOptions = {
+      // Step 1 — get signed URL from HubSpot
+      const signedUrlResult = await makeRequest({
         hostname: "api.hubapi.com",
-        path: `/filemanager/api/v3/files/${fileId}`,
+        path: `/filemanager/api/v3/files/${fileId}/signed-url`,
         method: "GET",
         headers: {
           "Authorization": `Bearer ${TOKEN}`,
           "Content-Type": "application/json",
         },
-      }
-      const metaResult = await makeRequest(metaOptions)
-      const meta = JSON.parse(metaResult.body.toString())
-      console.log("File meta:", JSON.stringify({ 
-        id: meta.id, 
-        name: meta.name, 
-        url: meta.url, 
-        s3_url: meta.s3_url,
-        default_hosting_url: meta.default_hosting_url,
-        type: meta.type,
-        extension: meta.extension,
-        allows_anonymous_access: meta.allows_anonymous_access
-      }))
+      })
 
-      // Get the best available URL
-      const fileUrl = meta.url || meta.s3_url || meta.default_hosting_url || ""
-      if (!fileUrl) {
-        return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: "File URL not found" }) }
+      let signedUrl = ""
+      let filename = `file-${fileId}`
+      let ext = ""
+
+      if (signedUrlResult.status === 200) {
+        const signedData = JSON.parse(signedUrlResult.body.toString())
+        signedUrl = signedData.url || ""
+        filename = signedData.name || filename
+        ext = (signedData.extension || filename.split(".").pop() || "").toLowerCase()
       }
 
-      // Strip hash prefix from filename
-      let filename = meta.name || `file-${fileId}`
+      // Fallback — get metadata if signed URL failed
+      if (!signedUrl) {
+        const metaResult = await makeRequest({
+          hostname: "api.hubapi.com",
+          path: `/filemanager/api/v3/files/${fileId}`,
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        })
+        const meta = JSON.parse(metaResult.body.toString())
+        signedUrl = meta.url || meta.s3_url || ""
+        filename = meta.name || filename
+        ext = (meta.extension || filename.split(".").pop() || "").toLowerCase()
+      }
+
+      if (!signedUrl) {
+        return { statusCode: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "Could not get file URL" }) }
+      }
+
+      // Clean filename
       const hashMatch = filename.match(/^[a-f0-9]{13}-(.+)$/)
       if (hashMatch) filename = hashMatch[1]
       filename = filename.replace(/_/g, " ")
+      if (ext && !filename.toLowerCase().endsWith(`.${ext}`)) filename = `${filename}.${ext}`
 
-      // Step 2 — fetch the actual file from the URL
-      // Note: do NOT send HubSpot auth token to S3/CDN URLs
-      const fileUrlObj = new URL(fileUrl)
-      const fetchOptions = {
-        hostname: fileUrlObj.hostname,
-        path: fileUrlObj.pathname + fileUrlObj.search,
-        method: "GET",
-        headers: {
-          "User-Agent": "Mozilla/5.0",
-        },
+      // Step 2 — fetch the actual file following any redirects
+      const fileResult = await followRedirects(signedUrl)
+
+      if (fileResult.status !== 200) {
+        return { statusCode: fileResult.status, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: `File fetch failed: ${fileResult.status}` }) }
       }
 
-      const fileResult = await makeRequest(fetchOptions)
-
-      // Handle redirect from S3 signed URL
-      if (fileResult.status === 302 && fileResult.location) {
-        const redirectUrl = new URL(fileResult.location)
-        const redirectOptions = {
-          hostname: redirectUrl.hostname,
-          path: redirectUrl.pathname + redirectUrl.search,
-          method: "GET",
-          headers: {},
-        }
-        const redirectResult = await makeRequest(redirectOptions)
-        const contentType = redirectResult.headers["content-type"] || meta.type || "application/octet-stream"
-        const ext = (meta.extension || meta.name?.split(".").pop() || "").toLowerCase()
-        if (ext && !filename.toLowerCase().endsWith(`.${ext}`)) {
-          filename = `${filename}.${ext}`
-        }
-        const viewable = ["pdf","jpg","jpeg","png","gif","webp","svg"].includes(ext)
-        const disposition = viewable ? `inline; filename="${filename}"` : `attachment; filename="${filename}"`
-        return {
-          statusCode: 200,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": contentType,
-            "Content-Disposition": disposition,
-          },
-          body: redirectResult.body.toString("base64"),
-          isBase64Encoded: true,
-        }
-      }
-
-      // Step 3 — return file to browser
-      const contentType = fileResult.headers["content-type"] || meta.type || "application/octet-stream"
-      const ext = (meta.extension || meta.name?.split(".").pop() || "").toLowerCase()
-      if (ext && !filename.toLowerCase().endsWith(`.${ext}`)) {
-        filename = `${filename}.${ext}`
-      }
-      // View inline for PDFs and images, download for everything else
+      const contentType = fileResult.headers["content-type"] || "application/octet-stream"
       const viewable = ["pdf","jpg","jpeg","png","gif","webp","svg"].includes(ext)
       const disposition = viewable ? `inline; filename="${filename}"` : `attachment; filename="${filename}"`
+
       return {
         statusCode: 200,
         headers: {
@@ -146,7 +129,7 @@ exports.handler = async (event) => {
       }
     } catch (err) {
       console.error("File download error:", err.message)
-      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
+      return { statusCode: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: err.message }) }
     }
   }
 
@@ -166,7 +149,6 @@ exports.handler = async (event) => {
       }]
       bodyToSend = JSON.stringify(parsed)
     } else if (isPost) {
-      // Pass through other POST requests (e.g. contact search) unchanged
       bodyToSend = event.body || ""
     }
 
