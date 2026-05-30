@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X } from "lucide-react"
 import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
 import { useAuth, isHolmesStaff } from "../lib/auth"
-import { fetchDeals } from "../lib/hubspot"
+import { fetchDealByAgentEmail } from "../lib/hubspot"
 
 type Status = "idle" | "loading" | "success" | "not_found" | "error"
 
@@ -41,12 +41,9 @@ export default function LoginPage() {
       let fullName = name
       let companyName = isHolmesStaff(cleanEmail) ? "Holmes Institute Australia" : ""
 
-      if (!isHolmesStaff(cleanEmail)) {
+      if (!isHolmesStaff(cleanEmail) && !DEMO_DIRECT_STUDENTS[cleanEmail]) {
         try {
-          const deals = await fetchDeals(5000)
-          const agentDeal = deals.find(d =>
-            d.agentEmail?.toLowerCase() === cleanEmail
-          )
+          const agentDeal = await fetchDealByAgentEmail(cleanEmail)
           if (agentDeal) {
             if (agentDeal.agentContact) {
               fullName = agentDeal.agentContact
