@@ -21,18 +21,24 @@ function makeRequest(options, body) {
   })
 }
 
-async function followRedirects(url, maxRedirects = 5) {
+async function followRedirects(url, authToken, maxRedirects = 5) {
   let currentUrl = new URL(url)
+  let useAuth = true
   for (let i = 0; i < maxRedirects; i++) {
     const options = {
       hostname: currentUrl.hostname,
       path: currentUrl.pathname + currentUrl.search,
       method: "GET",
-      headers: { "User-Agent": "Mozilla/5.0" },
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        // Only send auth token to HubSpot, not to S3/CDN
+        ...(useAuth && currentUrl.hostname.includes("hubapi") ? { "Authorization": `Bearer ${authToken}` } : {}),
+      },
     }
     const result = await makeRequest(options)
-    if (result.status === 302 && result.location) {
+    if ((result.status === 301 || result.status === 302 || result.status === 307) && result.location) {
       currentUrl = new URL(result.location)
+      useAuth = false // Don't send auth to S3/CDN redirects
       continue
     }
     return result
@@ -57,10 +63,10 @@ exports.handler = async (event) => {
   // ── File download ────────────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
-      // Step 1 — get signed URL from HubSpot
-      const signedUrlResult = await makeRequest({
+      // Get file metadata first
+      const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
-        path: `/filemanager/api/v3/files/${fileId}/signed-url`,
+        path: `/filemanager/api/v3/files/${fileId}`,
         method: "GET",
         headers: {
           "Authorization": `Bearer ${TOKEN}`,
@@ -68,49 +74,42 @@ exports.handler = async (event) => {
         },
       })
 
-      let signedUrl = ""
-      let filename = `file-${fileId}`
-      let ext = ""
+      const meta = JSON.parse(metaResult.body.toString())
+      console.log("File meta:", JSON.stringify({
+        id: meta.id,
+        name: meta.name,
+        url: meta.url,
+        s3_url: meta.s3_url,
+        default_hosting_url: meta.default_hosting_url,
+        extension: meta.extension,
+        allows_anonymous_access: meta.allows_anonymous_access
+      }))
 
-      if (signedUrlResult.status === 200) {
-        const signedData = JSON.parse(signedUrlResult.body.toString())
-        signedUrl = signedData.url || ""
-        filename = signedData.name || filename
-        ext = (signedData.extension || filename.split(".").pop() || "").toLowerCase()
-      }
-
-      // Fallback — get metadata if signed URL failed
-      if (!signedUrl) {
-        const metaResult = await makeRequest({
-          hostname: "api.hubapi.com",
-          path: `/filemanager/api/v3/files/${fileId}`,
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${TOKEN}`,
-            "Content-Type": "application/json",
-          },
-        })
-        const meta = JSON.parse(metaResult.body.toString())
-        signedUrl = meta.url || meta.s3_url || ""
-        filename = meta.name || filename
-        ext = (meta.extension || filename.split(".").pop() || "").toLowerCase()
-      }
-
-      if (!signedUrl) {
-        return { statusCode: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "Could not get file URL" }) }
+      // Try URLs in order of preference
+      const fileUrl = meta.default_hosting_url || meta.url || meta.s3_url || ""
+      if (!fileUrl) {
+        return { statusCode: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No file URL available" }) }
       }
 
       // Clean filename
+      let filename = meta.name || `file-${fileId}`
       const hashMatch = filename.match(/^[a-f0-9]{13}-(.+)$/)
       if (hashMatch) filename = hashMatch[1]
       filename = filename.replace(/_/g, " ")
+      const ext = (meta.extension || filename.split(".").pop() || "").toLowerCase()
       if (ext && !filename.toLowerCase().endsWith(`.${ext}`)) filename = `${filename}.${ext}`
 
-      // Step 2 — fetch the actual file following any redirects
-      const fileResult = await followRedirects(signedUrl)
+      // Fetch the file following redirects
+      const fileResult = await followRedirects(fileUrl, TOKEN)
+
+      console.log("File fetch status:", fileResult.status, "size:", fileResult.body.length)
 
       if (fileResult.status !== 200) {
-        return { statusCode: fileResult.status, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: `File fetch failed: ${fileResult.status}` }) }
+        return { 
+          statusCode: fileResult.status, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" }, 
+          body: JSON.stringify({ error: `File fetch failed with status ${fileResult.status}` }) 
+        }
       }
 
       const contentType = fileResult.headers["content-type"] || "application/octet-stream"
@@ -153,7 +152,6 @@ exports.handler = async (event) => {
     }
 
     const bodyBuf = Buffer.from(bodyToSend || "", "utf8")
-
     const options = {
       hostname: "api.hubapi.com",
       path: path,
@@ -166,7 +164,6 @@ exports.handler = async (event) => {
     }
 
     const result = await makeRequest(options, bodyBuf.length > 0 ? bodyToSend : undefined)
-
     return {
       statusCode: result.status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
