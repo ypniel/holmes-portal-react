@@ -294,6 +294,7 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
         })
       }
     )
+    console.log("fetchDealByAgentEmail results:", data.results?.length, data.results?.[0]?.properties?.agent_contact_name, data.results?.[0]?.properties?.agent_company_name)
     const raw = data.results?.[0]
     if (!raw) return null
     return mapDeal(raw)
