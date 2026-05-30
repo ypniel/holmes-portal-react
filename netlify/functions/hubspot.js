@@ -23,22 +23,20 @@ function makeRequest(options, body) {
 
 async function followRedirects(url, authToken, maxRedirects = 5) {
   let currentUrl = new URL(url)
-  let useAuth = true
   for (let i = 0; i < maxRedirects; i++) {
+    const headers = { "User-Agent": "Mozilla/5.0" }
+    if (authToken && (currentUrl.hostname.includes("hubspot") || currentUrl.hostname.includes("hubapi"))) {
+      headers["Authorization"] = `Bearer ${authToken}`
+    }
     const options = {
       hostname: currentUrl.hostname,
       path: currentUrl.pathname + currentUrl.search,
       method: "GET",
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        // Only send auth token to HubSpot, not to S3/CDN
-        ...(useAuth && currentUrl.hostname.includes("hubapi") ? { "Authorization": `Bearer ${authToken}` } : {}),
-      },
+      headers,
     }
     const result = await makeRequest(options)
     if ((result.status === 301 || result.status === 302 || result.status === 307) && result.location) {
       currentUrl = new URL(result.location)
-      useAuth = false // Don't send auth to S3/CDN redirects
       continue
     }
     return result
@@ -85,8 +83,10 @@ exports.handler = async (event) => {
         allows_anonymous_access: meta.allows_anonymous_access
       }))
 
-      // Try URLs in order of preference
-      const fileUrl = meta.default_hosting_url || meta.url || meta.s3_url || ""
+      // Try S3 CDN URL first (no auth needed), then proxy URL with auth
+      const s3Url = meta.s3_url || ""
+      const proxyUrl = meta.url || ""
+      const fileUrl = s3Url || proxyUrl || meta.default_hosting_url || ""
       if (!fileUrl) {
         return { statusCode: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No file URL available" }) }
       }
@@ -99,8 +99,9 @@ exports.handler = async (event) => {
       const ext = (meta.extension || filename.split(".").pop() || "").toLowerCase()
       if (ext && !filename.toLowerCase().endsWith(`.${ext}`)) filename = `${filename}.${ext}`
 
-      // Fetch the file following redirects
-      const fileResult = await followRedirects(fileUrl, TOKEN)
+      // Fetch file — use auth token if using proxy URL
+      const needsAuth = fileUrl.includes("hubspot.com") || fileUrl.includes("hubapi.com")
+      const fileResult = await followRedirects(fileUrl, needsAuth ? TOKEN : null)
 
       console.log("File fetch status:", fileResult.status, "size:", fileResult.body.length)
 
