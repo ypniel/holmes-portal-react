@@ -275,7 +275,30 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
   } catch { return null }
 }
 
-// ── Fetch Files with download URLs ────────────────────────────────────────────
+// ── Fast agent lookup for login ───────────────────────────────────────────────
+export async function fetchDealByAgentEmail(email: string): Promise<Deal | null> {
+  try {
+    const data = await hsFetch(
+      `/crm/v3/objects/deals/search`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          filterGroups: [{
+            filters: [
+              { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID },
+              { propertyName: "agent_email", operator: "EQ", value: email }
+            ]
+          }],
+          properties: DEAL_PROPS,
+          limit: 1,
+        })
+      }
+    )
+    const raw = data.results?.[0]
+    if (!raw) return null
+    return mapDeal(raw)
+  } catch { return null }
+}
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
     const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
