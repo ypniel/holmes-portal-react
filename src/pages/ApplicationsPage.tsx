@@ -38,7 +38,7 @@ const DEMO_IDS = new Set([
 ])
 const IS_DEMO = true // flip to false after boss demo
 
-const BASE_APP_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
+const BASE_APP_URL = "https://share.hsforms.com/2SycknjhmRRasYVCAV33Vkwnrkx6"
 
 export default function ApplicationsPage() {
   const navigate = useNavigate()
@@ -70,9 +70,9 @@ export default function ApplicationsPage() {
     if (!user?.email || isHolmesStaff(user.email)) return
     fetchMainAgentEmail(user.email).then(mainEmail => {
       const emailToUse = mainEmail || user.email
-      setFormUrl(`${BASE_APP_URL}?agent_email=${encodeURIComponent(emailToUse)}`)
+      setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(emailToUse)}`)
     }).catch(() => {
-      setFormUrl(`${BASE_APP_URL}?agent_email=${encodeURIComponent(user.email)}`)
+      setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
     })
   }, [user])
 
