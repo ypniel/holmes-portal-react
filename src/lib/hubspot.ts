@@ -285,8 +285,15 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         try {
           const fileData = await hsFetch(`/filemanager/api/v3/files/${att.id}`)
           let name = fileData.name || att.name || "Document"
-          const hashMatch = name.match(/^[a-f0-9]{13}-(.+)$/)
-          if (hashMatch) name = hashMatch[1]
+          // HubSpot filename format: {uuid}-file_upload_N-{original_name}-{short_hash}
+          // e.g. "59392650-d9e0-4219-81f1-ccf0c0ae6a09-file_upload_1-IMG_0568-e64761"
+          // Strip leading UUID (8-4-4-4-12 format)
+          name = name.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/, "")
+          // Strip file_upload_N- prefix added by HubSpot forms
+          name = name.replace(/^file_upload_\d+-/, "")
+          // Strip trailing short hash (6 hex chars)
+          name = name.replace(/-[a-f0-9]{6}$/, "")
+          // Replace underscores with spaces
           name = name.replace(/_/g, " ")
           // Use our Netlify streaming download endpoint
           const url = `/.netlify/functions/hubspot?download=true&fileId=${att.id}`
