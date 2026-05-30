@@ -83,10 +83,10 @@ exports.handler = async (event) => {
         allows_anonymous_access: meta.allows_anonymous_access
       }))
 
-      // Try S3 CDN URL first (no auth needed), then proxy URL with auth
-      const s3Url = meta.s3_url || ""
+      // Use proxy URL with auth as primary — it's the only one that works for private files
       const proxyUrl = meta.url || ""
-      const fileUrl = s3Url || proxyUrl || meta.default_hosting_url || ""
+      const s3Url = meta.s3_url || ""
+      const fileUrl = proxyUrl || s3Url || meta.default_hosting_url || ""
       if (!fileUrl) {
         return { statusCode: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No file URL available" }) }
       }
@@ -99,9 +99,9 @@ exports.handler = async (event) => {
       const ext = (meta.extension || filename.split(".").pop() || "").toLowerCase()
       if (ext && !filename.toLowerCase().endsWith(`.${ext}`)) filename = `${filename}.${ext}`
 
-      // Fetch file — use auth token if using proxy URL
-      const needsAuth = fileUrl.includes("hubspot.com") || fileUrl.includes("hubapi.com")
-      const fileResult = await followRedirects(fileUrl, needsAuth ? TOKEN : null)
+      // Always use auth token — proxy URL requires it
+      const fileResult = await followRedirects(fileUrl, TOKEN)
+      console.log("File fetch status:", fileResult.status, "size:", fileResult.body.length, "url:", fileUrl)
 
       console.log("File fetch status:", fileResult.status, "size:", fileResult.body.length)
 
