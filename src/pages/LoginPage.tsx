@@ -10,7 +10,6 @@ type Status = "idle" | "loading" | "success" | "not_found" | "error"
 // ── Demo direct students ──────────────────────────────────────────────────────
 const DEMO_DIRECT_STUDENTS: Record<string, string> = {
   "yesyrpniel@gmail.com": "60381605507",
-  "ydpniel@gmail.com": "60381605507",
 }
 
 const MARKETERS = [
