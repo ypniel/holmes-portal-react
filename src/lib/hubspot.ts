@@ -296,8 +296,10 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
         })
       }
     )
-    // Find first deal that has agent_company_name populated
-    const raw = data.results?.find((r: any) => r.properties?.agent_company_name) || data.results?.[0]
+    // Find first deal that has BOTH agent_company_name AND agent_contact_name populated
+    const raw = data.results?.find((r: any) => 
+      r.properties?.agent_company_name && r.properties?.agent_contact_name
+    ) || data.results?.find((r: any) => r.properties?.agent_company_name) || data.results?.[0]
     console.log("fetchDealByAgentEmail results:", data.results?.length, raw?.properties?.agent_contact_name, raw?.properties?.agent_company_name)
     if (!raw) return null
     return mapDeal(raw)
