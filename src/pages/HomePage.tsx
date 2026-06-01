@@ -79,12 +79,7 @@ export default function HomePage() {
   // Resolve form URL — pre-fill agent email (use main agent email for sub-agents)
   useEffect(() => {
     if (!user?.email || isHolmesStaff(user.email)) return
-    fetchMainAgentEmail(user.email).then(mainEmail => {
-      const emailToUse = mainEmail || user.email
-      setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(emailToUse)}`)
-    }).catch(() => {
-      setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
-    })
+    setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
   }, [user])
 
   function exportCSV() {
@@ -129,12 +124,19 @@ export default function HomePage() {
         let result = d.filter(deal => DEMO_IDS.has(deal.id))
 
         if (user?.email && !isHolmesStaff(user.email)) {
-          // Resolve sub-agent to main agent email
           const mainEmail = await fetchMainAgentEmail(user.email)
-          const filterEmail = mainEmail || user.email
-          result = result.filter(deal =>
-            deal.agentEmail?.toLowerCase() === filterEmail.toLowerCase()
-          )
+          if (mainEmail) {
+            // Sub-agent — sees parent company deals AND their own
+            result = result.filter(deal =>
+              deal.agentEmail?.toLowerCase() === mainEmail.toLowerCase() ||
+              deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
+            )
+          } else {
+            // Main agent — sees only their own deals
+            result = result.filter(deal =>
+              deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
+            )
+          }
         }
         setDeals(result)
       } catch {}
@@ -315,7 +317,7 @@ export default function HomePage() {
                 {initials(user?.fullName)}
               </div>
               <h3 className="font-semibold text-gray-800">{user?.fullName || "Agent"}</h3>
-              <p className="text-sm text-gray-500">{user?.companyName || "Holmes Education Group"}</p>
+              <p className="text-sm text-gray-500">{user?.companyName || user?.email}</p>
             </div>
             <div className="space-y-2 text-sm border-t border-stone-100 pt-4">
               <div className="flex justify-between">
