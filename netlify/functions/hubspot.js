@@ -33,7 +33,6 @@ exports.handler = async (event) => {
   const path = event.queryStringParameters?.path || ""
   const isDownload = event.queryStringParameters?.download === "true"
   const useCompanyToken = event.queryStringParameters?.useCompanyToken === "true"
-  const skipPipelineFilter = event.queryStringParameters?.skipPipeline === "true"
   const fileId = event.queryStringParameters?.fileId || ""
 
   // ── File download ─────────────────────────────────────────────────────────
@@ -63,16 +62,12 @@ exports.handler = async (event) => {
     const isPost = event.httpMethod === "POST"
     let bodyToSend = event.body || ""
 
-    if (isPost && path.includes("/deals/search") && !skipPipelineFilter) {
-      // For main deals fetch — replace filterGroups with pipeline filter
+    if (isPost && path.includes("/deals/search")) {
       const parsed = event.body ? JSON.parse(event.body) : {}
       parsed.filterGroups = [{
         filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
       }]
       bodyToSend = JSON.stringify(parsed)
-    } else if (isPost && path.includes("/deals/search") && skipPipelineFilter) {
-      // For agent lookup — keep existing filters, just pass through
-      bodyToSend = event.body || ""
     }
 
     const bodyBuf = Buffer.from(bodyToSend || "", "utf8")
