@@ -278,6 +278,7 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
 // ── Fast agent lookup for login ───────────────────────────────────────────────
 export async function fetchDealByAgentEmail(email: string): Promise<Deal | null> {
   try {
+    console.log("fetchDealByAgentEmail called with:", email)
     const data = await hsFetch(
       `/crm/v3/objects/deals/search`,
       {
@@ -286,7 +287,8 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
           filterGroups: [{
             filters: [
               { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID },
-              { propertyName: "agent_email", operator: "EQ", value: email }
+              { propertyName: "agent_email", operator: "EQ", value: email },
+              { propertyName: "agent_company_name", operator: "HAS_PROPERTY" },
             ]
           }],
           properties: DEAL_PROPS,
