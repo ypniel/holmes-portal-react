@@ -278,7 +278,6 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
 // ── Fast agent lookup for login ───────────────────────────────────────────────
 export async function fetchDealByAgentEmail(email: string): Promise<Deal | null> {
   try {
-    console.log("fetchDealByAgentEmail called with:", email)
     const data = await hsFetch(
       `/crm/v3/objects/deals/search`,
       {
@@ -300,7 +299,7 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
     const raw = data.results?.find((r: any) => 
       r.properties?.agent_company_name && r.properties?.agent_contact_name
     ) || data.results?.find((r: any) => r.properties?.agent_company_name) || data.results?.[0]
-    console.log("fetchDealByAgentEmail all results:", data.results?.map((r: any) => ({
+ => ({
       id: r.id,
       agent_email: r.properties?.agent_email,
       agent_company: r.properties?.agent_company_name,
