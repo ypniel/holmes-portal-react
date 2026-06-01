@@ -321,7 +321,18 @@ const IS_DEMO = true // flip to false after boss demo
                 {initials(user?.fullName)}
               </div>
               <h3 className="font-semibold text-gray-800">{user?.fullName || "Agent"}</h3>
-              <p className="text-sm text-gray-500">{user?.companyName || user?.email}</p>
+              {/* Company name — shows tooltip if not available yet */}
+              <div className="relative group inline-block">
+                <p className="text-sm text-gray-500 cursor-help border-b border-dashed border-gray-300">
+                  {user?.companyName || user?.email}
+                </p>
+                {!user?.companyName && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    ⏳ Agent name &amp; company pending HubSpot token upgrade
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="space-y-2 text-sm border-t border-stone-100 pt-4">
               <div className="flex justify-between">
