@@ -120,7 +120,7 @@ export default function HomePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const d = await fetchDeals(5000)
+        const d = await fetchDeals(200)
         let result = d.filter(deal => DEMO_IDS.has(deal.id))
 
         if (user?.email && !isHolmesStaff(user.email)) {
