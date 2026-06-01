@@ -69,27 +69,30 @@ export default function ApplicationsPage() {
 
   useEffect(() => {
     if (!user?.email || isHolmesStaff(user.email)) return
-    fetchMainAgentEmail(user.email).then(mainEmail => {
-      const emailToUse = mainEmail || user.email
-      setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(emailToUse)}`)
-    }).catch(() => {
-      setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
-    })
+    // Always use the logged-in user's own email on the form
+    setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
   }, [user])
 
   useEffect(() => {
     const load = async () => {
       try {
-        const d = await fetchDeals(5000)
+        const d = await fetchDeals(200)
         let result = IS_DEMO ? d.filter(deal => DEMO_IDS.has(deal.id)) : d
 
         if (user?.email && !isHolmesStaff(user.email)) {
-          // Try to find main agent email (in case this is a sub-agent)
           const mainEmail = await fetchMainAgentEmail(user.email)
-          const filterEmail = mainEmail || user.email
-          result = result.filter(deal =>
-            deal.agentEmail?.toLowerCase() === filterEmail.toLowerCase()
-          )
+          if (mainEmail) {
+            // Sub-agent — sees parent company deals AND their own
+            result = result.filter(deal =>
+              deal.agentEmail?.toLowerCase() === mainEmail.toLowerCase() ||
+              deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
+            )
+          } else {
+            // Main agent — sees only their own deals
+            result = result.filter(deal =>
+              deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
+            )
+          }
         }
         setDeals(result)
       } catch { setError(true) }
