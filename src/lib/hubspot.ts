@@ -300,7 +300,12 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
     const raw = data.results?.find((r: any) => 
       r.properties?.agent_company_name && r.properties?.agent_contact_name
     ) || data.results?.find((r: any) => r.properties?.agent_company_name) || data.results?.[0]
-    console.log("fetchDealByAgentEmail results:", data.results?.length, raw?.properties?.agent_contact_name, raw?.properties?.agent_company_name)
+    console.log("fetchDealByAgentEmail all results:", data.results?.map((r: any) => ({
+      id: r.id,
+      agent_email: r.properties?.agent_email,
+      agent_company: r.properties?.agent_company_name,
+      agent_contact: r.properties?.agent_contact_name,
+    })))
     if (!raw) return null
     return mapDeal(raw)
   } catch { return null }
