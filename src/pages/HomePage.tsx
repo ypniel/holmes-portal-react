@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Users, FileText, CheckCircle, Clock, ArrowRight, GraduationCap, MapPin } from "lucide-react"
 import { PageContainer } from "../components/Layout"
 import { useAuth, isHolmesStaff } from "../lib/auth"
-import { fetchDeals, Deal, fetchMainAgentEmail } from "../lib/hubspot"
+import { fetchDeals, fetchDealsByIds, Deal, fetchMainAgentEmail } from "../lib/hubspot"
 import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
 import { StatCardSkeleton, ActivityRowSkeleton } from "../components/Skeleton"
 
@@ -94,6 +94,8 @@ export default function HomePage() {
     a.click()
   }
 
+const IS_DEMO = true // flip to false after boss demo
+
   const DEMO_IDS = new Set([
   "60381128785","60381128784","60380825611","60378197016","60377570929",
   "60377428743","60377260695","60370916106","60403561910","60403249337",
@@ -120,8 +122,10 @@ export default function HomePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const d = await fetchDeals(200)
-        let result = d.filter(deal => DEMO_IDS.has(deal.id))
+        const d = IS_DEMO
+          ? await fetchDealsByIds([...DEMO_IDS])
+          : await fetchDeals(5000)
+        let result = d
 
         if (user?.email && !isHolmesStaff(user.email)) {
           const mainEmail = await fetchMainAgentEmail(user.email)
