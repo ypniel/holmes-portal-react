@@ -288,17 +288,17 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
             filters: [
               { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID },
               { propertyName: "agent_email", operator: "EQ", value: email },
-              { propertyName: "agent_company_name", operator: "HAS_PROPERTY" },
-              { propertyName: "agent_company_name", operator: "NEQ", value: "" },
             ]
           }],
           properties: DEAL_PROPS,
-          limit: 1,
+          sorts: [{ propertyName: "hs_lastmodifieddate", direction: "DESCENDING" }],
+          limit: 10,
         })
       }
     )
-    console.log("fetchDealByAgentEmail results:", data.results?.length, data.results?.[0]?.properties?.agent_contact_name, data.results?.[0]?.properties?.agent_company_name)
-    const raw = data.results?.[0]
+    // Find first deal that has agent_company_name populated
+    const raw = data.results?.find((r: any) => r.properties?.agent_company_name) || data.results?.[0]
+    console.log("fetchDealByAgentEmail results:", data.results?.length, raw?.properties?.agent_contact_name, raw?.properties?.agent_company_name)
     if (!raw) return null
     return mapDeal(raw)
   } catch { return null }
@@ -404,7 +404,7 @@ function mapDeal(raw: any): Deal {
     agentCompany: g("agent_company_name", "name", "agent_company", "agency_name_import_use_only"),
     agentEmail: g("agent_email"),
     agentPhone: g("agent_mobile_number"),
-    agentContact: g("contact_person_name", "agent_contact_name"),
+    agentContact: g("agent_contact_name", "contact_person_name"),
     branchOffice: g("branch_office"),
     studentId: g("student_id"),
     jupiterId: g("jupiter_id"),
