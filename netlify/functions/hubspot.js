@@ -21,29 +21,6 @@ function makeRequest(options, body) {
   })
 }
 
-async function followRedirects(url, authToken, maxRedirects = 5) {
-  let currentUrl = new URL(url)
-  for (let i = 0; i < maxRedirects; i++) {
-    const headers = { "User-Agent": "Mozilla/5.0" }
-    if (authToken && (currentUrl.hostname.includes("hubspot") || currentUrl.hostname.includes("hubapi"))) {
-      headers["Authorization"] = `Bearer ${authToken}`
-    }
-    const options = {
-      hostname: currentUrl.hostname,
-      path: currentUrl.pathname + currentUrl.search,
-      method: "GET",
-      headers,
-    }
-    const result = await makeRequest(options)
-    if ((result.status === 301 || result.status === 302 || result.status === 307) && result.location) {
-      currentUrl = new URL(result.location)
-      continue
-    }
-    return result
-  }
-  throw new Error("Too many redirects")
-}
-
 exports.handler = async (event) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -58,82 +35,25 @@ exports.handler = async (event) => {
   const useCompanyToken = event.queryStringParameters?.useCompanyToken === "true"
   const fileId = event.queryStringParameters?.fileId || ""
 
-  // ── File download ────────────────────────────────────────────────────────────
+  // ── File download ─────────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
-      // Get file metadata first
       const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
         path: `/filemanager/api/v3/files/${fileId}`,
         method: "GET",
-        headers: {
-          "Authorization": `Bearer ${TOKEN}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
       })
-
       const meta = JSON.parse(metaResult.body.toString())
-      console.log("File meta:", JSON.stringify({
-        id: meta.id,
-        name: meta.name,
-        url: meta.url,
-        s3_url: meta.s3_url,
-        default_hosting_url: meta.default_hosting_url,
-        extension: meta.extension,
-        allows_anonymous_access: meta.allows_anonymous_access
-      }))
-
-      // Use proxy URL with auth as primary — it's the only one that works for private files
-      const proxyUrl = meta.url || ""
-      const s3Url = meta.s3_url || ""
-      const fileUrl = proxyUrl || s3Url || meta.default_hosting_url || ""
-      if (!fileUrl) {
-        return { statusCode: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No file URL available" }) }
-      }
-
-      // Clean filename
-      let filename = meta.name || `file-${fileId}`
-      const hashMatch = filename.match(/^[a-f0-9]{13}-(.+)$/)
-      if (hashMatch) filename = hashMatch[1]
-      filename = filename.replace(/_/g, " ")
-      const ext = (meta.extension || filename.split(".").pop() || "").toLowerCase()
-      if (ext && !filename.toLowerCase().endsWith(`.${ext}`)) filename = `${filename}.${ext}`
-
-      // Always use auth token — proxy URL requires it
-      const fileResult = await followRedirects(fileUrl, TOKEN)
-      console.log("File fetch status:", fileResult.status, "size:", fileResult.body.length, "url:", fileUrl)
-
-      console.log("File fetch status:", fileResult.status, "size:", fileResult.body.length)
-
-      if (fileResult.status !== 200) {
-        return { 
-          statusCode: fileResult.status, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }, 
-          body: JSON.stringify({ error: `File fetch failed with status ${fileResult.status}` }) 
-        }
-      }
-
-      const contentType = fileResult.headers["content-type"] || "application/octet-stream"
-      const viewable = ["pdf","jpg","jpeg","png","gif","webp","svg"].includes(ext)
-      const disposition = viewable ? `inline; filename="${filename}"` : `attachment; filename="${filename}"`
-
-      return {
-        statusCode: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": contentType,
-          "Content-Disposition": disposition,
-        },
-        body: fileResult.body.toString("base64"),
-        isBase64Encoded: true,
-      }
+      const proxyUrl = meta.url || meta.s3_url || meta.default_hosting_url || ""
+      if (!proxyUrl) return { statusCode: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No file URL" }) }
+      return { statusCode: 302, headers: { ...corsHeaders, "Location": proxyUrl }, body: "" }
     } catch (err) {
-      console.error("File download error:", err.message)
       return { statusCode: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: err.message }) }
     }
   }
 
-  // ── Standard HubSpot API proxy ────────────────────────────────────────────────
+  // ── Standard proxy ────────────────────────────────────────────────────────
   if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
 
   const token = useCompanyToken ? COMPANY_TOKEN : TOKEN
@@ -144,12 +64,23 @@ exports.handler = async (event) => {
 
     if (isPost && path.includes("/deals/search")) {
       const parsed = event.body ? JSON.parse(event.body) : {}
-      parsed.filterGroups = [{
-        filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
-      }]
+      
+      // If filterGroups already exists, add pipeline to each group
+      // If not, create a new filterGroups with just pipeline
+      if (parsed.filterGroups && parsed.filterGroups.length > 0) {
+        parsed.filterGroups = parsed.filterGroups.map((group) => ({
+          ...group,
+          filters: [
+            ...(group.filters || []),
+            { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }
+          ]
+        }))
+      } else {
+        parsed.filterGroups = [{
+          filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
+        }]
+      }
       bodyToSend = JSON.stringify(parsed)
-    } else if (isPost) {
-      bodyToSend = event.body || ""
     }
 
     const bodyBuf = Buffer.from(bodyToSend || "", "utf8")
