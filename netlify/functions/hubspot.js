@@ -33,6 +33,7 @@ exports.handler = async (event) => {
   const path = event.queryStringParameters?.path || ""
   const isDownload = event.queryStringParameters?.download === "true"
   const useCompanyToken = event.queryStringParameters?.useCompanyToken === "true"
+  const skipPipelineFilter = event.queryStringParameters?.skipPipeline === "true"
   const fileId = event.queryStringParameters?.fileId || ""
 
   // ── File download ─────────────────────────────────────────────────────────
@@ -62,25 +63,16 @@ exports.handler = async (event) => {
     const isPost = event.httpMethod === "POST"
     let bodyToSend = event.body || ""
 
-    if (isPost && path.includes("/deals/search")) {
+    if (isPost && path.includes("/deals/search") && !skipPipelineFilter) {
+      // For main deals fetch — replace filterGroups with pipeline filter
       const parsed = event.body ? JSON.parse(event.body) : {}
-      
-      // If filterGroups already exists, add pipeline to each group
-      // If not, create a new filterGroups with just pipeline
-      if (parsed.filterGroups && parsed.filterGroups.length > 0) {
-        parsed.filterGroups = parsed.filterGroups.map((group) => ({
-          ...group,
-          filters: [
-            ...(group.filters || []),
-            { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }
-          ]
-        }))
-      } else {
-        parsed.filterGroups = [{
-          filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
-        }]
-      }
+      parsed.filterGroups = [{
+        filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
+      }]
       bodyToSend = JSON.stringify(parsed)
+    } else if (isPost && path.includes("/deals/search") && skipPipelineFilter) {
+      // For agent lookup — keep existing filters, just pass through
+      bodyToSend = event.body || ""
     }
 
     const bodyBuf = Buffer.from(bodyToSend || "", "utf8")
