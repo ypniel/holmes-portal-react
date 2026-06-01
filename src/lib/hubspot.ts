@@ -279,7 +279,7 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
 export async function fetchDealByAgentEmail(email: string): Promise<Deal | null> {
   try {
     const data = await hsFetch(
-      `/crm/v3/objects/deals/search`,
+      `/crm/v3/objects/deals/search?skipPipeline=true`,
       {
         method: "POST",
         body: JSON.stringify({
@@ -295,8 +295,7 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
         })
       }
     )
-    // Find first deal that has BOTH agent_company_name AND agent_contact_name populated
-    const raw = data.results?.find((r: any) => 
+    const raw = data.results?.find((r: any) =>
       r.properties?.agent_company_name && r.properties?.agent_contact_name
     ) || data.results?.find((r: any) => r.properties?.agent_company_name) || data.results?.[0]
     if (!raw) return null
