@@ -150,7 +150,7 @@ export function Header() {
                 <div className="px-4 py-3 border-b border-stone-100">
                   <p className="text-sm font-semibold text-gray-800">{user?.fullName || user?.name}</p>
                   <p className="text-xs text-gray-500 truncate">{user?.companyName || user?.email}</p>
-                  <p className="text-xs text-gray-400 truncate">{user?.companyName ? user?.email : ""}</p>
+                  {user?.companyName && <p className="text-xs text-gray-400 truncate">{user?.email}</p>}
                 </div>
                 <button onClick={() => { navigate("/settings"); setProfileOpen(false) }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-stone-50 transition-colors"
