@@ -5,7 +5,7 @@ import {
   Search, ChevronDown, ChevronsUpDown, ChevronUp, Calendar, Download
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
-import { fetchDeals, Deal, fetchMainAgentEmail } from "../lib/hubspot"
+import { fetchDeals, fetchDealsByIds, Deal, fetchMainAgentEmail } from "../lib/hubspot"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
@@ -76,8 +76,10 @@ export default function ApplicationsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const d = await fetchDeals(200)
-        let result = IS_DEMO ? d.filter(deal => DEMO_IDS.has(deal.id)) : d
+        const d = IS_DEMO 
+          ? await fetchDealsByIds([...DEMO_IDS])
+          : await fetchDeals(5000)
+        let result = d
 
         if (user?.email && !isHolmesStaff(user.email)) {
           const mainEmail = await fetchMainAgentEmail(user.email)
