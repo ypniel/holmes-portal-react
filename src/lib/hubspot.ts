@@ -275,7 +275,28 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
   } catch { return null }
 }
 
-// ── Fast agent lookup for login ───────────────────────────────────────────────
+// ── Batch fetch deals by IDs (for demo mode) ─────────────────────────────────
+export async function fetchDealsByIds(ids: string[]): Promise<Deal[]> {
+  const results: Deal[] = []
+  // HubSpot batch read supports max 100 at a time
+  const chunks = []
+  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100))
+  for (const chunk of chunks) {
+    try {
+      const data = await hsFetch(`/crm/v3/objects/deals/batch/read`, {
+        method: "POST",
+        body: JSON.stringify({
+          inputs: chunk.map(id => ({ id })),
+          properties: DEAL_PROPS,
+        })
+      })
+      for (const raw of data.results || []) {
+        results.push(mapDeal(raw))
+      }
+    } catch {}
+  }
+  return results
+}
 export async function fetchDealByAgentEmail(email: string): Promise<Deal | null> {
   try {
     const data = await hsFetch(
