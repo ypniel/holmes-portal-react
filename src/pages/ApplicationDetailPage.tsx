@@ -19,7 +19,7 @@ export default function ApplicationDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
-  const DIRECT_STUDENT_EMAILS = ["yesyrpniel@gmail.com"]
+  const DIRECT_STUDENT_EMAILS = ["leticia.fernansilva@gmail.com"]
   const isDirectStudent = !!user && DIRECT_STUDENT_EMAILS.includes(user.email)
   const [deal, setDeal] = useState<Deal | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
