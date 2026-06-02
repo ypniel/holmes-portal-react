@@ -48,7 +48,10 @@ export function Header() {
 
   const handleNav = (path: string) => { navigate(path); setMobileOpen(false) }
   const DIRECT_STUDENT_EMAILS = ["leticia.fernansilva@gmail.com"]
-  const isDirect = !!user && DIRECT_STUDENT_EMAILS.includes(user.email)
+  const isDirect = !!user && (
+    DIRECT_STUDENT_EMAILS.includes(user.email) ||
+    user.companyName?.toLowerCase() === "direct student"
+  )
   const navItems = isDirect ? [] : NAV_ITEMS
 
   return (
