@@ -8,10 +8,6 @@ import { fetchDealByAgentEmail } from "../lib/hubspot"
 type Status = "idle" | "loading" | "success" | "not_found" | "error"
 
 // ── Demo direct students ──────────────────────────────────────────────────────
-const DEMO_DIRECT_STUDENTS: Record<string, string> = {
-  "leticia.fernansilva@gmail.com": "60630249283",
-}
-
 const MARKETERS = [
   { name: "Indra Adhikari",   title: "Victoria Representative",        email: "iadhikari@holmes.edu.au" },
   { name: "Dinesh Chetwani",  title: "Queensland Representative",       email: "dchetwani@holmes.edu.au" },
@@ -52,23 +48,25 @@ export default function LoginPage() {
       let fullName = name
       let companyName = isHolmesStaff(cleanEmail) ? "Holmes Institute Australia" : ""
 
-      if (!isHolmesStaff(cleanEmail) && !DEMO_DIRECT_STUDENTS[cleanEmail]) {
+      if (!isHolmesStaff(cleanEmail)) {
         try {
           const deal = await fetchDealByAgentEmail(cleanEmail)
           if (deal?.agentContact) { fullName = deal.agentContact; name = deal.agentContact.split(" ")[0] }
           if (deal?.agentCompany) companyName = deal.agentCompany
+
+          // Direct student — agent_company_name is "Direct Student"
+          if (deal?.agentCompany?.toLowerCase() === "direct student") {
+            login({ id: "demo", name, fullName, email: cleanEmail, companyName })
+            setStatus("success")
+            setTimeout(() => navigate(`/applications/${deal.id}`), 800)
+            return
+          }
         } catch {}
       }
 
       login({ id: "demo", name, fullName, email: cleanEmail, companyName })
       setStatus("success")
-
-      // Demo direct student — redirect straight to their application
-      if (DEMO_DIRECT_STUDENTS[cleanEmail]) {
-        setTimeout(() => navigate(`/applications/${DEMO_DIRECT_STUDENTS[cleanEmail]}`), 800)
-      } else {
-        setTimeout(() => navigate("/"), 800)
-      }
+      setTimeout(() => navigate("/"), 800)
     } catch {
       setStatus("error")
       setErrorMessage("Something went wrong. Please try again.")
