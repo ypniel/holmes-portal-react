@@ -64,9 +64,20 @@ exports.handler = async (event) => {
 
     if (isPost && path.includes("/deals/search")) {
       const parsed = event.body ? JSON.parse(event.body) : {}
-      parsed.filterGroups = [{
-        filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
-      }]
+      // Check if request already has agent_email filter — if so preserve it and just add pipeline
+      const hasAgentFilter = parsed.filterGroups?.[0]?.filters?.some(
+        (f) => f.propertyName === "agent_email"
+      )
+      if (hasAgentFilter) {
+        // Add pipeline to existing filters
+        parsed.filterGroups = parsed.filterGroups.map((group) => ({
+          ...group,
+          filters: [...group.filters, { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
+        }))
+      } else {
+        // Replace with pipeline only filter
+        parsed.filterGroups = [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }]
+      }
       bodyToSend = JSON.stringify(parsed)
     }
 
