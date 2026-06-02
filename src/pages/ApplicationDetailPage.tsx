@@ -220,7 +220,7 @@ export default function ApplicationDetailPage() {
               {activeTab === "student" && (
                 <div className="grid md:grid-cols-2 gap-x-8">
                   <DetailRow label="Student Name"     value={deal.studentName} />
-                  <DetailRow label="Nationality"      value={deal.nationality} />
+                  <DetailRow label="Country"          value={deal.nationality} />
                   <DetailRow label="Residency Status" value={deal.residencyStatus} />
                   <DetailRow label="Date of Birth"    value={formatDate(deal.dob)} />
                   <DetailRow label="Passport Number"  value={deal.passport} />
