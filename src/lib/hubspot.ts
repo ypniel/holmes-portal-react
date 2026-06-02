@@ -129,7 +129,7 @@ export const STAGE_COLORS: Record<string, string> = {
 }
 
 // ── Fetch Deals ───────────────────────────────────────────────────────────────
-export async function fetchDeals(limit = 5000): Promise<Deal[]> {
+export async function fetchDeals(): Promise<Deal[]> {
   const payload: any = {
     filterGroups: PIPELINE_ID ? [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }] : [],
     properties: DEAL_PROPS,
@@ -138,14 +138,14 @@ export async function fetchDeals(limit = 5000): Promise<Deal[]> {
   }
   const all: Deal[] = []
   let after: string | undefined
-  while (all.length < limit) {
+  while (true) {
     if (after) payload.after = after
     const data = await hsFetch("/crm/v3/objects/deals/search", { method: "POST", body: JSON.stringify(payload) })
     all.push(...data.results.map(mapDeal))
     after = data.paging?.next?.after
     if (!after) break
   }
-  return all.slice(0, limit)
+  return all
 }
 
 // ── Fetch Single Deal ─────────────────────────────────────────────────────────
