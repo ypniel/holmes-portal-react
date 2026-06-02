@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X } from "lucide-react"
+import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X, Eye, EyeOff, Lock } from "lucide-react"
 import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { fetchDealByAgentEmail } from "../lib/hubspot"
@@ -18,10 +18,14 @@ const MARKETERS = [
   { name: "Don Kauffman",     title: "New South Wales Representative",  email: "dkauffman@holmes.edu.au" },
 ]
 
+const DEMO_PASSWORD = "Holmes2026!"
+
 export default function LoginPage() {
   const navigate = useNavigate()
   const { user, login } = useAuth()
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState<Status>("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -37,6 +41,13 @@ export default function LoginPage() {
 
     try {
       const cleanEmail = email.trim().toLowerCase()
+
+      // Check password
+      if (password !== DEMO_PASSWORD) {
+        setStatus("error")
+        setErrorMessage("Incorrect password. Please try again.")
+        return
+      }
       let name = cleanEmail.split("@")[0]
       let fullName = name
       let companyName = isHolmesStaff(cleanEmail) ? "Holmes Institute Australia" : ""
@@ -64,7 +75,7 @@ export default function LoginPage() {
     }
   }
 
-  const reset = () => { setStatus("idle"); setEmail(""); setErrorMessage(null) }
+  const reset = () => { setStatus("idle"); setEmail(""); setPassword(""); setErrorMessage(null) }
   const primaryColor = "#991b1b"
 
   return (
@@ -162,16 +173,43 @@ export default function LoginPage() {
                     </div>
                   </div>
 
+                  <div className="space-y-1.5">
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-600">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        disabled={status === "loading"}
+                        placeholder="••••••••••••"
+                        autoComplete="current-password"
+                        className="w-full pl-10 pr-10 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 disabled:opacity-50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
                   <button
                     type="submit"
-                    disabled={status === "loading" || !email}
+                    disabled={status === "loading" || !email || !password}
                     className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-white text-sm font-medium disabled:opacity-50 transition-opacity"
                     style={{ background: `linear-gradient(135deg, ${primaryColor}, #7f1d1d)` }}
                   >
                     {status === "loading" ? (
                       <><Loader2 className="h-4 w-4 animate-spin" />Signing in…</>
                     ) : (
-                      <><span>Continue with Email</span><ArrowRight className="h-4 w-4" /></>
+                      <><span>Sign In</span><ArrowRight className="h-4 w-4" /></>
                     )}
                   </button>
                 </form>
