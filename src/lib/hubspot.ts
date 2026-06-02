@@ -330,7 +330,6 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
             filters: [
               { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID },
               { propertyName: "agent_email", operator: "EQ", value: email },
-              { propertyName: "agent_company_name", operator: "HAS_PROPERTY" },
             ]
           }],
           properties: DEAL_PROPS,
