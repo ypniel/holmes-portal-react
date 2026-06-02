@@ -60,7 +60,6 @@ export default function LoginPage() {
       if (!isHolmesStaff(cleanEmail)) {
         try {
           const deal = await fetchDealByAgentEmail(cleanEmail)
-          console.log("Deal found:", deal?.id, "company:", deal?.agentCompany, "ref:", directDealRef.current)
           if (deal) {
             // Set name from contact name, not company name
             if (deal.agentContact) { 
@@ -69,9 +68,10 @@ export default function LoginPage() {
             }
             if (deal.agentCompany) companyName = deal.agentCompany
 
-            // Direct student detection — redirect straight to their application
-            if (deal.agentCompany?.toLowerCase() === "direct student") {
+            // Direct student — agent_email matches their own email
+            if (deal.agentEmail?.toLowerCase() === cleanEmail) {
               directDealRef.current = deal.id
+              companyName = "Direct Student"
             }
           }
         } catch {}
