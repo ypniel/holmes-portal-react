@@ -37,7 +37,7 @@ const DEMO_IDS = new Set([
   "60388974629","60387728241","60387728240","60385868040","60385406372",
   "60380392369","60385885280","60370933828",
 ])
-const IS_DEMO = true // flip to false after boss demo
+const IS_DEMO = false // production mode — all pipeline deals
 
 const BASE_APP_URL = "https://share.hsforms.com/2SycknjhmRRasYVCAV33Vkwnrkx6"
 
@@ -78,7 +78,7 @@ export default function ApplicationsPage() {
       try {
         const d = IS_DEMO 
           ? await fetchDealsByIds([...DEMO_IDS])
-          : await fetchDeals(5000)
+          : await fetchDeals()
         let result = d
 
         if (user?.email && !isHolmesStaff(user.email)) {
