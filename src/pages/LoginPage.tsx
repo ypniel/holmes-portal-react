@@ -51,15 +51,21 @@ export default function LoginPage() {
       if (!isHolmesStaff(cleanEmail)) {
         try {
           const deal = await fetchDealByAgentEmail(cleanEmail)
-          if (deal?.agentContact) { fullName = deal.agentContact; name = deal.agentContact.split(" ")[0] }
-          if (deal?.agentCompany) companyName = deal.agentCompany
+          if (deal) {
+            // Set name from contact name, not company name
+            if (deal.agentContact) { 
+              fullName = deal.agentContact
+              name = deal.agentContact.split(" ")[0] 
+            }
+            if (deal.agentCompany) companyName = deal.agentCompany
 
-          // Direct student — agent_company_name is "Direct Student"
-          if (deal?.agentCompany?.toLowerCase() === "direct student") {
-            login({ id: "demo", name, fullName, email: cleanEmail, companyName })
-            setStatus("success")
-            setTimeout(() => navigate(`/applications/${deal.id}`), 800)
-            return
+            // Direct student detection — redirect straight to their application
+            if (deal.agentCompany?.toLowerCase() === "direct student") {
+              login({ id: "demo", name, fullName, email: cleanEmail, companyName })
+              setStatus("success")
+              setTimeout(() => navigate(`/applications/${deal.id}`), 800)
+              return
+            }
           }
         } catch {}
       }
