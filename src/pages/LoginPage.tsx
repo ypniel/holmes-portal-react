@@ -60,6 +60,7 @@ export default function LoginPage() {
       if (!isHolmesStaff(cleanEmail)) {
         try {
           const deal = await fetchDealByAgentEmail(cleanEmail)
+          console.log("Deal found:", deal?.id, "company:", deal?.agentCompany, "ref:", directDealRef.current)
           if (deal) {
             // Set name from contact name, not company name
             if (deal.agentContact) { 
