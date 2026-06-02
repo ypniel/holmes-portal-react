@@ -94,7 +94,7 @@ export default function HomePage() {
     a.click()
   }
 
-const IS_DEMO = true // flip to false after boss demo
+const IS_DEMO = false // production mode — all pipeline deals
 
   const DEMO_IDS = new Set([
   "60381128785","60381128784","60380825611","60378197016","60377570929",
@@ -124,7 +124,7 @@ const IS_DEMO = true // flip to false after boss demo
       try {
         const d = IS_DEMO
           ? await fetchDealsByIds([...DEMO_IDS])
-          : await fetchDeals(5000)
+          : await fetchDeals()
         let result = d
 
         if (user?.email && !isHolmesStaff(user.email)) {
