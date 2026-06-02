@@ -26,8 +26,17 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
 
+  const directDealRef = React.useRef<string | null>(null)
+
   useEffect(() => {
-    if (user) navigate("/")
+    if (user) {
+      if (directDealRef.current) {
+        navigate(`/applications/${directDealRef.current}`)
+        directDealRef.current = null
+      } else {
+        navigate("/")
+      }
+    }
   }, [user])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,10 +70,7 @@ export default function LoginPage() {
 
             // Direct student detection — redirect straight to their application
             if (deal.agentCompany?.toLowerCase() === "direct student") {
-              login({ id: "demo", name, fullName, email: cleanEmail, companyName })
-              setStatus("success")
-              setTimeout(() => navigate(`/applications/${deal.id}`), 800)
-              return
+              directDealRef.current = deal.id
             }
           }
         } catch {}
