@@ -68,8 +68,8 @@ export default function LoginPage() {
             }
             if (deal.agentCompany) companyName = deal.agentCompany
 
-            // Direct student — agent_email matches their own email
-            if (deal.agentEmail?.toLowerCase() === cleanEmail) {
+            // Direct student detection
+            if (deal.agentCompany?.toLowerCase() === "direct student") {
               directDealRef.current = deal.id
               companyName = "Direct Student"
             }
