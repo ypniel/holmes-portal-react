@@ -20,7 +20,10 @@ export default function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const DIRECT_STUDENT_EMAILS = ["leticia.fernansilva@gmail.com"]
-  const isDirectStudent = !!user && DIRECT_STUDENT_EMAILS.includes(user.email)
+  const isDirectStudent = !!user && (
+    DIRECT_STUDENT_EMAILS.includes(user.email) ||
+    user.companyName?.toLowerCase() === "direct student"
+  )
   const [deal, setDeal] = useState<Deal | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [owners, setOwners] = useState<Record<string, string>>({})
