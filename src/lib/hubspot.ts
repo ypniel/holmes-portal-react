@@ -297,10 +297,32 @@ export async function fetchDealsByIds(ids: string[]): Promise<Deal[]> {
   }
   return results
 }
+// ── Fetch agent profile from Contact record ───────────────────────────────────
+export async function fetchAgentProfile(email: string): Promise<{ name: string; company: string } | null> {
+  try {
+    const data = await hsFetch(`/crm/v3/objects/contacts/search`, {
+      method: "POST",
+      body: JSON.stringify({
+        filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: email }] }],
+        properties: ["firstname", "lastname", "company"],
+        limit: 1,
+      })
+    })
+    const contact = data.results?.[0]
+    if (!contact) return null
+    const first = contact.properties?.firstname || ""
+    const last = contact.properties?.lastname || ""
+    const name = `${first} ${last}`.trim()
+    const company = contact.properties?.company || ""
+    return name || company ? { name, company } : null
+  } catch { return null }
+}
+
+// ── Fast agent lookup for login ───────────────────────────────────────────────
 export async function fetchDealByAgentEmail(email: string): Promise<Deal | null> {
   try {
     const data = await hsFetch(
-      `/crm/v3/objects/deals/search?skipPipeline=true`,
+      `/crm/v3/objects/deals/search`,
       {
         method: "POST",
         body: JSON.stringify({
@@ -308,17 +330,16 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
             filters: [
               { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID },
               { propertyName: "agent_email", operator: "EQ", value: email },
+              { propertyName: "agent_company_name", operator: "HAS_PROPERTY" },
             ]
           }],
           properties: DEAL_PROPS,
           sorts: [{ propertyName: "hs_lastmodifieddate", direction: "DESCENDING" }],
-          limit: 10,
+          limit: 1,
         })
       }
     )
-    const raw = data.results?.find((r: any) =>
-      r.properties?.agent_company_name && r.properties?.agent_contact_name
-    ) || data.results?.find((r: any) => r.properties?.agent_company_name) || data.results?.[0]
+    const raw = data.results?.[0]
     if (!raw) return null
     return mapDeal(raw)
   } catch { return null }
