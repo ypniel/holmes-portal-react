@@ -151,7 +151,7 @@ const IS_DEMO = false // production mode — all pipeline deals
     waiting: deals.filter(d => d.responseStatus.toLowerCase().includes("waiting")).length,
   }), [deals])
 
-  const recent = deals.slice(0, 5)
+  const recent = [...deals].sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()).slice(0, 5)
 
   const STATUS_DISP: Record<string, [string, string]> = {
     "New Application Received":   ["Assessment In Progress", "#1d4ed8"],
