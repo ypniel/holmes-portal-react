@@ -1,19 +1,14 @@
 const https = require("https")
 
-const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
-const FILES_TOKEN = process.env.HUBSPOT_FILES_TOKEN || TOKEN
-const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
+const FILES_TOKEN = process.env.HUBSPOT_FILES_TOKEN || process.env.HUBSPOT_TOKEN
+const CRM_TOKEN = process.env.HUBSPOT_TOKEN
 
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        resolve({ status: 302, location: res.headers.location, body: Buffer.alloc(0), headers: res.headers })
-        return
-      }
       const chunks = []
       res.on("data", chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
-      res.on("end", () => resolve({ status: res.statusCode, body: Buffer.concat(chunks), headers: res.headers }))
+      res.on("end", () => resolve({ status: res.statusCode, body: Buffer.concat(chunks) }))
     })
     req.on("error", reject)
     if (body) req.write(body)
@@ -24,82 +19,86 @@ function makeRequest(options, body) {
 exports.handler = async (event) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-File-Name, X-Deal-Id",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
   }
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
-
-  const path = event.queryStringParameters?.path || ""
-  const isDownload = event.queryStringParameters?.download === "true"
-  const fileId = event.queryStringParameters?.fileId || ""
-
-  // ── File download ─────────────────────────────────────────────────────────
-  if (isDownload && fileId) {
-    try {
-      const filesToken = FILES_TOKEN
-      const metaResult = await makeRequest({
-        hostname: "api.hubapi.com",
-        path: `/filemanager/api/v3/files/${fileId}`,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${filesToken}`, "Content-Type": "application/json" },
-      })
-      const meta = JSON.parse(metaResult.body.toString())
-      const proxyUrl = meta.url || meta.s3_url || meta.default_hosting_url || ""
-      if (!proxyUrl) return { statusCode: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No file URL" }) }
-      return { statusCode: 302, headers: { ...corsHeaders, "Location": proxyUrl }, body: "" }
-    } catch (err) {
-      return { statusCode: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: err.message }) }
-    }
-  }
-
-  // ── Standard proxy ────────────────────────────────────────────────────────
-  if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
-
-  const token = TOKEN
+  if (event.httpMethod !== "POST") return { statusCode: 405, headers: corsHeaders, body: "Method not allowed" }
 
   try {
-    const isPost = event.httpMethod === "POST"
-    let bodyToSend = event.body || ""
+    const dealId = event.queryStringParameters?.dealId || ""
+    const rawFileName = event.headers?.["x-file-name"] || "upload"
+    const fileName = decodeURIComponent(rawFileName)
+    const contentType = event.headers?.["content-type"] || "application/octet-stream"
 
-    if (isPost && path.includes("/deals/search")) {
-      const parsed = event.body ? JSON.parse(event.body) : {}
-      // Check if request already has agent_email filter — if so preserve it and just add pipeline
-      const hasAgentFilter = parsed.filterGroups?.[0]?.filters?.some(
-        (f) => f.propertyName === "agent_email"
-      )
-      if (hasAgentFilter) {
-        // Add pipeline to existing filters
-        parsed.filterGroups = parsed.filterGroups.map((group) => ({
-          ...group,
-          filters: [...group.filters, { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
-        }))
-      } else {
-        // Replace with pipeline only filter
-        parsed.filterGroups = [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }]
-      }
-      bodyToSend = JSON.stringify(parsed)
-    }
+    if (!dealId) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No dealId" }) }
 
-    const bodyBuf = Buffer.from(bodyToSend || "", "utf8")
-    const options = {
+    console.log("FILES_TOKEN starts with:", FILES_TOKEN?.substring(0, 15))
+    console.log("CRM_TOKEN starts with:", CRM_TOKEN?.substring(0, 15))
+    const fileBuffer = Buffer.from(event.body, "base64")
+    const boundary = `----FormBoundary${Date.now()}`
+    const CRLF = "\r\n"
+
+    const preamble = Buffer.from(
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="folderPath"${CRLF}${CRLF}/portal-uploads${CRLF}` +
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="options"${CRLF}Content-Type: application/json${CRLF}${CRLF}{"access":"PUBLIC_INDEXABLE","overwrite":false,"duplicateValidationStrategy":"NONE"}${CRLF}` +
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="file"; filename="${fileName}"${CRLF}Content-Type: ${contentType}${CRLF}${CRLF}`
+    )
+    const epilogue = Buffer.from(`${CRLF}--${boundary}--${CRLF}`)
+    const body = Buffer.concat([preamble, fileBuffer, epilogue])
+
+    // Step 1 — Upload file to HubSpot
+    const uploadResult = await makeRequest({
       hostname: "api.hubapi.com",
-      path: path,
-      method: isPost ? "POST" : "GET",
+      path: "/filemanager/api/v3/files/upload",
+      method: "POST",
       headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "Content-Length": bodyBuf.length,
+        "Authorization": `Bearer ${FILES_TOKEN}`,
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        "Content-Length": body.length,
       },
+    }, body)
+
+    console.log("Upload status:", uploadResult.status, uploadResult.body.toString().substring(0, 200))
+
+    if (uploadResult.status !== 200 && uploadResult.status !== 201) {
+      return { statusCode: uploadResult.status, headers: corsHeaders, body: uploadResult.body.toString() }
     }
 
-    const result = await makeRequest(options, bodyBuf.length > 0 ? bodyToSend : undefined)
+    const fileData = JSON.parse(uploadResult.body.toString())
+    const fileId = fileData.id
+    const fileUrl = fileData.url || fileData.default_hosting_url || ""
+
+    // Step 2 — Create engagement (legacy API) with file attachment
+    const engagementBody = JSON.stringify({
+      engagement: { active: true, type: "NOTE", timestamp: Date.now() },
+      associations: { dealIds: [parseInt(dealId)] },
+      attachments: [{ id: parseInt(fileId) }],
+      metadata: { body: `📎 File uploaded via portal: <a href="${fileUrl}">${fileName}</a>` }
+    })
+
+    const engResult = await makeRequest({
+      hostname: "api.hubapi.com",
+      path: "/engagements/v1/engagements",
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${CRM_TOKEN}`,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(engagementBody),
+      },
+    }, engagementBody)
+
+    console.log("Engagement status:", engResult.status, engResult.body.toString().substring(0, 200))
+
     return {
-      statusCode: result.status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      body: result.body.toString(),
+      statusCode: 200,
+      headers: corsHeaders,
+      body: JSON.stringify({ success: true, fileId, fileName })
     }
   } catch (err) {
-    return { statusCode: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: err.message }) }
+    console.error("Upload error:", err.message)
+    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
   }
 }
