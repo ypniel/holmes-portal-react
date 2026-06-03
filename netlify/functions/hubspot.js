@@ -1,7 +1,8 @@
 const https = require("https")
 
 const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
-const COMPANY_TOKEN = process.env.HUBSPOT_PERSONAL_ACCESS_KEY || TOKEN
+const FILES_TOKEN = process.env.HUBSPOT_FILES_TOKEN || TOKEN
+const COMPANY_TOKEN = FILES_TOKEN
 const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
 
 function makeRequest(options, body) {
@@ -38,11 +39,12 @@ exports.handler = async (event) => {
   // ── File download ─────────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
+      const filesToken = FILES_TOKEN
       const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
         path: `/filemanager/api/v3/files/${fileId}`,
         method: "GET",
-        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+        headers: { "Authorization": `Bearer ${filesToken}`, "Content-Type": "application/json" },
       })
       const meta = JSON.parse(metaResult.body.toString())
       const proxyUrl = meta.url || meta.s3_url || meta.default_hosting_url || ""
