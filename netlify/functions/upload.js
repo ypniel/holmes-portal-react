@@ -74,14 +74,14 @@ exports.handler = async (event) => {
     console.log("File data:", JSON.stringify(fileData).substring(0, 300))
     const fileObj = fileData.objects?.[0] || fileData
     const fileId = fileObj.id
-    // Build public CDN URL directly — don't attach to engagement (causes record-attachments move)
+    // Build public CDN URL directly
     const cdnUrl = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${dealId}/${encodeURIComponent(fileName)}`
 
-    // Step 2 — Create engagement note with CDN link (no attachment ID)
+    // Step 2 — Create engagement note with CDN link AND attachment ID
     const engagementBody = JSON.stringify({
       engagement: { active: true, type: "NOTE", timestamp: Date.now() },
       associations: { dealIds: [parseInt(dealId)] },
-      attachments: [],
+      attachments: [{ id: parseInt(fileId) }],
       metadata: { body: `📎 File uploaded via portal: <a href="${cdnUrl}">${fileName}</a>` }
     })
 
