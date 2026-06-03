@@ -427,16 +427,24 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
       }
 
       // Method 2 — parse file URL from metadata body HTML
-      // Matches: <a href="URL">filename.pdf</a>
-      const linkMatches = body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)
+      const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
       for (const match of linkMatches) {
-        const url = match[1]
+        const hrefUrl = match[1]
         let name = match[2].trim()
-        // Clean up hash prefix from name
         name = name.replace(/^[a-f0-9]{13}-/, "")
         name = name.replace(/_/g, " ")
-        if (url && name && !files.find(f => f.name === name)) {
-          files.push({ name, id: url, url, createdAt: eng.engagement?.createdAt })
+        if (!name || files.find(f => f.name === name)) continue
+
+        // Extract file ID from signed URL and fetch public URL
+        const fileIdMatch = hrefUrl.match(/\/files\/(\d+)\//)
+        if (fileIdMatch) {
+          try {
+            const fileData = await hsFetch(`/filemanager/api/v3/files/${fileIdMatch[1]}`)
+            const publicUrl = fileData.url || fileData.default_hosting_url || fileData.s3_url || hrefUrl
+            files.push({ name, id: fileIdMatch[1], url: publicUrl, createdAt: eng.engagement?.createdAt })
+          } catch {
+            files.push({ name, id: hrefUrl, url: hrefUrl, createdAt: eng.engagement?.createdAt })
+          }
         }
       }
     }
