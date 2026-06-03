@@ -237,21 +237,18 @@ export async function fetchMainAgentEmail(subAgentEmail: string): Promise<string
 
 export async function fetchDealCompany(dealId: string): Promise<Company | null> {
   try {
-    // Try v4 associations API first — use company token for permissions
-    const assoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/companies`, {}, true)
+    const assoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/companies`)
     let companyIds: string[] = (assoc.results || []).slice(0, 1).map((a: any) => String(a.toObjectId || a.id))
 
-    // Fallback: try v3
     if (!companyIds.length) {
-      const assocV3 = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/companies`, {}, true)
+      const assocV3 = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/companies`)
       const v3Ids = (assocV3.results || []).slice(0, 1).map((a: any) => String(a.id))
       if (!v3Ids.length) return null
       companyIds.push(...v3Ids)
     }
 
     const data = await hsFetch(
-      `/crm/v3/objects/companies/${companyIds[0]}?properties=name,contact_person_name,agency_name_import_use_only,agent_city,agentcountry,agent_email,agent_mobile_no,phone,email,city,country,address,website`,
-      {}, true
+      `/crm/v3/objects/companies/${companyIds[0]}?properties=name,contact_person_name,agency_name_import_use_only,agent_city,agentcountry,agent_email,agent_mobile_no,phone,email,city,country,address,website`
     )
     const p = data.properties || {}
     const g = (...keys: string[]) => {
