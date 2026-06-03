@@ -48,9 +48,10 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  // Pre-fill search from URL param (e.g. from header search)
+  // Pre-fill search from URL param (e.g. from header search) — update when URL changes
   const urlSearch = new URLSearchParams(location.search).get("search") || ""
   const [search, setSearch] = useState(urlSearch)
+  useEffect(() => { setSearch(urlSearch) }, [urlSearch])
   const [statusFilter, setStatusFilter]     = useState("all")
   const [campusFilter, setCampusFilter]     = useState("all")
   const [responseFilter, setResponseFilter] = useState("all")
