@@ -1,6 +1,7 @@
 const https = require("https")
 
-const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+const FILES_TOKEN = process.env.HUBSPOT_FILES_TOKEN || process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+const CRM_TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
 
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
@@ -71,7 +72,7 @@ exports.handler = async (event) => {
       path: "/filemanager/api/v3/files/upload",
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${TOKEN}`,
+        "Authorization": `Bearer ${FILES_TOKEN}`,
         "Content-Type": `multipart/form-data; boundary=${boundary}`,
         "Content-Length": body.length,
       },
@@ -92,7 +93,7 @@ exports.handler = async (event) => {
       path: "/crm/v3/objects/notes",
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${TOKEN}`,
+        "Authorization": `Bearer ${CRM_TOKEN}`,
         "Content-Type": "application/json",
       },
     }, JSON.stringify({
@@ -116,7 +117,7 @@ exports.handler = async (event) => {
         path: "/engagements/v1/engagements",
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${TOKEN}`,
+          "Authorization": `Bearer ${CRM_TOKEN}`,
           "Content-Type": "application/json",
         },
       }, JSON.stringify({
