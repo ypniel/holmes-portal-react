@@ -1,14 +1,14 @@
 const https = require("https")
 
-const FILES_TOKEN = process.env.HUBSPOT_FILES_TOKEN || process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
-const CRM_TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+const FILES_TOKEN = process.env.HUBSPOT_FILES_TOKEN || process.env.HUBSPOT_TOKEN
+const CRM_TOKEN = process.env.HUBSPOT_TOKEN
 
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
       const chunks = []
       res.on("data", chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
-      res.on("end", () => resolve({ status: res.statusCode, body: Buffer.concat(chunks), headers: res.headers }))
+      res.on("end", () => resolve({ status: res.statusCode, body: Buffer.concat(chunks) }))
     })
     req.on("error", reject)
     if (body) req.write(body)
@@ -29,44 +29,25 @@ exports.handler = async (event) => {
 
   try {
     const dealId = event.queryStringParameters?.dealId || ""
-    const fileName = event.headers?.["x-file-name"] || "upload"
+    const rawFileName = event.headers?.["x-file-name"] || "upload"
+    const fileName = decodeURIComponent(rawFileName)
     const contentType = event.headers?.["content-type"] || "application/octet-stream"
 
     if (!dealId) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No dealId" }) }
 
-    // Decode base64 file body
     const fileBuffer = Buffer.from(event.body, "base64")
-
-    // Build multipart form data for HubSpot Files API
     const boundary = `----FormBoundary${Date.now()}`
     const CRLF = "\r\n"
 
-    const parts = []
-    // folderPath field
-    parts.push(
-      `--${boundary}${CRLF}` +
-      `Content-Disposition: form-data; name="folderPath"${CRLF}${CRLF}` +
-      `/portal-uploads${CRLF}`
+    const preamble = Buffer.from(
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="folderPath"${CRLF}${CRLF}/portal-uploads${CRLF}` +
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="options"${CRLF}Content-Type: application/json${CRLF}${CRLF}{"access":"PRIVATE","overwrite":false,"duplicateValidationStrategy":"NONE"}${CRLF}` +
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="file"; filename="${fileName}"${CRLF}Content-Type: ${contentType}${CRLF}${CRLF}`
     )
-    // options field
-    parts.push(
-      `--${boundary}${CRLF}` +
-      `Content-Disposition: form-data; name="options"${CRLF}` +
-      `Content-Type: application/json${CRLF}${CRLF}` +
-      `{"access": "PRIVATE", "overwrite": false, "duplicateValidationStrategy": "NONE"}${CRLF}`
-    )
-    // file field
-    const fileHeader = Buffer.from(
-      `--${boundary}${CRLF}` +
-      `Content-Disposition: form-data; name="file"; filename="${fileName}"${CRLF}` +
-      `Content-Type: ${contentType}${CRLF}${CRLF}`
-    )
-    const fileFooter = Buffer.from(`${CRLF}--${boundary}--${CRLF}`)
+    const epilogue = Buffer.from(`${CRLF}--${boundary}--${CRLF}`)
+    const body = Buffer.concat([preamble, fileBuffer, epilogue])
 
-    const partsBuffer = Buffer.from(parts.join(""))
-    const body = Buffer.concat([partsBuffer, fileHeader, fileBuffer, fileFooter])
-
-    // Step 1 — Upload file to HubSpot Files API
+    // Step 1 — Upload file to HubSpot
     const uploadResult = await makeRequest({
       hostname: "api.hubapi.com",
       path: "/filemanager/api/v3/files/upload",
@@ -78,55 +59,36 @@ exports.handler = async (event) => {
       },
     }, body)
 
+    console.log("Upload status:", uploadResult.status, uploadResult.body.toString().substring(0, 200))
+
     if (uploadResult.status !== 200 && uploadResult.status !== 201) {
-      const errBody = uploadResult.body.toString()
-      console.error("File upload error:", uploadResult.status, errBody)
-      return { statusCode: uploadResult.status, headers: corsHeaders, body: JSON.stringify({ error: errBody }) }
+      return { statusCode: uploadResult.status, headers: corsHeaders, body: uploadResult.body.toString() }
     }
 
     const fileData = JSON.parse(uploadResult.body.toString())
     const fileId = fileData.id
+    const fileUrl = fileData.url || fileData.default_hosting_url || ""
 
-    // Step 2 — Create a note on the deal with the file attached
-    const noteResult = await makeRequest({
+    // Step 2 — Create engagement (legacy API) with file attachment
+    const engagementBody = JSON.stringify({
+      engagement: { active: true, type: "NOTE", timestamp: Date.now() },
+      associations: { dealIds: [parseInt(dealId)] },
+      attachments: [{ id: parseInt(fileId) }],
+      metadata: { body: `📎 File uploaded via portal: <a href="${fileUrl}">${fileName}</a>` }
+    })
+
+    const engResult = await makeRequest({
       hostname: "api.hubapi.com",
-      path: "/crm/v3/objects/notes",
+      path: "/engagements/v1/engagements",
       method: "POST",
       headers: {
         "Authorization": `Bearer ${CRM_TOKEN}`,
         "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(engagementBody),
       },
-    }, JSON.stringify({
-      properties: {
-        hs_note_body: `📎 File uploaded: ${fileName}`,
-        hs_timestamp: new Date().toISOString(),
-      },
-      associations: [{
-        to: { id: dealId },
-        types: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 214 }]
-      }]
-    }))
+    }, engagementBody)
 
-    const noteData = JSON.parse(noteResult.body.toString())
-    const noteId = noteData.id
-
-    // Step 3 — Associate file attachment with the note via engagements
-    if (noteId && fileId) {
-      await makeRequest({
-        hostname: "api.hubapi.com",
-        path: "/engagements/v1/engagements",
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${CRM_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      }, JSON.stringify({
-        engagement: { active: true, type: "NOTE" },
-        associations: { dealIds: [parseInt(dealId)] },
-        attachments: [{ id: fileId }],
-        metadata: { body: `📎 File uploaded: ${fileName}` }
-      }))
-    }
+    console.log("Engagement status:", engResult.status, engResult.body.toString().substring(0, 200))
 
     return {
       statusCode: 200,
