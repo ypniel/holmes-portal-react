@@ -35,6 +35,8 @@ exports.handler = async (event) => {
 
     if (!dealId) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No dealId" }) }
 
+    console.log("FILES_TOKEN starts with:", FILES_TOKEN?.substring(0, 15))
+    console.log("CRM_TOKEN starts with:", CRM_TOKEN?.substring(0, 15))
     const fileBuffer = Buffer.from(event.body, "base64")
     const boundary = `----FormBoundary${Date.now()}`
     const CRLF = "\r\n"
