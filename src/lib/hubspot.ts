@@ -408,25 +408,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
     for (const eng of data.results || []) {
       const body = eng.metadata?.body || ""
       
-      // Method 1 — attachment with valid ID
-      for (const att of eng.attachments || []) {
-        if (!att.id || att.id === 0) continue
-        try {
-          const fileData = await hsFetch(`/filemanager/api/v3/files/${att.id}`)
-          let name = fileData.name || att.name || "Document"
-          name = name.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/, "")
-          name = name.replace(/^file_upload_\d+-/, "")
-          name = name.replace(/-[a-f0-9]{6}$/, "")
-          name = name.replace(/_/g, " ")
-          const url = fileData.default_hosting_url || fileData.s3_url || fileData.url || 
-            `/.netlify/functions/hubspot?download=true&fileId=${att.id}`
-          files.push({ name, id: String(att.id), url, createdAt: eng.engagement?.createdAt })
-        } catch {
-          files.push({ name: "Document", id: String(att.id), url: "", createdAt: eng.engagement?.createdAt })
-        }
-      }
-
-      // Method 2 — parse file URL from metadata body HTML
+      // Method 1 — parse CDN URL from metadata body first (most reliable)
       const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
       for (const match of linkMatches) {
         const hrefUrl = match[1]
@@ -435,11 +417,18 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         name = name.replace(/_/g, " ")
         if (!name) continue
 
-        // Extract file ID from signed URL and fetch public URL
+        // If it's already a CDN URL — use it directly
+        if (hrefUrl.includes("hubspotusercontent")) {
+          if (!files.find(f => f.name === name)) {
+            files.push({ name, id: hrefUrl, url: hrefUrl, createdAt: eng.engagement?.createdAt })
+          }
+          continue
+        }
+
+        // Otherwise extract file ID and fetch public URL
         const fileIdMatch = hrefUrl.match(/\/files\/(\d+)\//)
         if (fileIdMatch) {
           const fileId = fileIdMatch[1]
-          // Skip if already added via attachment
           if (files.find(f => f.id === fileId)) continue
           try {
             const fileData = await hsFetch(`/filemanager/api/v3/files/${fileId}`)
@@ -448,6 +437,27 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
           } catch {
             files.push({ name, id: fileId, url: hrefUrl, createdAt: eng.engagement?.createdAt })
           }
+        }
+      }
+
+      // Method 2 — attachment with valid ID (fallback for files without body links)
+      for (const att of eng.attachments || []) {
+        if (!att.id || att.id === 0) continue
+        const attId = String(att.id)
+        // Skip if already added via body link
+        if (files.find(f => f.id === attId)) continue
+        try {
+          const fileData = await hsFetch(`/filemanager/api/v3/files/${attId}`)
+          let name = fileData.name || "Document"
+          name = name.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/, "")
+          name = name.replace(/^file_upload_\d+-/, "")
+          name = name.replace(/-[a-f0-9]{6}$/, "")
+          name = name.replace(/_/g, " ")
+          const url = fileData.default_hosting_url || fileData.s3_url || fileData.url ||
+            `/.netlify/functions/hubspot?download=true&fileId=${attId}`
+          files.push({ name, id: attId, url, createdAt: eng.engagement?.createdAt })
+        } catch {
+          files.push({ name: "Document", id: attId, url: "", createdAt: eng.engagement?.createdAt })
         }
       }
     }
