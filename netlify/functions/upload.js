@@ -68,8 +68,11 @@ exports.handler = async (event) => {
     }
 
     const fileData = JSON.parse(uploadResult.body.toString())
-    const fileId = fileData.id
-    const fileUrl = fileData.url || fileData.default_hosting_url || ""
+    console.log("File data:", JSON.stringify(fileData).substring(0, 300))
+    // HubSpot returns objects array for file uploads
+    const fileObj = fileData.objects?.[0] || fileData
+    const fileId = fileObj.id
+    const fileUrl = fileObj.url || fileObj.default_hosting_url || ""
 
     // Step 2 — Create engagement (legacy API) with file attachment
     const engagementBody = JSON.stringify({
