@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useLocation } from "react-router-dom"
 import {
   ArrowLeft, FileText, GraduationCap, User, Building2,
   MessageSquare, Send, Paperclip, Dot, Download, ExternalLink
@@ -30,7 +30,14 @@ export default function ApplicationDetailPage() {
   const [files, setFiles] = useState<FileItem[]>([])
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<Tab>("course")
+  const location = useLocation()
+  const urlTab = (new URLSearchParams(location.search).get("tab") as Tab) || "course"
+  const [activeTab, setActiveTab] = useState<Tab>(urlTab)
+
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab)
+    navigate(`?tab=${tab}`, { replace: true })
+  }
   const [comment, setComment] = useState("")
   const [sending, setSending] = useState(false)
 
@@ -50,7 +57,8 @@ export default function ApplicationDetailPage() {
   const handlePostComment = async () => {
     if (!comment.trim() || !id) return
     setSending(true)
-    const ok = await createNote(id, comment.trim())
+    const authorName = user?.companyName || user?.fullName || user?.email || "Agent"
+    const ok = await createNote(id, comment.trim(), authorName)
     if (ok) {
       setComment("")
       const updated = await fetchNotes(id)
@@ -176,7 +184,7 @@ export default function ApplicationDetailPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                     activeTab === tab.id ? "bg-red-50 text-red-700" : "text-gray-600 hover:bg-stone-50"
                   }`}
@@ -259,29 +267,24 @@ export default function ApplicationDetailPage() {
                         <p className="text-xs text-gray-400 mt-1">Send a message below to start the conversation</p>
                       </div>
                     ) : notes.map(note => {
-                      let body = note.body
-                      let author = owners[note.ownerId] || "HubSpot User"
-                      const isPortal = body.startsWith("[Portal Comment —")
-                      if (isPortal) {
-                        try {
-                          author = body.split("—")[1].split("]")[0].trim()
-                          body = body.split("]\n\n")[1] || body
-                        } catch {}
-                      }
+                      const isEmail = note.type === "email"
+                      const isHolmes = note.author === "Holmes Admissions" || (!isEmail && !note.author)
+                      const author = note.author || (isHolmes ? "Holmes Admissions" : owners[note.ownerId] || "Holmes Admissions")
                       const authorInitials = initials(author)
                       return (
                         <div key={note.id} className="flex gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${isPortal ? "bg-red-100 text-red-700" : "bg-stone-100 text-stone-600"}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${isEmail ? "bg-red-100 text-red-700" : "bg-stone-100 text-stone-600"}`}>
                             {authorInitials}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-sm font-semibold text-gray-800">{author}</span>
                               <span className="text-xs text-gray-400">{formatDateTime(note.createdAt)}</span>
-                              {isPortal && <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium">Portal</span>}
+                              {isEmail && <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium">Portal</span>}
+                              {!isEmail && <span className="text-xs bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded font-medium">Internal</span>}
                             </div>
                             <div className="bg-stone-50 rounded-xl rounded-tl-none px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border border-stone-100">
-                              {body}
+                              {note.body}
                             </div>
                           </div>
                         </div>
@@ -322,7 +325,7 @@ export default function ApplicationDetailPage() {
                   {/* Upload area */}
                   <DocumentUploader dealId={deal.id} onUploaded={() => {
                     fetchFiles(deal.id).then(setFiles)
-                  }} />
+                  }} onOptimisticFile={(f) => setFiles(prev => [f, ...prev])} />
 
                   <div className="mt-4">
                     {files.length === 0 ? (
@@ -471,7 +474,11 @@ function RotatingProTip() {
   )
 }
 
-function DocumentUploader({ dealId, onUploaded }: { dealId: string; onUploaded: () => void }) {
+function DocumentUploader({ dealId, onUploaded, onOptimisticFile }: { 
+  dealId: string
+  onUploaded: () => void
+  onOptimisticFile: (file: FileItem) => void
+}) {
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadMsg, setUploadMsg] = useState<string | null>(null)
@@ -493,6 +500,9 @@ function DocumentUploader({ dealId, onUploaded }: { dealId: string; onUploaded: 
           body: file,
         })
         if (!res.ok) throw new Error("Upload failed")
+        // Optimistically add file to list immediately
+        const cdnUrl = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${dealId}/${encodeURIComponent(file.name)}`
+        onOptimisticFile({ name: file.name, id: cdnUrl, url: cdnUrl, createdAt: Date.now() })
       }
       setUploadMsg(`✅ ${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully`)
       onUploaded()
