@@ -37,7 +37,10 @@ exports.handler = async (event) => {
 
     console.log("FILES_TOKEN starts with:", FILES_TOKEN?.substring(0, 15))
     console.log("CRM_TOKEN starts with:", CRM_TOKEN?.substring(0, 15))
-    const fileBuffer = Buffer.from(event.body, "base64")
+    // Decode base64 file — Netlify sends binary as base64
+    const fileBuffer = event.isBase64Encoded 
+      ? Buffer.from(event.body, "base64")
+      : Buffer.from(event.body || "", "utf8")
     const boundary = `----FormBoundary${Date.now()}`
     const CRLF = "\r\n"
 
@@ -72,7 +75,7 @@ exports.handler = async (event) => {
     const fileObj = fileData.objects?.[0] || fileData
     const fileId = fileObj.id
     // Build public CDN URL directly — don't attach to engagement (causes record-attachments move)
-    const cdnUrl = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${dealId}/${fileName}`
+    const cdnUrl = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${dealId}/${encodeURIComponent(fileName)}`
 
     // Step 2 — Create engagement note with CDN link (no attachment ID)
     const engagementBody = JSON.stringify({
