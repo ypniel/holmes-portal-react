@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Users, FileText, CheckCircle, Clock, ArrowRight, GraduationCap, MapPin } from "lucide-react"
 import { PageContainer } from "../components/Layout"
 import { useAuth, isHolmesStaff } from "../lib/auth"
-import { fetchDeals, fetchDealsByIds, Deal, fetchMainAgentEmail } from "../lib/hubspot"
+import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail } from "../lib/hubspot"
 import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
 import { StatCardSkeleton, ActivityRowSkeleton } from "../components/Skeleton"
 
@@ -122,27 +122,22 @@ const IS_DEMO = false // production mode — all pipeline deals
   useEffect(() => {
     const load = async () => {
       try {
-        const d = IS_DEMO
-          ? await fetchDealsByIds([...DEMO_IDS])
-          : await fetchDeals()
-        let result = d
-
         if (user?.email && !isHolmesStaff(user.email)) {
-          const mainEmail = await fetchMainAgentEmail(user.email)
-          if (mainEmail) {
-            // Sub-agent — sees parent company deals AND their own
-            result = result.filter(deal =>
-              deal.agentEmail?.toLowerCase() === mainEmail.toLowerCase() ||
-              deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
-            )
+          // Agent — fetch deals by company association
+          const companyId = sessionStorage.getItem("holmes_company_id")
+          if (companyId) {
+            const d = await fetchDealsByCompanyId(companyId)
+            setDeals(d)
           } else {
-            // Main agent — sees only their own deals
-            result = result.filter(deal =>
-              deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
-            )
+            setDeals([])
           }
+        } else {
+          // Holmes staff — fetch all deals
+          const d = IS_DEMO
+            ? await fetchDealsByIds([...DEMO_IDS])
+            : await fetchDeals()
+          setDeals(d)
         }
-        setDeals(result)
       } catch {}
       finally { setLoading(false) }
     }
