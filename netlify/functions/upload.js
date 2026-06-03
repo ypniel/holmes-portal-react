@@ -98,6 +98,19 @@ exports.handler = async (event) => {
 
     console.log("Engagement status:", engResult.status, engResult.body.toString().substring(0, 200))
 
+    // Step 3 — Attach file directly to deal record via CRM v3
+    const attachBody = JSON.stringify({ id: String(fileId) })
+    await makeRequest({
+      hostname: "api.hubapi.com",
+      path: `/crm/v3/objects/deals/${dealId}/associations/FILE/${fileId}/FILE_TO_DEAL`,
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${CRM_TOKEN}`,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(attachBody),
+      },
+    }, attachBody)
+
     return {
       statusCode: 200,
       headers: corsHeaders,
