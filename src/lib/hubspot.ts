@@ -404,33 +404,44 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
     const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
     const files: FileItem[] = []
+    
     for (const eng of data.results || []) {
+      const body = eng.metadata?.body || ""
+      
+      // Method 1 — attachment with valid ID
       for (const att of eng.attachments || []) {
+        if (!att.id || att.id === 0) continue
         try {
           const fileData = await hsFetch(`/filemanager/api/v3/files/${att.id}`)
           let name = fileData.name || att.name || "Document"
-          // HubSpot filename format: {uuid}-file_upload_N-{original_name}-{short_hash}
-          // e.g. "59392650-d9e0-4219-81f1-ccf0c0ae6a09-file_upload_1-IMG_0568-e64761"
-          // Strip leading UUID (8-4-4-4-12 format)
           name = name.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/, "")
-          // Strip file_upload_N- prefix added by HubSpot forms
           name = name.replace(/^file_upload_\d+-/, "")
-          // Strip trailing short hash (6 hex chars)
           name = name.replace(/-[a-f0-9]{6}$/, "")
-          // Replace underscores with spaces
           name = name.replace(/_/g, " ")
-          // Use our Netlify streaming download endpoint
-          const url = `/.netlify/functions/hubspot?download=true&fileId=${att.id}`
-          files.push({ name, id: att.id, url, createdAt: eng.engagement?.createdAt })
+          const url = fileData.url || fileData.default_hosting_url || fileData.s3_url || 
+            `/.netlify/functions/hubspot?download=true&fileId=${att.id}`
+          files.push({ name, id: String(att.id), url, createdAt: eng.engagement?.createdAt })
         } catch {
-          files.push({
-            name: att.name && att.name !== "null" ? att.name : "Document",
-            id: att.id, url: "", createdAt: eng.engagement?.createdAt,
-          })
+          files.push({ name: "Document", id: String(att.id), url: "", createdAt: eng.engagement?.createdAt })
+        }
+      }
+
+      // Method 2 — parse file URL from metadata body HTML
+      // Matches: <a href="URL">filename.pdf</a>
+      const linkMatches = body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)
+      for (const match of linkMatches) {
+        const url = match[1]
+        let name = match[2].trim()
+        // Clean up hash prefix from name
+        name = name.replace(/^[a-f0-9]{13}-/, "")
+        name = name.replace(/_/g, " ")
+        if (url && name && !files.find(f => f.name === name)) {
+          files.push({ name, id: url, url, createdAt: eng.engagement?.createdAt })
         }
       }
     }
-    return files
+    
+    return files.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
   } catch { return [] }
 }
 
