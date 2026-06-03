@@ -158,7 +158,7 @@ export async function fetchDeal(id: string): Promise<Deal> {
 export async function fetchNotes(dealId: string): Promise<Note[]> {
   const allNotes: Note[] = []
 
-  // Method 1 — CRM Notes API (new notes created via portal)
+  // Method 1 — CRM Notes API (internal notes)
   try {
     const assoc = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/notes`)
     const noteIds: string[] = (assoc.results || []).slice(0, 50).map((a: any) => a.id)
@@ -171,31 +171,53 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
         })
       )
       notes.filter(Boolean).forEach((n: any) => {
-        allNotes.push({
-          id: n.id,
-          body: (n.properties.hs_note_body || "").replace(/<br>/g, "\n"),
-          createdAt: n.properties.hs_createdate,
-          ownerId: n.properties.hubspot_owner_id,
-        })
+        const body = (n.properties.hs_note_body || "").replace(/<br>/g, "\n").replace(/<[^>]*>/g, "")
+        if (!body.includes("File uploaded")) {
+          allNotes.push({
+            id: n.id,
+            body,
+            createdAt: n.properties.hs_createdate,
+            ownerId: n.properties.hubspot_owner_id,
+            type: "note",
+          })
+        }
       })
     }
   } catch {}
 
-  // Method 2 — Legacy Engagements API (notes added directly in HubSpot)
+  // Method 2 — Legacy Engagements API (emails + notes from HubSpot/portal)
   try {
-    const eng = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
+    const eng = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100`)
     for (const e of eng.results || []) {
-      if (e.engagement?.type === "NOTE" && e.metadata?.body) {
-        const id = String(e.engagement.id)
-        if (!allNotes.find(n => n.id === id)) {
-          allNotes.push({
-            id,
-            body: e.metadata.body.replace(/<br>/g, "\n").replace(/<[^>]*>/g, ""),
-            createdAt: new Date(e.engagement.createdAt).toISOString(),
-            ownerId: String(e.engagement.ownerId || ""),
-          })
-        }
+      const type = e.engagement?.type
+      if (type !== "NOTE" && type !== "EMAIL") continue
+      const id = String(e.engagement.id)
+      if (allNotes.find(n => n.id === id)) continue
+
+      let body = ""
+      let author = ""
+
+      if (type === "EMAIL") {
+        body = e.metadata?.body || e.metadata?.html || ""
+        body = body.replace(/<[^>]*>/g, "").trim()
+        const from = e.metadata?.from
+        author = from?.firstName ? `${from.firstName}` : ""
+        if (!body || body.includes("File uploaded")) continue
+      } else {
+        body = (e.metadata?.body || "").replace(/<br>/g, "\n").replace(/<[^>]*>/g, "").trim()
+        if (!body || body.includes("File uploaded")) continue
+        // Label HubSpot internal notes as Holmes Admissions
+        author = "Holmes Admissions"
       }
+
+      allNotes.push({
+        id,
+        body,
+        createdAt: new Date(e.engagement.createdAt).toISOString(),
+        ownerId: String(e.engagement.ownerId || ""),
+        author: author || undefined,
+        type: type === "EMAIL" ? "email" : "note",
+      })
     }
   } catch {}
 
@@ -203,15 +225,29 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
 }
 
 // ── Create Note ───────────────────────────────────────────────────────────────
-export async function createNote(dealId: string, body: string): Promise<boolean> {
+export async function createNote(dealId: string, body: string, authorName?: string): Promise<boolean> {
   try {
-    const note = await hsFetch("/crm/v3/objects/notes", {
-      method: "POST",
-      body: JSON.stringify({ properties: { hs_note_body: body, hs_timestamp: new Date().toISOString() } }),
+    // Create email engagement for agent comms
+    const engBody = JSON.stringify({
+      engagement: { active: true, type: "EMAIL", timestamp: Date.now() },
+      associations: { dealIds: [parseInt(dealId)] },
+      attachments: [],
+      metadata: {
+        from: { email: "portal@holmes.edu.au", firstName: authorName || "Agent" },
+        to: [{ email: "admissions@holmes.edu.au" }],
+        subject: "Portal Message",
+        body: body,
+        html: body,
+      }
     })
-    await hsFetch("/crm/v3/associations/notes/deals/batch/create", {
+    await hsFetch("/engagements/v1/engagements", {
       method: "POST",
-      body: JSON.stringify({ inputs: [{ from: { id: note.id }, to: { id: dealId }, type: "note_to_deal" }] }),
+      body: engBody,
+    })
+    // Update response_status to Waiting_on_Agent
+    await hsFetch(`/crm/v3/objects/deals/${dealId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ properties: { response_status: "Holmes_Received" } }),
     })
     return true
   } catch { return false }
@@ -552,7 +588,7 @@ export interface Deal {
   agentPhone: string; agentContact: string; branchOffice: string
   studentId: string; jupiterId: string; dealId: string
 }
-export interface Note { id: string; body: string; createdAt: string; ownerId: string }
+export interface Note { id: string; body: string; createdAt: string; ownerId: string; author?: string; type?: "note" | "email" }
 export interface FileItem { name: string; id: string; url?: string; createdAt?: number }
 export interface Company {
   id: string; name: string; contactPerson: string; phone: string; email: string
