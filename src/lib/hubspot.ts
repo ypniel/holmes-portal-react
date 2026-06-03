@@ -418,7 +418,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
           name = name.replace(/^file_upload_\d+-/, "")
           name = name.replace(/-[a-f0-9]{6}$/, "")
           name = name.replace(/_/g, " ")
-          const url = fileData.url || fileData.default_hosting_url || fileData.s3_url || 
+          const url = fileData.default_hosting_url || fileData.s3_url || fileData.url || 
             `/.netlify/functions/hubspot?download=true&fileId=${att.id}`
           files.push({ name, id: String(att.id), url, createdAt: eng.engagement?.createdAt })
         } catch {
@@ -433,17 +433,20 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         let name = match[2].trim()
         name = name.replace(/^[a-f0-9]{13}-/, "")
         name = name.replace(/_/g, " ")
-        if (!name || files.find(f => f.name === name)) continue
+        if (!name) continue
 
         // Extract file ID from signed URL and fetch public URL
         const fileIdMatch = hrefUrl.match(/\/files\/(\d+)\//)
         if (fileIdMatch) {
+          const fileId = fileIdMatch[1]
+          // Skip if already added via attachment
+          if (files.find(f => f.id === fileId)) continue
           try {
-            const fileData = await hsFetch(`/filemanager/api/v3/files/${fileIdMatch[1]}`)
-            const publicUrl = fileData.url || fileData.default_hosting_url || fileData.s3_url || hrefUrl
-            files.push({ name, id: fileIdMatch[1], url: publicUrl, createdAt: eng.engagement?.createdAt })
+            const fileData = await hsFetch(`/filemanager/api/v3/files/${fileId}`)
+            const publicUrl = fileData.default_hosting_url || fileData.s3_url || fileData.url || hrefUrl
+            files.push({ name, id: fileId, url: publicUrl, createdAt: eng.engagement?.createdAt })
           } catch {
-            files.push({ name, id: hrefUrl, url: hrefUrl, createdAt: eng.engagement?.createdAt })
+            files.push({ name, id: fileId, url: hrefUrl, createdAt: eng.engagement?.createdAt })
           }
         }
       }
