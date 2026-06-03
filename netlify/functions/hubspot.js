@@ -25,7 +25,7 @@ exports.handler = async (event) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
   }
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
@@ -58,9 +58,11 @@ exports.handler = async (event) => {
 
   // Use FILES_TOKEN for filemanager requests, CRM TOKEN for everything else
   const token = path.includes("/filemanager/") ? (process.env.HUBSPOT_FILES_TOKEN || TOKEN) : TOKEN
+  console.log("Path:", path, "Using FILES_TOKEN:", path.includes("/filemanager/"), "Token starts:", token?.substring(0, 15))
 
   try {
     const isPost = event.httpMethod === "POST"
+    const isPatch = event.httpMethod === "PATCH"
     let bodyToSend = event.body || ""
 
     if (isPost && path.includes("/deals/search")) {
@@ -86,7 +88,7 @@ exports.handler = async (event) => {
     const options = {
       hostname: "api.hubapi.com",
       path: path,
-      method: isPost ? "POST" : "GET",
+      method: isPatch ? "PATCH" : isPost ? "POST" : "GET",
       headers: {
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json",
