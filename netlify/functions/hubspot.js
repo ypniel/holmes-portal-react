@@ -2,7 +2,6 @@ const https = require("https")
 
 const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
 const FILES_TOKEN = process.env.HUBSPOT_FILES_TOKEN || TOKEN
-const COMPANY_TOKEN = FILES_TOKEN
 const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
 
 function makeRequest(options, body) {
@@ -33,7 +32,6 @@ exports.handler = async (event) => {
 
   const path = event.queryStringParameters?.path || ""
   const isDownload = event.queryStringParameters?.download === "true"
-  const useCompanyToken = event.queryStringParameters?.useCompanyToken === "true"
   const fileId = event.queryStringParameters?.fileId || ""
 
   // ── File download ─────────────────────────────────────────────────────────
@@ -58,7 +56,7 @@ exports.handler = async (event) => {
   // ── Standard proxy ────────────────────────────────────────────────────────
   if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
 
-  const token = useCompanyToken ? COMPANY_TOKEN : TOKEN
+  const token = TOKEN
 
   try {
     const isPost = event.httpMethod === "POST"
