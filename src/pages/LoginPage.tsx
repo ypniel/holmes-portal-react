@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X, Eye, EyeOff, Lock } from "lucide-react"
 import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
 import { useAuth, isHolmesStaff } from "../lib/auth"
-import { fetchDealByAgentEmail } from "../lib/hubspot"
+import { fetchAgentByEmail } from "../lib/hubspot"
 
 type Status = "idle" | "loading" | "success" | "not_found" | "error"
 
@@ -59,20 +59,12 @@ export default function LoginPage() {
 
       if (!isHolmesStaff(cleanEmail)) {
         try {
-          const deal = await fetchDealByAgentEmail(cleanEmail)
-          if (deal) {
-            // Set name from contact name, not company name
-            if (deal.agentContact) { 
-              fullName = deal.agentContact
-              name = deal.agentContact.split(" ")[0] 
-            }
-            if (deal.agentCompany) companyName = deal.agentCompany
-
-            // Direct student detection
-            if (deal.agentCompany?.toLowerCase() === "direct student") {
-              directDealRef.current = deal.id
-              companyName = "Direct Student"
-            }
+          const agent = await fetchAgentByEmail(cleanEmail)
+          if (agent) {
+            if (agent.contactName) { fullName = agent.contactName; name = agent.contactName.split(" ")[0] }
+            if (agent.companyName) companyName = agent.companyName
+            // Store companyId for deal filtering
+            if (agent.companyId) sessionStorage.setItem("holmes_company_id", agent.companyId)
           }
         } catch {}
       }
