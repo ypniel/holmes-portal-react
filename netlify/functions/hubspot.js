@@ -56,7 +56,8 @@ exports.handler = async (event) => {
   // ── Standard proxy ────────────────────────────────────────────────────────
   if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
 
-  const token = TOKEN
+  // Use FILES_TOKEN for filemanager requests, CRM TOKEN for everything else
+  const token = path.includes("/filemanager/") ? (process.env.HUBSPOT_FILES_TOKEN || TOKEN) : TOKEN
 
   try {
     const isPost = event.httpMethod === "POST"
