@@ -236,11 +236,12 @@ export default function ApplicationDetailPage() {
               {/* ── Agent ── */}
               {activeTab === "agent" && (
                 <div className="grid md:grid-cols-2 gap-x-8">
-                  <DetailRow label="Agent Company"  value={deal.agentCompany} />
-                  <DetailRow label="Contact Person" value={deal.agentContact} />
-                  <DetailRow label="Email"          value={deal.agentEmail} />
-                  <DetailRow label="Mobile"         value={deal.agentPhone} />
-                  <DetailRow label="Branch Office"  value={deal.branchOffice} />
+                  <DetailRow label="Agent Company"  value={company?.name || deal.agentCompany} />
+                  <DetailRow label="Contact Person" value={company?.contactPerson || deal.agentContact} />
+                  <DetailRow label="Email"          value={company?.email || deal.agentEmail} />
+                  <DetailRow label="Mobile"         value={company?.phone || deal.agentPhone} />
+                  <DetailRow label="City"           value={company?.city} />
+                  <DetailRow label="Country"        value={company?.country} />
                 </div>
               )}
 
