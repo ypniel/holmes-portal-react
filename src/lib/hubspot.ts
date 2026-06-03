@@ -201,6 +201,7 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
         body = e.metadata?.body || e.metadata?.html || ""
         body = body.replace(/<[^>]*>/g, "").trim()
         const from = e.metadata?.from
+        console.log("EMAIL from:", JSON.stringify(from))
         author = from?.firstName ? `${from.firstName}` : ""
         if (!body || body.includes("File uploaded")) continue
       } else {
