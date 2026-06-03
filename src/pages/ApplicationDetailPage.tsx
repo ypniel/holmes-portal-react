@@ -483,17 +483,6 @@ function DocumentUploader({ dealId, onUploaded }: { dealId: string; onUploaded: 
     setUploadMsg(null)
     try {
       for (const file of Array.from(files)) {
-        // Read file as base64
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            const result = reader.result as string
-            resolve(result.split(",")[1]) // strip data:...;base64, prefix
-          }
-          reader.onerror = reject
-          reader.readAsDataURL(file)
-        })
-
         const res = await fetch(`/.netlify/functions/upload?dealId=${dealId}`, {
           method: "POST",
           headers: {
@@ -501,7 +490,7 @@ function DocumentUploader({ dealId, onUploaded }: { dealId: string; onUploaded: 
             "X-File-Name": encodeURIComponent(file.name),
             "X-Deal-Id": dealId,
           },
-          body: base64,
+          body: file,
         })
         if (!res.ok) throw new Error("Upload failed")
       }
