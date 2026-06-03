@@ -156,22 +156,50 @@ export async function fetchDeal(id: string): Promise<Deal> {
 
 // ── Fetch Notes ───────────────────────────────────────────────────────────────
 export async function fetchNotes(dealId: string): Promise<Note[]> {
-  const assoc = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/notes`)
-  const noteIds: string[] = (assoc.results || []).slice(0, 20).map((a: any) => a.id)
-  if (!noteIds.length) return []
-  const notes = await Promise.all(
-    noteIds.map(async (nid) => {
-      try {
-        return await hsFetch(`/crm/v3/objects/notes/${nid}?properties=hs_note_body,hs_createdate,hubspot_owner_id`)
-      } catch { return null }
-    })
-  )
-  return notes.filter(Boolean).map((n: any) => ({
-    id: n.id,
-    body: (n.properties.hs_note_body || "").replace(/<br>/g, "\n"),
-    createdAt: n.properties.hs_createdate,
-    ownerId: n.properties.hubspot_owner_id,
-  })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const allNotes: Note[] = []
+
+  // Method 1 — CRM Notes API (new notes created via portal)
+  try {
+    const assoc = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/notes`)
+    const noteIds: string[] = (assoc.results || []).slice(0, 50).map((a: any) => a.id)
+    if (noteIds.length) {
+      const notes = await Promise.all(
+        noteIds.map(async (nid) => {
+          try {
+            return await hsFetch(`/crm/v3/objects/notes/${nid}?properties=hs_note_body,hs_createdate,hubspot_owner_id`)
+          } catch { return null }
+        })
+      )
+      notes.filter(Boolean).forEach((n: any) => {
+        allNotes.push({
+          id: n.id,
+          body: (n.properties.hs_note_body || "").replace(/<br>/g, "\n"),
+          createdAt: n.properties.hs_createdate,
+          ownerId: n.properties.hubspot_owner_id,
+        })
+      })
+    }
+  } catch {}
+
+  // Method 2 — Legacy Engagements API (notes added directly in HubSpot)
+  try {
+    const eng = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
+    for (const e of eng.results || []) {
+      if (e.engagement?.type === "NOTE" && e.metadata?.body) {
+        const id = String(e.engagement.id)
+        if (!allNotes.find(n => n.id === id)) {
+          allNotes.push({
+            id,
+            body: e.metadata.body.replace(/<br>/g, "\n").replace(/<[^>]*>/g, ""),
+            createdAt: new Date(e.engagement.createdAt).toISOString(),
+            ownerId: String(e.engagement.ownerId || ""),
+          })
+        }
+      }
+    }
+  } catch {}
+
+  return allNotes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 
 // ── Create Note ───────────────────────────────────────────────────────────────
