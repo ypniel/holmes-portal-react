@@ -297,25 +297,57 @@ export async function fetchDealsByIds(ids: string[]): Promise<Deal[]> {
   }
   return results
 }
-// ── Fetch agent profile from Contact record ───────────────────────────────────
-export async function fetchAgentProfile(email: string): Promise<{ name: string; company: string } | null> {
+// ── Fetch agent profile via Company association ───────────────────────────────
+// 1. Search contacts by email
+// 2. Get associated company
+// 3. Return company agent_email, name etc
+export async function fetchAgentByEmail(email: string): Promise<{ 
+  agentEmail: string
+  companyName: string
+  contactName: string
+  companyId: string 
+} | null> {
   try {
-    const data = await hsFetch(`/crm/v3/objects/contacts/search`, {
+    // Step 1 — find contact by email
+    const contactRes = await hsFetch(`/crm/v3/objects/contacts/search`, {
       method: "POST",
       body: JSON.stringify({
         filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: email }] }],
-        properties: ["firstname", "lastname", "company"],
+        properties: ["email", "firstname", "lastname"],
         limit: 1,
       })
     })
-    const contact = data.results?.[0]
+    const contact = contactRes.results?.[0]
     if (!contact) return null
-    const first = contact.properties?.firstname || ""
-    const last = contact.properties?.lastname || ""
-    const name = `${first} ${last}`.trim()
-    const company = contact.properties?.company || ""
-    return name || company ? { name, company } : null
+
+    // Step 2 — get associated company
+    const assocRes = await hsFetch(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)
+    const companyId = assocRes.results?.[0]?.toObjectId
+    if (!companyId) return null
+
+    // Step 3 — get company details
+    const company = await hsFetch(
+      `/crm/v3/objects/companies/${companyId}?properties=name,agent_email,contact_person_name`
+    )
+    return {
+      agentEmail: company.properties?.agent_email || email,
+      companyName: company.properties?.name || "",
+      contactName: company.properties?.contact_person_name || 
+        `${contact.properties?.firstname || ""} ${contact.properties?.lastname || ""}`.trim(),
+      companyId: String(companyId),
+    }
   } catch { return null }
+}
+
+// ── Fetch all deals for a company ─────────────────────────────────────────────
+export async function fetchDealsByCompanyId(companyId: string): Promise<Deal[]> {
+  try {
+    // Get deal IDs associated with this company
+    const assocRes = await hsFetch(`/crm/v4/objects/companies/${companyId}/associations/deals`)
+    const dealIds = (assocRes.results || []).map((r: any) => String(r.toObjectId))
+    if (!dealIds.length) return []
+    return await fetchDealsByIds(dealIds)
+  } catch { return [] }
 }
 
 // ── Fast agent lookup for login ───────────────────────────────────────────────
