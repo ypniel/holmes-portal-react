@@ -5,7 +5,7 @@ import {
   Search, ChevronDown, ChevronsUpDown, ChevronUp, Calendar, Download
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
-import { fetchDeals, fetchDealsByIds, Deal, fetchMainAgentEmail } from "../lib/hubspot"
+import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail } from "../lib/hubspot"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
@@ -76,27 +76,23 @@ export default function ApplicationsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const d = IS_DEMO 
-          ? await fetchDealsByIds([...DEMO_IDS])
-          : await fetchDeals()
-        let result = d
-
         if (user?.email && !isHolmesStaff(user.email)) {
-          const mainEmail = await fetchMainAgentEmail(user.email)
-          if (mainEmail) {
-            // Sub-agent — sees parent company deals AND their own
-            result = result.filter(deal =>
-              deal.agentEmail?.toLowerCase() === mainEmail.toLowerCase() ||
-              deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
-            )
+          // Agent — fetch deals by company association
+          const companyId = sessionStorage.getItem("holmes_company_id")
+          if (companyId) {
+            const d = await fetchDealsByCompanyId(companyId)
+            setDeals(d)
           } else {
-            // Main agent — sees only their own deals
-            result = result.filter(deal =>
-              deal.agentEmail?.toLowerCase() === user.email.toLowerCase()
-            )
+            // Fallback — fetch all and show empty (company ID not set)
+            setDeals([])
           }
+        } else {
+          // Holmes staff — fetch all deals
+          const d = IS_DEMO 
+            ? await fetchDealsByIds([...DEMO_IDS])
+            : await fetchDeals()
+          setDeals(d)
         }
-        setDeals(result)
       } catch { setError(true) }
       finally { setLoading(false) }
     }
