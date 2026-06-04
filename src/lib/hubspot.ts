@@ -171,7 +171,15 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
         })
       )
       notes.filter(Boolean).forEach((n: any) => {
-        const body = (n.properties.hs_note_body || "").replace(/<br>/g, "\n").replace(/<[^>]*>/g, "")
+        const body = (n.properties.hs_note_body || "")
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/p>/gi, "\n")
+          .replace(/<b>(.*?)<\/b>/gi, "$1")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&nbsp;/g, " ")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim()
         if (!body.includes("File uploaded")) {
           allNotes.push({
             id: n.id,
@@ -203,9 +211,18 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
         author = "Agent"
         if (!body || body.includes("File uploaded")) continue
       } else {
-        body = (e.metadata?.body || "").replace(/<br>/g, "\n").replace(/<[^>]*>/g, "").trim()
+        body = (e.metadata?.body || "")
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/p>/gi, "\n")
+          .replace(/<b>(.*?)<\/b>/gi, "$1")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&nbsp;/g, " ")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim()
         if (!body || body.includes("File uploaded")) continue
-        // Label HubSpot internal notes as Holmes Admissions
         author = "Holmes Admissions"
       }
 
@@ -224,9 +241,11 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
 }
 
 // ── Create Note ───────────────────────────────────────────────────────────────
-export async function createNote(dealId: string, body: string, authorName?: string): Promise<boolean> {
+export async function createNote(dealId: string, body: string, authorName?: string, studentName?: string, passport?: string): Promise<boolean> {
   try {
-    // Create email engagement for agent comms
+    const subject = studentName
+      ? `Re: ${studentName}${passport ? ` (${passport})` : ""} — Holmes Portal`
+      : "Portal Message"
     const engBody = JSON.stringify({
       engagement: { active: true, type: "EMAIL", timestamp: Date.now() },
       associations: { dealIds: [parseInt(dealId)] },
@@ -234,7 +253,7 @@ export async function createNote(dealId: string, body: string, authorName?: stri
       metadata: {
         from: { email: "portal@holmes.edu.au", firstName: authorName || "Agent" },
         to: [{ email: "admissions@holmes.edu.au" }],
-        subject: "Portal Message",
+        subject,
         body: body,
         html: body,
       }
@@ -243,11 +262,12 @@ export async function createNote(dealId: string, body: string, authorName?: stri
       method: "POST",
       body: engBody,
     })
-    // Update response_status to Waiting_on_Agent
-    await hsFetch(`/crm/v3/objects/deals/${dealId}`, {
+    // Update response_status to Holmes_Received
+    const patchResult = await hsFetch(`/crm/v3/objects/deals/${dealId}`, {
       method: "PATCH",
       body: JSON.stringify({ properties: { response_status: "Holmes_Received" } }),
     })
+    console.log("PATCH response_status result:", JSON.stringify(patchResult))
     return true
   } catch { return false }
 }
