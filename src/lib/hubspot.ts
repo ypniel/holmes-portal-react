@@ -207,7 +207,15 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
 
       if (type === "EMAIL") {
         body = e.metadata?.body || e.metadata?.html || ""
-        body = body.replace(/<[^>]*>/g, "").trim()
+        body = body
+          .replace(/<img[^>]*>/gi, "")
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/p>/gi, "\n")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&amp;/g, "&")
+          .replace(/&nbsp;/g, " ")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim()
         author = "Agent"
         if (!body || body.includes("File uploaded")) continue
       } else {
@@ -397,18 +405,21 @@ export async function fetchAgentByEmail(email: string): Promise<{
         limit: 1,
       })
     })
+    console.log("Step 1 contact:", JSON.stringify(contactRes.results?.[0]?.id))
     const contact = contactRes.results?.[0]
-    if (!contact) return null
+    if (!contact) { console.log("No contact found for", email); return null }
 
     // Step 2 — get associated company
     const assocRes = await hsFetch(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)
+    console.log("Step 2 associations:", JSON.stringify(assocRes.results))
     const companyId = assocRes.results?.[0]?.toObjectId
-    if (!companyId) return null
+    if (!companyId) { console.log("No company associated for contact", contact.id); return null }
 
     // Step 3 — get company details
     const company = await hsFetch(
       `/crm/v3/objects/companies/${companyId}?properties=name,agent_email,contact_person_name`
     )
+    console.log("Step 3 company:", company.properties?.name, companyId)
     return {
       agentEmail: company.properties?.agent_email || email,
       companyName: company.properties?.name || "",
@@ -416,7 +427,7 @@ export async function fetchAgentByEmail(email: string): Promise<{
         `${contact.properties?.firstname || ""} ${contact.properties?.lastname || ""}`.trim(),
       companyId: String(companyId),
     }
-  } catch { return null }
+  } catch (e) { console.log("fetchAgentByEmail error:", e); return null }
 }
 
 // ── Fetch all deals for a company ─────────────────────────────────────────────
