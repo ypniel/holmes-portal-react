@@ -138,7 +138,7 @@ export default function ApplicationDetailPage() {
                   {deal.stageLabel}
                 </span>
                 {deal.responseStatus && (
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                  <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold border backdrop-blur ${
                     deal.responseStatus.toLowerCase().includes("holmes")
                       ? "bg-red-500/30 border-red-300/40 text-red-100"
                       : "bg-emerald-500/20 border-emerald-300/30 text-emerald-200"
