@@ -517,7 +517,16 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
       }
     }
     
-    return files.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    // Final dedup — remove any duplicates by URL or name
+    const seen = new Set<string>()
+    const deduped = files.filter(f => {
+      const key = f.url || f.name
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
+    return deduped.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
   } catch { return [] }
 }
 
