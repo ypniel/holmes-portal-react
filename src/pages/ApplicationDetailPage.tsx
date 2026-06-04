@@ -58,7 +58,7 @@ export default function ApplicationDetailPage() {
     if (!comment.trim() || !id) return
     setSending(true)
     const authorName = user?.companyName || user?.fullName || user?.email || "Agent"
-    const ok = await createNote(id, comment.trim(), authorName)
+    const ok = await createNote(id, comment.trim(), authorName, deal?.studentName, deal?.passport)
     if (ok) {
       setComment("")
       const updated = await fetchNotes(id)
@@ -131,12 +131,21 @@ export default function ApplicationDetailPage() {
                   </div>
                 </div>
               </div>
-              {/* Stage badge */}
-              <div className="mb-4">
+              {/* Stage badge + Response Status */}
+              <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-2 bg-white/15 backdrop-blur border border-white/25 text-white px-4 py-1.5 rounded-full text-sm font-semibold">
                   <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                   {deal.stageLabel}
                 </span>
+                {deal.responseStatus && (
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                    deal.responseStatus.toLowerCase().includes("holmes")
+                      ? "bg-red-500/30 border-red-300/40 text-red-100"
+                      : "bg-emerald-500/20 border-emerald-300/30 text-emerald-200"
+                  }`}>
+                    {deal.responseStatus}
+                  </span>
+                )}
               </div>
               {/* ID pills */}
               <div className="flex flex-wrap gap-2">
