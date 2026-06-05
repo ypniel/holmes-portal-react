@@ -87,7 +87,7 @@ export default function StudentLoginPage() {
           />
           <div className="hidden sm:flex flex-col leading-tight">
             <span className="text-white text-sm font-bold leading-none">Holmes Institute Australia</span>
-            <span className="text-red-200 text-xs leading-none mt-0.5">Student Portal</span>
+            <span className="text-red-200 text-xs leading-none mt-0.5">Admissions Direct Student Portal</span>
           </div>
         </div>
       </div>
