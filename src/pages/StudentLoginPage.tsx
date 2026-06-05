@@ -100,8 +100,8 @@ export default function StudentLoginPage() {
               <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <GraduationCap className="h-7 w-7 text-red-700" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-800"> Direct Student Portal</h2>
-              <p className="mt-1 text-sm text-gray-500">Manage your Holmes application</p>
+              <h2 className="text-2xl font-bold text-gray-800">Student Portal</h2>
+              <p className="mt-1 text-sm text-gray-500">Track your Holmes application</p>
             </div>
 
             {/* Error */}
@@ -171,10 +171,21 @@ export default function StudentLoginPage() {
             </form>
 
             {/* Back to agent portal */}
-            <div className="mt-6 pt-5 border-t border-stone-100 text-center">
+            <div className="mt-6 pt-5 border-t border-stone-100 space-y-3">
+              <a
+                href="https://share.hsforms.com/2nrqky_hbSQu2wZj0XxTnVgnrkx6"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl border-2 border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-colors"
+              >
+                <div className="text-center">
+                  <p className="text-sm font-bold text-red-700">New student? Apply here</p>
+                  <p className="text-xs text-red-500 mt-0.5">Submit your direct student application</p>
+                </div>
+              </a>
               <button
                 onClick={() => navigate("/login")}
-                className="text-xs text-gray-400 hover:text-red-600 transition-colors"
+                className="w-full text-xs text-gray-400 hover:text-red-600 transition-colors"
               >
                 Are you an agent? Sign in here →
               </button>
