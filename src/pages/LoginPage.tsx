@@ -63,18 +63,34 @@ export default function LoginPage() {
           if (agent) {
             if (agent.contactName) { fullName = agent.contactName; name = agent.contactName.split(" ")[0] }
             if (agent.companyName) companyName = agent.companyName
-
-            // Direct student — company is literally "Direct Student"
             if (agent.companyName?.toLowerCase() === "direct student") {
-              // Fetch their deal directly
               const deals = await fetchDealsByCompanyId(agent.companyId)
-              if (deals.length > 0) {
-                directDealRef.current = deals[0].id
-              }
+              if (deals.length > 0) directDealRef.current = deals[0].id
               companyName = "Direct Student"
             } else {
-              // Regular agent — store companyId for deal filtering
               if (agent.companyId) sessionStorage.setItem("holmes_company_id", agent.companyId)
+            }
+          } else {
+            // No contact found — try direct deal lookup by agent_email
+            const res = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/deals/search")}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                filterGroups: [{ filters: [
+                  { propertyName: "pipeline", operator: "EQ", value: "789344406" },
+                  { propertyName: "email", operator: "EQ", value: cleanEmail },
+                ]}],
+                properties: ["dealname", "agent_contact_name", "agent_company_name"],
+                limit: 1,
+              })
+            })
+            const data = await res.json()
+            const deal = data.results?.[0]
+            if (deal) {
+              const contactName = deal.properties?.agent_contact_name || ""
+              if (contactName) { fullName = contactName; name = contactName.split(" ")[0] }
+              directDealRef.current = deal.id
+              companyName = "Direct Student"
             }
           }
         } catch {}
