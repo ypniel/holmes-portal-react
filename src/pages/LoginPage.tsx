@@ -60,47 +60,41 @@ export default function LoginPage() {
       if (!isHolmesStaff(cleanEmail)) {
         try {
           const agent = await fetchAgentByEmail(cleanEmail)
-          if (agent) {
+          if (agent && agent.companyId) {
+            // Regular agent — has company association
             if (agent.contactName) { fullName = agent.contactName; name = agent.contactName.split(" ")[0] }
             if (agent.companyName) companyName = agent.companyName
-            if (agent.companyName?.toLowerCase() === "direct student") {
-              const deals = await fetchDealsByCompanyId(agent.companyId)
-              // Find the specific deal matching this student's email
-              const myDeal = deals.find(d => 
-                d.agentEmail?.toLowerCase() === cleanEmail ||
-                (d as any).email?.toLowerCase() === cleanEmail
-              ) || deals.find(d => 
-                d.agentContact?.toLowerCase().includes(fullName.toLowerCase())
-              )
-              if (myDeal) directDealRef.current = myDeal.id
-              companyName = "Direct Student"
-            } else {
-              if (agent.companyId) sessionStorage.setItem("holmes_company_id", agent.companyId)
-            }
+            sessionStorage.setItem("holmes_company_id", agent.companyId)
           } else {
-            // No contact found — try direct deal lookup by agent_email
-            const res = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/deals/search")}`, {
+            // No company — check if contact exists and has deals directly
+            const contactRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/contacts/search")}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                filterGroups: [{ filters: [
-                  { propertyName: "pipeline", operator: "EQ", value: "789344406" },
-                  { propertyName: "email", operator: "EQ", value: cleanEmail },
-                ]}],
-                properties: ["dealname", "agent_contact_name", "agent_company_name"],
+                filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: cleanEmail }] }],
+                properties: ["email", "firstname", "lastname"],
                 limit: 1,
               })
             })
-            const data = await res.json()
-            const deal = data.results?.[0]
-            if (deal) {
-              const contactName = deal.properties?.agent_contact_name || ""
-              if (contactName) { fullName = contactName; name = contactName.split(" ")[0] }
-              directDealRef.current = deal.id
-              companyName = "Direct Student"
+            const contactData = await contactRes.json()
+            const contact = contactData.results?.[0]
+            if (contact) {
+              // Contact exists but no company = Direct Student
+              const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/deals`)}`)
+              const dealAssocData = await dealAssocRes.json()
+              const dealId = dealAssocData.results?.[0]?.toObjectId
+              if (dealId) {
+                const fn = contact.properties?.firstname || ""
+                const ln = contact.properties?.lastname || ""
+                fullName = `${fn} ${ln}`.trim() || cleanEmail.split("@")[0]
+                name = fn || fullName.split(" ")[0]
+                companyName = "Direct Student"
+                directDealRef.current = String(dealId)
+              }
             }
           }
         } catch {}
+      }
       }
 
       login({ id: "demo", name, fullName, email: cleanEmail, companyName })
