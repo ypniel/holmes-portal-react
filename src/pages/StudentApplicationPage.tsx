@@ -1,8 +1,14 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { fetchDeal, fetchNotes, fetchFiles, fetchOwners, createNote } from "../lib/hubspot"
-import { GraduationCap, MapPin, Calendar, FileText, MessageSquare, Paperclip, Send, LogOut, ExternalLink, Download } from "lucide-react"
-import { formatDate, formatDateTime, formatRelativeTime, initials } from "../lib/utils"
+import { FileText, MessageSquare, Paperclip, Send, LogOut, ExternalLink, Download } from "lucide-react"
+import { formatDate, formatDateTime } from "../lib/utils"
+
+const MARKETERS = [
+  { name: "Indra Adhikari",   title: "Victoria Representative",       email: "iadhikari@holmes.edu.au" },
+  { name: "Dinesh Chetwani",  title: "Queensland Representative",      email: "dchetwani@holmes.edu.au" },
+  { name: "Don Kauffman",     title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
+]
 
 export default function StudentApplicationPage() {
   const { id } = useParams()
@@ -10,23 +16,23 @@ export default function StudentApplicationPage() {
   const [deal, setDeal] = useState<any>(null)
   const [notes, setNotes] = useState<any[]>([])
   const [files, setFiles] = useState<any[]>([])
-  const [owners, setOwners] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"info" | "messages" | "documents">("info")
   const [comment, setComment] = useState("")
   const [sending, setSending] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Get student session
   const studentSession = JSON.parse(sessionStorage.getItem("holmes_student") || "{}")
 
   useEffect(() => {
-    // Guard — must have student session
     if (!studentSession.dealId) { navigate("/student"); return }
     if (id !== studentSession.dealId) { navigate(`/student/application/${studentSession.dealId}`); return }
-
     if (!id) return
     Promise.all([fetchDeal(id), fetchNotes(id), fetchFiles(id), fetchOwners()])
-      .then(([d, n, f, o]) => { setDeal(d); setNotes(n); setFiles(f); setOwners(o) })
+      .then(([d, n, f]) => { setDeal(d); setNotes(n); setFiles(f) })
       .finally(() => setLoading(false))
   }, [id])
 
@@ -40,6 +46,33 @@ export default function StudentApplicationPage() {
       setNotes(updated)
     }
     setSending(false)
+  }
+
+  const handleUpload = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0 || !id) return
+    setUploading(true)
+    setUploadMsg(null)
+    try {
+      for (const file of Array.from(fileList)) {
+        const res = await fetch(`/.netlify/functions/upload?dealId=${id}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+            "X-File-Name": encodeURIComponent(file.name),
+            "X-Deal-Id": id,
+          },
+          body: file,
+        })
+        if (!res.ok) throw new Error("Upload failed")
+        const url = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${id}/${encodeURIComponent(file.name)}`
+        setFiles(prev => [{ name: file.name, id: url, url, createdAt: Date.now() }, ...prev])
+      }
+      setUploadMsg(`✅ ${fileList.length} file${fileList.length > 1 ? "s" : ""} uploaded successfully`)
+    } catch {
+      setUploadMsg("❌ Upload failed. Please try again.")
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleLogout = () => {
@@ -64,8 +97,16 @@ export default function StudentApplicationPage() {
       {/* Header */}
       <header className="bg-red-800 text-white px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src="https://holmes.edu.au/templates/images/Logo-base-banner.png" alt="Holmes" className="h-7 w-auto" onError={e => e.currentTarget.style.display = "none"} />
-          <span className="text-sm font-medium text-red-200">Student Portal</span>
+          <img
+            src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
+            alt="Holmes"
+            className="h-7 w-auto"
+            onError={e => e.currentTarget.style.display = "none"}
+          />
+          <div className="flex flex-col leading-tight">
+            <span className="text-white text-sm font-bold leading-none">Holmes Institute Australia</span>
+            <span className="text-red-200 text-xs leading-none mt-0.5">Admissions Direct Student Portal</span>
+          </div>
         </div>
         <button onClick={handleLogout} className="flex items-center gap-1.5 text-sm text-red-200 hover:text-white transition-colors">
           <LogOut className="h-4 w-4" /> Sign Out
@@ -83,7 +124,7 @@ export default function StudentApplicationPage() {
 
         {/* Status card */}
         <div className="bg-gradient-to-br from-red-700 to-red-900 rounded-xl p-6 text-white mb-6 shadow-lg">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
             <div>
               <h2 className="text-xl font-bold mb-1">{deal.studentName}</h2>
               <div className="flex flex-wrap gap-2 text-sm text-red-200">
@@ -91,12 +132,27 @@ export default function StudentApplicationPage() {
                 {deal.dob && <span>· DOB: {formatDate(deal.dob)}</span>}
               </div>
             </div>
+          </div>
+
+          {/* Pills row — case status + response status */}
+          <div className="flex flex-wrap gap-2 mb-4">
             <span className="inline-flex items-center gap-2 bg-white/15 border border-white/25 px-4 py-1.5 rounded-full text-sm font-semibold">
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
               {deal.stageLabel}
             </span>
+            {deal.responseStatus && (
+              <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold border backdrop-blur ${
+                deal.responseStatus.toLowerCase().includes("holmes")
+                  ? "bg-red-500/30 border-red-300/40 text-red-100"
+                  : "bg-emerald-500/20 border-emerald-300/30 text-emerald-200"
+              }`}>
+                {deal.responseStatus}
+              </span>
+            )}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
+
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-3">
             {deal.courseName && (
               <div className="bg-white/10 rounded-lg p-3">
                 <p className="text-xs text-red-300">Course</p>
@@ -115,10 +171,16 @@ export default function StudentApplicationPage() {
                 <p className="text-sm font-medium mt-0.5">{deal.intake}</p>
               </div>
             )}
-            {deal.responseStatus && (
+            {deal.studentId && (
               <div className="bg-white/10 rounded-lg p-3">
-                <p className="text-xs text-red-300">Response Status</p>
-                <p className="text-sm font-medium mt-0.5">{deal.responseStatus}</p>
+                <p className="text-xs text-red-300">Student ID</p>
+                <p className="text-sm font-medium mt-0.5">{deal.studentId}</p>
+              </div>
+            )}
+            {deal.dealId && (
+              <div className="bg-white/10 rounded-lg p-3">
+                <p className="text-xs text-red-300">Deal ID</p>
+                <p className="text-sm font-medium mt-0.5">{deal.dealId}</p>
               </div>
             )}
           </div>
@@ -144,8 +206,10 @@ export default function StudentApplicationPage() {
 
         {/* Tab content */}
         <div className="bg-white rounded-xl border border-stone-200 p-6">
+
+          {/* Info tab */}
           {activeTab === "info" && (
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 gap-x-8">
               {[
                 ["Course", deal.courseName],
                 ["Campus", deal.campus],
@@ -157,6 +221,8 @@ export default function StudentApplicationPage() {
                 ["English Test", deal.englishTestType],
                 ["English Score", deal.englishScore],
                 ["Total Cost", deal.totalCost],
+                ["Student ID", deal.studentId],
+                ["Deal ID", deal.dealId],
               ].map(([label, value]) => value && value !== "—" ? (
                 <div key={label as string} className="py-3 border-b border-stone-100 last:border-0">
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
@@ -166,6 +232,7 @@ export default function StudentApplicationPage() {
             </div>
           )}
 
+          {/* Messages tab */}
           {activeTab === "messages" && (
             <div className="flex flex-col h-[500px]">
               <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
@@ -222,18 +289,51 @@ export default function StudentApplicationPage() {
             </div>
           )}
 
+          {/* Documents tab */}
           {activeTab === "documents" && (
             <div>
+              {/* Upload area */}
+              <div
+                onDragOver={e => { e.preventDefault(); setDragging(true) }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={e => { e.preventDefault(); setDragging(false); handleUpload(e.dataTransfer.files) }}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all mb-4 ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={e => handleUpload(e.target.files)}
+                />
+                <Paperclip className={`h-8 w-8 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
+                {uploading ? (
+                  <p className="text-sm text-gray-500 animate-pulse">Uploading…</p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
+                    <p className="text-xs text-gray-400 mt-1">or click to browse · Syncs directly to HubSpot</p>
+                  </>
+                )}
+              </div>
+              {uploadMsg && (
+                <p className={`text-xs mb-3 text-center ${uploadMsg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>
+                  {uploadMsg}
+                </p>
+              )}
+
+              {/* File list */}
               {files.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="flex flex-col items-center justify-center py-8 text-center">
                   <Paperclip className="h-8 w-8 text-stone-300 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">No documents yet</p>
-                  <p className="text-xs text-gray-400 mt-1">Documents will appear here once uploaded by Holmes Admissions</p>
+                  <p className="text-xs text-gray-400 mt-1">Upload above or wait for Holmes Admissions to attach documents</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {files.map((file, i) => {
-                    const ext = file.name.split(".").pop()?.toUpperCase() || "FILE"
+                    const ext = file.name?.split(".").pop()?.toUpperCase() || "FILE"
                     const isViewable = ["pdf", "jpg", "jpeg", "png"].includes(ext.toLowerCase())
                     return (
                       <div key={file.id || i} className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 bg-stone-50 hover:bg-stone-100 transition-colors group">
@@ -264,14 +364,50 @@ export default function StudentApplicationPage() {
           )}
         </div>
 
-        {/* Contact */}
+        {/* Need Help box */}
         <div className="mt-4 bg-white rounded-xl border border-stone-200 p-5">
-          <h3 className="font-semibold text-gray-800 text-sm mb-3">Need Help?</h3>
-          <div className="space-y-1 text-sm">
-            <p className="text-gray-600">📞 <span className="font-medium">+61 3 9564 1444</span></p>
-            <p className="text-gray-600">✉️ <span className="font-medium">admissions@holmes.edu.au</span></p>
-            <p className="text-xs text-gray-400 mt-2">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
+          <h3 className="font-semibold text-gray-800 text-sm mb-4">Need Help?</h3>
+          <div className="space-y-2 mb-4">
+            <p className="text-sm text-gray-600">📞 <span className="font-medium">+61 3 9564 1444</span></p>
+            <p className="text-sm text-gray-600">✉️ <span className="font-medium">admissions@holmes.edu.au</span></p>
+            <p className="text-xs text-gray-400">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
           </div>
+          <div className="border-t border-stone-100 pt-4">
+            <p className="text-xs text-gray-500 font-medium mb-3">Your Holmes Sales Representatives</p>
+            <div className="space-y-2">
+              {MARKETERS.map(m => (
+                <a
+                  key={m.email}
+                  href={`mailto:${m.email}`}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+                >
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs flex-shrink-0">
+                    {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
+                    <p className="text-xs text-gray-500">{m.title}</p>
+                  </div>
+                  <span className="text-sm">✉️</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Apply as direct student button */}
+        <div className="mt-4">
+          <a
+            href="https://share.hsforms.com/2nrqky_hbSQu2wZj0XxTnVgnrkx6"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl border-2 border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-colors"
+          >
+            <div className="text-center">
+              <p className="text-sm font-bold text-red-700">Want to submit a new application?</p>
+              <p className="text-xs text-red-500 mt-0.5">Click here to apply as a Direct Student</p>
+            </div>
+          </a>
         </div>
       </div>
     </div>
