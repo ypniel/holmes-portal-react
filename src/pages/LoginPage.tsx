@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X, Eye, EyeOff, Lock } from "lucide-react"
 import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
 import { useAuth, isHolmesStaff } from "../lib/auth"
-import { fetchAgentByEmail } from "../lib/hubspot"
+import { fetchAgentByEmail, fetchDealsByCompanyId } from "../lib/hubspot"
 
 type Status = "idle" | "loading" | "success" | "not_found" | "error"
 
@@ -63,8 +63,19 @@ export default function LoginPage() {
           if (agent) {
             if (agent.contactName) { fullName = agent.contactName; name = agent.contactName.split(" ")[0] }
             if (agent.companyName) companyName = agent.companyName
-            // Store companyId for deal filtering
-            if (agent.companyId) sessionStorage.setItem("holmes_company_id", agent.companyId)
+
+            // Direct student — company is literally "Direct Student"
+            if (agent.companyName?.toLowerCase() === "direct student") {
+              // Fetch their deal directly
+              const deals = await fetchDealsByCompanyId(agent.companyId)
+              if (deals.length > 0) {
+                directDealRef.current = deals[0].id
+              }
+              companyName = "Direct Student"
+            } else {
+              // Regular agent — store companyId for deal filtering
+              if (agent.companyId) sessionStorage.setItem("holmes_company_id", agent.companyId)
+            }
           }
         } catch {}
       }
