@@ -395,20 +395,6 @@ export default function StudentApplicationPage() {
           </div>
         </div>
 
-        {/* Apply as direct student button */}
-        <div className="mt-4">
-          <a
-            href="https://share.hsforms.com/2nrqky_hbSQu2wZj0XxTnVgnrkx6"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl border-2 border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-colors"
-          >
-            <div className="text-center">
-              <p className="text-sm font-bold text-red-700">Want to submit a new application?</p>
-              <p className="text-xs text-red-500 mt-0.5">Click here to apply as a Direct Student</p>
-            </div>
-          </a>
-        </div>
       </div>
     </div>
   )
