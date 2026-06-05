@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Users, FileText, CheckCircle, Clock, ArrowRight, GraduationCap, MapPin } from "lucide-react"
 import { PageContainer } from "../components/Layout"
-import { useAuth, isHolmesStaff } from "../lib/auth"
+import { useAuth } from "../lib/auth"
 import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail } from "../lib/hubspot"
 import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
 import { StatCardSkeleton, ActivityRowSkeleton } from "../components/Skeleton"
@@ -78,7 +78,7 @@ export default function HomePage() {
 
   // Resolve form URL — pre-fill agent email (use main agent email for sub-agents)
   useEffect(() => {
-    if (!user?.email || isHolmesStaff(user.email)) return
+    if (!user?.email || user?.email?.endsWith("@holmes.edu.au") || user?.email?.endsWith("@holmeseducation.group")) return
     setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
   }, [user])
 
@@ -122,7 +122,7 @@ const IS_DEMO = false // production mode — all pipeline deals
   useEffect(() => {
     const load = async () => {
       try {
-        if (user?.email && !isHolmesStaff(user.email)) {
+        if (user?.email && !user?.email?.endsWith("@holmes.edu.au") || user?.email?.endsWith("@holmeseducation.group")) {
           // Agent — fetch deals by company association
           const companyId = sessionStorage.getItem("holmes_company_id")
           if (companyId) {
@@ -178,7 +178,7 @@ const IS_DEMO = false // production mode — all pipeline deals
           Welcome back, {user?.fullName?.split(" ")[0] || "Agent"}!
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          {user?.email && isHolmesStaff(user.email)
+          {user?.email && user?.email?.endsWith("@holmes.edu.au") || user?.email?.endsWith("@holmeseducation.group")
             ? "You are viewing all applications across the Australia Admissions Pipeline."
             : "Here's what's happening with your student applications today."
           }
