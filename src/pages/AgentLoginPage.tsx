@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, Eye, EyeOff, Lock, ArrowLeft, X } from "lucide-react"
 import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
-import { useAuth, isHolmesStaff } from "../lib/auth"
+import { useAuth } from "../lib/auth"
 
-const DEMO_PASSWORD = "Holmes2026!"
+const DEMO_PASSWORD = import.meta.env.VITE_PORTAL_PASSWORD
+const HOLMES_COMPANY_NAME = "Holmes Institute Australia"
 const MARKETERS = [
   { name: "Indra Adhikari",   title: "Victoria Representative",       email: "iadhikari@holmes.edu.au" },
   { name: "Dinesh Chetwani",  title: "Queensland Representative",      email: "dchetwani@holmes.edu.au" },
@@ -20,18 +21,9 @@ export default function AgentLoginPage() {
   const [status, setStatus]         = useState<"idle"|"loading"|"success"|"error">("idle")
   const [errorMessage, setErrorMessage] = useState<string|null>(null)
   const [showModal, setShowModal]   = useState(false)
-  const directDealRef = React.useRef<string | null>(null)
 
   useEffect(() => {
-    if (user) {
-      if (directDealRef.current) {
-        const dealId = directDealRef.current
-        directDealRef.current = null
-        navigate(`/applications/${dealId}`)
-      } else {
-        navigate("/")
-      }
-    }
+    if (user) navigate("/")
   }, [user])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,57 +40,68 @@ export default function AgentLoginPage() {
     const cleanEmail = email.trim().toLowerCase()
     let name = cleanEmail.split("@")[0]
     let fullName = name
-    let companyName = isHolmesStaff(cleanEmail) ? "Holmes Institute Australia" : ""
+    let companyName = ""
 
-    if (!isHolmesStaff(cleanEmail)) {
-      try {
-        // Step 1: Find contact by email
-        const contactRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/contacts/search")}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: cleanEmail }] }],
-            properties: ["email", "firstname", "lastname"],
-            limit: 1,
-          })
+    try {
+      // Step 1: Find contact in HubSpot
+      const contactRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/contacts/search")}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: cleanEmail }] }],
+          properties: ["email", "firstname", "lastname"],
+          limit: 1,
         })
-        const contactData = await contactRes.json()
-        const contact = contactData.results?.[0]
+      })
+      const contactData = await contactRes.json()
+      const contact = contactData.results?.[0]
 
-        if (!contact) {
-          setStatus("error")
-          setErrorMessage("No agent account found for this email. If you're a direct student, please use the Student Portal instead.")
-          return
-        }
+      if (!contact) {
+        setStatus("error")
+        setErrorMessage("No account found for this email. If you're a direct student, please use the Student Portal.")
+        return
+      }
 
-        const fn = contact.properties?.firstname || ""
-        const ln = contact.properties?.lastname || ""
-        fullName = `${fn} ${ln}`.trim() || name
-        name = fn || name
+      const fn = contact.properties?.firstname || ""
+      const ln = contact.properties?.lastname || ""
+      fullName = `${fn} ${ln}`.trim() || name
+      name = fn || name
 
+      const isHolmes = cleanEmail.endsWith("@holmes.edu.au") || cleanEmail.endsWith("@holmeseducation.group")
+
+      if (isHolmes) {
+        // Holmes staff — no company needed
+        companyName = "Holmes Institute Australia"
+      } else {
         // Step 2: Get company association
         const companyAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)}`)
         const companyAssocData = await companyAssocRes.json()
         const companyId = companyAssocData.results?.[0]?.toObjectId
 
-        if (companyId) {
-          const companyRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/companies/${companyId}?properties=name,agent_email,contact_person_name`)}`)
-          const companyData = await companyRes.json()
-          companyName = companyData.properties?.name || ""
-          const contactPerson = companyData.properties?.contact_person_name || ""
-          if (contactPerson) { fullName = contactPerson; name = contactPerson.split(" ")[0] }
-          sessionStorage.setItem("holmes_company_id", String(companyId))
-        } else {
+        if (!companyId) {
           setStatus("error")
           setErrorMessage("No agency found for this account. If you're a direct student, please use the Student Portal.")
           return
         }
-      } catch {
-        setStatus("error")
-        setErrorMessage("Something went wrong. Please try again.")
-        return
+
+        // Step 3: Get company details
+        const companyRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/companies/${companyId}?properties=name,contact_person_name`)}`)
+        const companyData = await companyRes.json()
+        companyName = companyData.properties?.name || ""
+        const contactPerson = companyData.properties?.contact_person_name || ""
+        if (contactPerson) { fullName = contactPerson; name = contactPerson.split(" ")[0] }
+        sessionStorage.setItem("holmes_company_id", String(companyId))
       }
+
+    } catch {
+      setStatus("error")
+      setErrorMessage("Something went wrong. Please try again.")
+      return
     }
+
+    login({ id: "demo", name, fullName, email: cleanEmail, companyName })
+    setStatus("success")
+  }
 
     login({ id: "demo", name, fullName, email: cleanEmail, companyName })
     setStatus("success")
