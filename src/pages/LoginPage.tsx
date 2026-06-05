@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X, Eye, EyeOff, Lock } from "lucide-react"
+import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X, Eye, EyeOff, Lock, Building2, GraduationCap } from "lucide-react"
 import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { fetchAgentByEmail, fetchDealsByCompanyId } from "../lib/hubspot"
@@ -73,38 +73,50 @@ export default function LoginPage() {
           const contactData = await contactRes.json()
           const contact = contactData.results?.[0]
 
-          if (contact) {
-            const fn = contact.properties?.firstname || ""
-            const ln = contact.properties?.lastname || ""
-            fullName = `${fn} ${ln}`.trim() || name
-            name = fn || name
+          if (!contact) {
+            // Not found in HubSpot at all
+            setStatus("error")
+            setErrorMessage("No account found for this email. Please contact your Holmes representative.")
+            return
+          }
 
-            // Step 2: get company association
-            const companyAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)}`)
-            const companyAssocData = await companyAssocRes.json()
-            const companyId = companyAssocData.results?.[0]?.toObjectId
+          const fn = contact.properties?.firstname || ""
+          const ln = contact.properties?.lastname || ""
+          fullName = `${fn} ${ln}`.trim() || name
+          name = fn || name
 
-            if (companyId) {
-              // Has company — regular agent
-              const companyRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/companies/${companyId}?properties=name,agent_email,contact_person_name`)}`)
-              const companyData = await companyRes.json()
-              companyName = companyData.properties?.name || ""
-              const contactPerson = companyData.properties?.contact_person_name || ""
-              if (contactPerson) { fullName = contactPerson; name = contactPerson.split(" ")[0] }
-              sessionStorage.setItem("holmes_company_id", String(companyId))
+          // Step 2: get company association
+          const companyAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)}`)
+          const companyAssocData = await companyAssocRes.json()
+          const companyId = companyAssocData.results?.[0]?.toObjectId
+
+          if (companyId) {
+            // Has company — regular agent
+            const companyRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/companies/${companyId}?properties=name,agent_email,contact_person_name`)}`)
+            const companyData = await companyRes.json()
+            companyName = companyData.properties?.name || ""
+            const contactPerson = companyData.properties?.contact_person_name || ""
+            if (contactPerson) { fullName = contactPerson; name = contactPerson.split(" ")[0] }
+            sessionStorage.setItem("holmes_company_id", String(companyId))
+          } else {
+            // No company — Direct Student
+            const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/deals`)}`)
+            const dealAssocData = await dealAssocRes.json()
+            const dealId = dealAssocData.results?.[0]?.toObjectId
+            if (dealId) {
+              directDealRef.current = String(dealId)
+              companyName = "Direct Student"
             } else {
-              // No company — Direct Student
-              // Step 3: get deals associated to this contact
-              const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/deals`)}`)
-              const dealAssocData = await dealAssocRes.json()
-              const dealId = dealAssocData.results?.[0]?.toObjectId
-              if (dealId) {
-                directDealRef.current = String(dealId)
-                companyName = "Direct Student"
-              }
+              setStatus("error")
+              setErrorMessage("No applications found for this email. Please contact your Holmes representative.")
+              return
             }
           }
-        } catch {}
+        } catch {
+          setStatus("error")
+          setErrorMessage("Something went wrong. Please try again.")
+          return
+        }
       }
 
       login({ id: "demo", name, fullName, email: cleanEmail, companyName })
@@ -141,147 +153,53 @@ export default function LoginPage() {
       <div className="w-full max-w-sm relative z-10">
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="p-8">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-800">Welcome</h2>
+              <p className="mt-1 text-sm text-gray-500">How would you like to sign in?</p>
+            </div>
 
-            {/* Success */}
-            {status === "success" && (
-              <div className="text-center">
-                <CheckCircle className="h-10 w-10 mx-auto mb-4 text-emerald-500" />
-                <h2 className="text-2xl font-bold text-gray-800">Welcome back!</h2>
-                <p className="mt-1 text-sm text-gray-500">Signing you in…</p>
-              </div>
-            )}
-
-            {/* Not Found */}
-            {status === "not_found" && (
-              <div className="text-center">
-                <XCircle className="h-10 w-10 mx-auto mb-4 text-gray-400" />
-                <h2 className="text-2xl font-bold text-gray-800">Account not found</h2>
-                <p className="mt-1 text-sm text-gray-500 mb-4">
-                  We couldn't find an account for <strong>{email}</strong>
-                </p>
-                <div className="rounded-lg p-4 mb-6 bg-red-50 border border-red-100">
-                  <p className="text-sm text-red-700">
-                    Make sure you're using the email registered for this portal.
-                    If you believe this is an error, contact admissions@holmes.edu.au
-                  </p>
+            {/* Two buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={() => navigate("/agent-login")}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-stone-200 hover:border-red-300 hover:bg-red-50 transition-colors group text-left"
+              >
+                <div className="w-12 h-12 rounded-xl bg-red-700 flex items-center justify-center flex-shrink-0 group-hover:bg-red-800 transition-colors">
+                  <Building2 className="h-6 w-6 text-white" />
                 </div>
-                <button onClick={reset} className="px-6 py-2 rounded-lg text-white text-sm font-medium" style={{ background: primaryColor }}>
-                  Try again
-                </button>
-              </div>
-            )}
-
-            {/* Error */}
-            {status === "error" && (
-              <div className="text-center">
-                <AlertCircle className="h-10 w-10 mx-auto mb-4 text-gray-400" />
-                <h2 className="text-2xl font-bold text-gray-800">Something went wrong</h2>
-                <p className="mt-1 text-sm text-gray-500 mb-6">{errorMessage}</p>
-                <button onClick={reset} className="px-6 py-2 rounded-lg text-white text-sm font-medium" style={{ background: primaryColor }}>
-                  Try again
-                </button>
-              </div>
-            )}
-
-            {/* Login Form */}
-            {(status === "idle" || status === "loading") && (
-              <>
-                <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold text-gray-800">Welcome back</h2>
-                  <p className="mt-1 text-sm text-gray-500">Sign in to Holmes Institute Australia Admissions Portal</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-800 group-hover:text-red-700 transition-colors">Agent / Staff</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Manage your student applications</p>
                 </div>
+                <ArrowRight className="h-5 w-5 text-stone-300 group-hover:text-red-500 transition-colors flex-shrink-0" />
+              </button>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-600">
-                      Email address
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        disabled={status === "loading"}
-                        placeholder="you@agency.com"
-                        autoComplete="email"
-                        autoFocus
-                        className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-600">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        disabled={status === "loading"}
-                        placeholder="••••••••••••"
-                        autoComplete="current-password"
-                        className="w-full pl-10 pr-10 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 disabled:opacity-50"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={status === "loading" || !email || !password}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-white text-sm font-medium disabled:opacity-50 transition-opacity"
-                    style={{ background: `linear-gradient(135deg, ${primaryColor}, #7f1d1d)` }}
-                  >
-                    {status === "loading" ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" />Signing in…</>
-                    ) : (
-                      <><span>Sign In</span><ArrowRight className="h-4 w-4" /></>
-                    )}
-                  </button>
-                </form>
-
-                {/* Contact rep — clickable */}
-                <p className="mt-4 text-center text-xs text-gray-400">
-                  Need portal access?{" "}
-                  <button
-                    onClick={() => setShowModal(true)}
-                    className="text-red-600 hover:text-red-700 underline underline-offset-2 font-medium transition-colors"
-                  >
-                    Contact your Holmes admissions representative
-                  </button>
-                </p>
-
-                {/* Direct Student — bigger */}
-                <div className="mt-5 pt-5 border-t border-stone-100">
-                  <a
-                    href="https://share.hsforms.com/2nrqky_hbSQu2wZj0XxTnVgnrkx6"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl border-2 border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-colors"
-                  >
-                    <div>
-                      <p className="text-sm font-bold text-red-700">Applying as a Direct Student?</p>
-                      <p className="text-xs text-red-500 mt-0.5">Register your application here</p>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-red-600 flex-shrink-0" />
-                  </a>
+              <button
+                onClick={() => navigate("/student")}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-stone-200 hover:border-red-300 hover:bg-red-50 transition-colors group text-left"
+              >
+                <div className="w-12 h-12 rounded-xl bg-stone-700 flex items-center justify-center flex-shrink-0 group-hover:bg-red-800 transition-colors">
+                  <GraduationCap className="h-6 w-6 text-white" />
                 </div>
-              </>
-            )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-800 group-hover:text-red-700 transition-colors">Direct Student</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Track your Holmes application</p>
+                </div>
+                <ArrowRight className="h-5 w-5 text-stone-300 group-hover:text-red-500 transition-colors flex-shrink-0" />
+              </button>
+            </div>
+
+            {/* Contact */}
+            <p className="mt-6 text-center text-xs text-gray-400">
+              Need help?{" "}
+              <button
+                onClick={() => setShowModal(true)}
+                className="text-red-600 hover:text-red-700 underline underline-offset-2 font-medium transition-colors"
+              >
+                Contact your Holmes representative
+              </button>
+            </p>
           </div>
         </div>
 
