@@ -14,7 +14,7 @@ const MARKETERS = [
   { name: "Don Kauffman",     title: "New South Wales Representative",  email: "dkauffman@holmes.edu.au" },
 ]
 
-const DEMO_PASSWORD = "Holmes2026!"
+const DEMO_PASSWORD = import.meta.env.VITE_PORTAL_PASSWORD
 
 export default function LoginPage() {
   const navigate = useNavigate()
