@@ -111,7 +111,6 @@ export default function LoginPage() {
 
       login({ id: "demo", name, fullName, email: cleanEmail, companyName })
       setStatus("success")
-      setTimeout(() => navigate("/"), 800)
     } catch {
       setStatus("error")
       setErrorMessage("Something went wrong. Please try again.")
