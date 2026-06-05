@@ -1,7 +1,6 @@
 const https = require("https")
 
 const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
-const FILES_TOKEN = process.env.HUBSPOT_FILES_TOKEN || TOKEN
 const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
 
 function makeRequest(options, body) {
@@ -56,9 +55,8 @@ exports.handler = async (event) => {
   // ── Standard proxy ────────────────────────────────────────────────────────
   if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
 
-  // Use FILES_TOKEN for filemanager requests, CRM TOKEN for everything else
-  const token = path.includes("/filemanager/") ? (process.env.HUBSPOT_FILES_TOKEN || TOKEN) : TOKEN
-  console.log("Path:", path, "Using FILES_TOKEN:", path.includes("/filemanager/"), "Token starts:", token?.substring(0, 15))
+  // Use TOKEN for everything
+  const token = TOKEN
 
   try {
     const isPost = event.httpMethod === "POST"
