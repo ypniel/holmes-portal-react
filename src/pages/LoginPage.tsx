@@ -79,9 +79,11 @@ export default function LoginPage() {
             const contactData = await contactRes.json()
             const contact = contactData.results?.[0]
             if (contact) {
+              console.log("Contact found:", contact.id)
               // Contact exists but no company = Direct Student
               const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/deals`)}`)
               const dealAssocData = await dealAssocRes.json()
+              console.log("Deal associations:", JSON.stringify(dealAssocData.results))
               const dealId = dealAssocData.results?.[0]?.toObjectId
               if (dealId) {
                 const fn = contact.properties?.firstname || ""
