@@ -65,7 +65,14 @@ export default function LoginPage() {
             if (agent.companyName) companyName = agent.companyName
             if (agent.companyName?.toLowerCase() === "direct student") {
               const deals = await fetchDealsByCompanyId(agent.companyId)
-              if (deals.length > 0) directDealRef.current = deals[0].id
+              // Find the specific deal matching this student's email
+              const myDeal = deals.find(d => 
+                d.agentEmail?.toLowerCase() === cleanEmail ||
+                (d as any).email?.toLowerCase() === cleanEmail
+              ) || deals.find(d => 
+                d.agentContact?.toLowerCase().includes(fullName.toLowerCase())
+              )
+              if (myDeal) directDealRef.current = myDeal.id
               companyName = "Direct Student"
             } else {
               if (agent.companyId) sessionStorage.setItem("holmes_company_id", agent.companyId)
