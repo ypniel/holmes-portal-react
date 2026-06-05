@@ -66,8 +66,10 @@ export default function LoginPage() {
 
             if (agent.companyName?.toLowerCase() === "direct student") {
               // Direct student — get deals via contact association
+              console.log("Direct student detected! contactId:", agent.contactId)
               const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${agent.contactId}/associations/deals`)}`)
               const dealAssocData = await dealAssocRes.json()
+              console.log("Direct student deals:", JSON.stringify(dealAssocData.results))
               const dealId = dealAssocData.results?.[0]?.toObjectId
               if (dealId) directDealRef.current = String(dealId)
               companyName = "Direct Student"
