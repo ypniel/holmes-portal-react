@@ -1,6 +1,6 @@
 const https = require("https")
 
-const FILES_TOKEN = process.env.HUBSPOT_FILES_TOKEN || process.env.HUBSPOT_TOKEN
+const TOKEN = process.env.HUBSPOT_TOKEN
 const CRM_TOKEN = process.env.HUBSPOT_TOKEN
 
 function makeRequest(options, body) {
@@ -35,7 +35,7 @@ exports.handler = async (event) => {
 
     if (!dealId) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No dealId" }) }
 
-    console.log("FILES_TOKEN starts with:", FILES_TOKEN?.substring(0, 15))
+    console.log("TOKEN starts with:", TOKEN?.substring(0, 15))
     console.log("CRM_TOKEN starts with:", CRM_TOKEN?.substring(0, 15))
     // Decode base64 file — Netlify sends binary as base64
     const fileBuffer = event.isBase64Encoded 
@@ -58,7 +58,7 @@ exports.handler = async (event) => {
       path: "/filemanager/api/v3/files/upload",
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${FILES_TOKEN}`,
+        "Authorization": `Bearer ${TOKEN}`,
         "Content-Type": `multipart/form-data; boundary=${boundary}`,
         "Content-Length": body.length,
       },
