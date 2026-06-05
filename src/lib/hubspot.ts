@@ -393,7 +393,8 @@ export async function fetchAgentByEmail(email: string): Promise<{
   agentEmail: string
   companyName: string
   contactName: string
-  companyId: string 
+  companyId: string
+  contactId: string
 } | null> {
   try {
     // Step 1 — find contact by email
@@ -426,6 +427,7 @@ export async function fetchAgentByEmail(email: string): Promise<{
       contactName: company.properties?.contact_person_name || 
         `${contact.properties?.firstname || ""} ${contact.properties?.lastname || ""}`.trim(),
       companyId: String(companyId),
+      contactId: String(contact.id),
     }
   } catch (e) { console.log("fetchAgentByEmail error:", e); return null }
 }
