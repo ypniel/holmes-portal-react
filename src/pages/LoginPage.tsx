@@ -30,10 +30,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      console.log("useEffect fired, directDealRef:", directDealRef.current)
       if (directDealRef.current) {
-        navigate(`/applications/${directDealRef.current}`)
+        const dealId = directDealRef.current
         directDealRef.current = null
+        navigate(`/applications/${dealId}`)
       } else {
         navigate("/")
       }
@@ -48,37 +48,61 @@ export default function LoginPage() {
     try {
       const cleanEmail = email.trim().toLowerCase()
 
-      // Check password
       if (password !== DEMO_PASSWORD) {
         setStatus("error")
         setErrorMessage("Incorrect password. Please try again.")
         return
       }
+
       let name = cleanEmail.split("@")[0]
       let fullName = name
       let companyName = isHolmesStaff(cleanEmail) ? "Holmes Institute Australia" : ""
 
       if (!isHolmesStaff(cleanEmail)) {
         try {
-          const agent = await fetchAgentByEmail(cleanEmail)
-          if (agent && agent.companyId) {
-            if (agent.contactName) { fullName = agent.contactName; name = agent.contactName.split(" ")[0] }
-            if (agent.companyName) companyName = agent.companyName
+          // Step 1: find contact by email
+          const contactRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/contacts/search")}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: cleanEmail }] }],
+              properties: ["email", "firstname", "lastname"],
+              limit: 1,
+            })
+          })
+          const contactData = await contactRes.json()
+          const contact = contactData.results?.[0]
 
-            if (agent.companyName?.toLowerCase() === "direct student") {
-              // Direct student — get deals via contact association
-              console.log("Direct student detected! contactId:", agent.contactId)
-              const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${agent.contactId}/associations/deals`)}`)
-              const dealAssocData = await dealAssocRes.json()
-              console.log("Direct student deals:", JSON.stringify(dealAssocData.results))
-              const dealId = dealAssocData.results?.[0]?.toObjectId
-              if (dealId) directDealRef.current = String(dealId)
-              companyName = "Direct Student"
+          if (contact) {
+            const fn = contact.properties?.firstname || ""
+            const ln = contact.properties?.lastname || ""
+            fullName = `${fn} ${ln}`.trim() || name
+            name = fn || name
+
+            // Step 2: get company association
+            const companyAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)}`)
+            const companyAssocData = await companyAssocRes.json()
+            const companyId = companyAssocData.results?.[0]?.toObjectId
+
+            if (companyId) {
+              // Has company — regular agent
+              const companyRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/companies/${companyId}?properties=name,agent_email,contact_person_name`)}`)
+              const companyData = await companyRes.json()
+              companyName = companyData.properties?.name || ""
+              const contactPerson = companyData.properties?.contact_person_name || ""
+              if (contactPerson) { fullName = contactPerson; name = contactPerson.split(" ")[0] }
+              sessionStorage.setItem("holmes_company_id", String(companyId))
             } else {
-              sessionStorage.setItem("holmes_company_id", agent.companyId)
+              // No company — Direct Student
+              // Step 3: get deals associated to this contact
+              const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/deals`)}`)
+              const dealAssocData = await dealAssocRes.json()
+              const dealId = dealAssocData.results?.[0]?.toObjectId
+              if (dealId) {
+                directDealRef.current = String(dealId)
+                companyName = "Direct Student"
+              }
             }
-          } else {
-            // No contact found at all — nothing to do
           }
         } catch {}
       }
