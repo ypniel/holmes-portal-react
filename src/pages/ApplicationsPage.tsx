@@ -7,7 +7,7 @@ import {
 import { PageContainer } from "../components/Layout"
 import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail } from "../lib/hubspot"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
-import { useAuth, isHolmesStaff } from "../lib/auth"
+import { useAuth } from "../lib/auth"
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
 
 type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
@@ -69,7 +69,7 @@ export default function ApplicationsPage() {
   const [formUrl, setFormUrl] = useState(BASE_APP_URL)
 
   useEffect(() => {
-    if (!user?.email || isHolmesStaff(user.email)) return
+    if (!user?.email || user?.email?.endsWith("@holmes.edu.au") || user?.email?.endsWith("@holmeseducation.group")) return
     // Always use the logged-in user's own email on the form
     setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
   }, [user])
@@ -77,7 +77,7 @@ export default function ApplicationsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        if (user?.email && !isHolmesStaff(user.email)) {
+        if (user?.email && !user?.email?.endsWith("@holmes.edu.au") || user?.email?.endsWith("@holmeseducation.group")) {
           // Agent — fetch deals by company association
           const companyId = sessionStorage.getItem("holmes_company_id")
           if (companyId) {
