@@ -61,10 +61,19 @@ export default function LoginPage() {
         try {
           const agent = await fetchAgentByEmail(cleanEmail)
           if (agent && agent.companyId) {
-            // Regular agent — has company association
             if (agent.contactName) { fullName = agent.contactName; name = agent.contactName.split(" ")[0] }
             if (agent.companyName) companyName = agent.companyName
-            sessionStorage.setItem("holmes_company_id", agent.companyId)
+
+            if (agent.companyName?.toLowerCase() === "direct student") {
+              // Direct student — get deals via contact association
+              const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${agent.contactId}/associations/deals`)}`)
+              const dealAssocData = await dealAssocRes.json()
+              const dealId = dealAssocData.results?.[0]?.toObjectId
+              if (dealId) directDealRef.current = String(dealId)
+              companyName = "Direct Student"
+            } else {
+              sessionStorage.setItem("holmes_company_id", agent.companyId)
+            }
           } else {
             // No company — check if contact exists and has deals directly
             const contactRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/contacts/search")}`, {
