@@ -14,16 +14,23 @@ const MARKETERS = [
 export default function AgentLoginPage() {
   const navigate = useNavigate()
   const { user, login } = useAuth()
-  const [email, setEmail]           = useState("")
-  const [password, setPassword]     = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [status, setStatus]         = useState<"idle"|"loading"|"success"|"error">("idle")
-  const [errorMessage, setErrorMessage] = useState<string|null>(null)
-  const [showModal, setShowModal]   = useState(false)
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
     if (user) navigate("/")
   }, [user])
+
+  const reset = () => {
+    setStatus("idle")
+    setEmail("")
+    setPassword("")
+    setErrorMessage(null)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,15 +50,18 @@ export default function AgentLoginPage() {
 
     try {
       // Step 1: Find contact in HubSpot
-      const contactRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/contacts/search")}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: cleanEmail }] }],
-          properties: ["email", "firstname", "lastname"],
-          limit: 1,
-        })
-      })
+      const contactRes = await fetch(
+        `/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/contacts/search")}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: cleanEmail }] }],
+            properties: ["email", "firstname", "lastname"],
+            limit: 1,
+          }),
+        }
+      )
       const contactData = await contactRes.json()
       const contact = contactData.results?.[0]
 
@@ -66,14 +76,18 @@ export default function AgentLoginPage() {
       fullName = `${fn} ${ln}`.trim() || name
       name = fn || name
 
-      const isHolmes = cleanEmail.endsWith("@holmes.edu.au") || cleanEmail.endsWith("@holmeseducation.group")
+      const isHolmes =
+        cleanEmail.endsWith("@holmes.edu.au") ||
+        cleanEmail.endsWith("@holmeseducation.group")
 
       if (isHolmes) {
-        // Holmes staff — no company needed
+        // Holmes staff — domain check only
         companyName = "Holmes Institute Australia"
       } else {
         // Step 2: Get company association
-        const companyAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)}`)
+        const companyAssocRes = await fetch(
+          `/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)}`
+        )
         const companyAssocData = await companyAssocRes.json()
         const companyId = companyAssocData.results?.[0]?.toObjectId
 
@@ -84,14 +98,18 @@ export default function AgentLoginPage() {
         }
 
         // Step 3: Get company details
-        const companyRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/companies/${companyId}?properties=name,contact_person_name`)}`)
+        const companyRes = await fetch(
+          `/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/companies/${companyId}?properties=name,contact_person_name`)}`
+        )
         const companyData = await companyRes.json()
         companyName = companyData.properties?.name || ""
         const contactPerson = companyData.properties?.contact_person_name || ""
-        if (contactPerson) { fullName = contactPerson; name = contactPerson.split(" ")[0] }
+        if (contactPerson) {
+          fullName = contactPerson
+          name = contactPerson.split(" ")[0]
+        }
         sessionStorage.setItem("holmes_company_id", String(companyId))
       }
-
     } catch {
       setStatus("error")
       setErrorMessage("Something went wrong. Please try again.")
@@ -102,11 +120,6 @@ export default function AgentLoginPage() {
     setStatus("success")
   }
 
-    login({ id: "demo", name, fullName, email: cleanEmail, companyName })
-    setStatus("success")
-  }
-
-  const reset = () => { setStatus("idle"); setEmail(""); setPassword(""); setErrorMessage(null) }
   const primaryColor = "#991b1b"
 
   return (
@@ -116,7 +129,12 @@ export default function AgentLoginPage() {
       {/* Logo */}
       <div className="absolute top-6 left-8 z-10">
         <div className="flex items-center gap-2.5">
-          <img src="https://holmes.edu.au/templates/images/Logo-base-banner.png" alt="Holmes" className="h-8 w-auto" onError={e => e.currentTarget.style.display = "none"} />
+          <img
+            src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
+            alt="Holmes"
+            className="h-8 w-auto"
+            onError={(e) => { e.currentTarget.style.display = "none" }}
+          />
           <div className="hidden sm:flex flex-col leading-tight">
             <span className="text-white text-sm font-bold leading-none">Holmes Institute Australia</span>
             <span className="text-red-200 text-xs leading-none mt-0.5">Agent Portal</span>
@@ -141,7 +159,11 @@ export default function AgentLoginPage() {
                 <AlertCircle className="h-10 w-10 mx-auto mb-4 text-gray-400" />
                 <h2 className="text-2xl font-bold text-gray-800">Sign in failed</h2>
                 <p className="mt-1 text-sm text-gray-500 mb-6">{errorMessage}</p>
-                <button onClick={reset} className="px-6 py-2 rounded-lg text-white text-sm font-medium" style={{ background: primaryColor }}>
+                <button
+                  onClick={reset}
+                  className="px-6 py-2 rounded-lg text-white text-sm font-medium"
+                  style={{ background: primaryColor }}
+                >
                   Try again
                 </button>
               </div>
@@ -150,7 +172,10 @@ export default function AgentLoginPage() {
             {(status === "idle" || status === "loading") && (
               <>
                 <div className="flex items-center gap-3 mb-6">
-                  <button onClick={() => navigate("/login")} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
                   <div>
@@ -167,7 +192,7 @@ export default function AgentLoginPage() {
                       <input
                         type="email"
                         value={email}
-                        onChange={e => setEmail(e.target.value)}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                         disabled={status === "loading"}
                         placeholder="you@agency.com"
@@ -185,14 +210,18 @@ export default function AgentLoginPage() {
                       <input
                         type={showPassword ? "text" : "password"}
                         value={password}
-                        onChange={e => setPassword(e.target.value)}
+                        onChange={(e) => setPassword(e.target.value)}
                         required
                         disabled={status === "loading"}
                         placeholder="••••••••••••"
                         autoComplete="current-password"
                         className="w-full pl-10 pr-10 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 disabled:opacity-50"
                       />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
@@ -214,7 +243,10 @@ export default function AgentLoginPage() {
 
                 <p className="mt-4 text-center text-xs text-gray-400">
                   Need portal access?{" "}
-                  <button onClick={() => setShowModal(true)} className="text-red-600 hover:text-red-700 underline underline-offset-2 font-medium">
+                  <button
+                    onClick={() => setShowModal(true)}
+                    className="text-red-600 hover:text-red-700 underline underline-offset-2 font-medium"
+                  >
                     Contact your Holmes representative
                   </button>
                 </p>
@@ -230,20 +262,32 @@ export default function AgentLoginPage() {
 
       {/* Contact modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-gray-800">Contact Your Holmes Representative</h2>
                 <p className="text-sm text-gray-500 mt-0.5">Click an email to open in your mail app</p>
               </div>
-              <button onClick={() => setShowModal(false)} className="text-stone-400 hover:text-stone-600 p-1"><X className="h-5 w-5" /></button>
+              <button onClick={() => setShowModal(false)} className="text-stone-400 hover:text-stone-600 p-1">
+                <X className="h-5 w-5" />
+              </button>
             </div>
             <div className="p-4 space-y-3">
-              {MARKETERS.map(m => (
-                <a key={m.email} href={`mailto:${m.email}`} className="flex items-center gap-4 p-4 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group">
+              {MARKETERS.map((m) => (
+                <a
+                  key={m.email}
+                  href={`mailto:${m.email}`}
+                  className="flex items-center gap-4 p-4 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+                >
                   <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm flex-shrink-0">
-                    {m.name.split(" ").map(n => n[0]).join("").slice(0,2)}
+                    {m.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
@@ -255,7 +299,12 @@ export default function AgentLoginPage() {
               ))}
             </div>
             <div className="px-6 py-4 border-t border-stone-100">
-              <button onClick={() => setShowModal(false)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700">Close</button>
+              <button
+                onClick={() => setShowModal(false)}
+                className="w-full py-2 text-sm text-gray-500 hover:text-gray-700"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
