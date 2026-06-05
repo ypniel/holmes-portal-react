@@ -4,7 +4,7 @@ import { AuroraBackground } from "../components/AuroraBackground"
 import { ArrowRight, Mail, Lock, Eye, EyeOff, GraduationCap, AlertCircle } from "lucide-react"
 import { LoaderCircle } from "lucide-react"
 
-const DEMO_PASSWORD = "Holmes2026!"
+const DEMO_PASSWORD = import.meta.env.VITE_PORTAL_PASSWORD
 const HOLMES_AURORA = ["#991b1b", "#b91c1c", "#7f1d1d"]
 
 export default function StudentLoginPage() {
