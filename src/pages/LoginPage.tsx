@@ -30,6 +30,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
+      console.log("useEffect fired, directDealRef:", directDealRef.current)
       if (directDealRef.current) {
         navigate(`/applications/${directDealRef.current}`)
         directDealRef.current = null
@@ -77,34 +78,7 @@ export default function LoginPage() {
               sessionStorage.setItem("holmes_company_id", agent.companyId)
             }
           } else {
-            // No company — check if contact exists and has deals directly
-            const contactRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/contacts/search")}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: cleanEmail }] }],
-                properties: ["email", "firstname", "lastname"],
-                limit: 1,
-              })
-            })
-            const contactData = await contactRes.json()
-            const contact = contactData.results?.[0]
-            if (contact) {
-              console.log("Contact found:", contact.id)
-              // Contact exists but no company = Direct Student
-              const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/deals`)}`)
-              const dealAssocData = await dealAssocRes.json()
-              console.log("Deal associations:", JSON.stringify(dealAssocData.results))
-              const dealId = dealAssocData.results?.[0]?.toObjectId
-              if (dealId) {
-                const fn = contact.properties?.firstname || ""
-                const ln = contact.properties?.lastname || ""
-                fullName = `${fn} ${ln}`.trim() || cleanEmail.split("@")[0]
-                name = fn || fullName.split(" ")[0]
-                companyName = "Direct Student"
-                directDealRef.current = String(dealId)
-              }
-            }
+            // No contact found at all — nothing to do
           }
         } catch {}
       }
