@@ -5,7 +5,6 @@ import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBack
 import { useAuth } from "../lib/auth"
 
 const DEMO_PASSWORD = import.meta.env.VITE_PORTAL_PASSWORD
-const HOLMES_COMPANY_NAME = "Holmes Institute Australia"
 const MARKETERS = [
   { name: "Indra Adhikari",   title: "Victoria Representative",       email: "iadhikari@holmes.edu.au" },
   { name: "Dinesh Chetwani",  title: "Queensland Representative",      email: "dchetwani@holmes.edu.au" },
