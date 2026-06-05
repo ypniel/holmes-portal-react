@@ -95,7 +95,6 @@ export default function LoginPage() {
           }
         } catch {}
       }
-      }
 
       login({ id: "demo", name, fullName, email: cleanEmail, companyName })
       setStatus("success")
