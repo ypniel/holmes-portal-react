@@ -36,6 +36,7 @@ exports.handler = async (event) => {
   // ── File download ─────────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
+      // Step 1: Get file metadata to get the URL
       const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
         path: `/filemanager/api/v3/files/${fileId}`,
@@ -43,11 +44,53 @@ exports.handler = async (event) => {
         headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
       })
       const meta = JSON.parse(metaResult.body.toString())
-      const proxyUrl = meta.url || meta.s3_url || meta.default_hosting_url || ""
-      if (!proxyUrl) return { statusCode: 404, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No file URL" }) }
-      return { statusCode: 302, headers: { ...corsHeaders, "Location": proxyUrl }, body: "" }
+      const fileUrl = meta.url || meta.s3_url || meta.default_hosting_url || ""
+      if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File not found" }
+
+      // Step 2: Fetch the actual file content using HubSpot token (handles private files)
+      const parsedUrl = new URL(fileUrl)
+      const fileResult = await makeRequest({
+        hostname: parsedUrl.hostname,
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${TOKEN}`,
+        },
+      })
+
+      // If we got a redirect, follow it
+      if (fileResult.status === 302 && fileResult.location) {
+        const redirectUrl = new URL(fileResult.location)
+        const redirectResult = await makeRequest({
+          hostname: redirectUrl.hostname,
+          path: redirectUrl.pathname + redirectUrl.search,
+          method: "GET",
+          headers: {},
+        })
+        return {
+          statusCode: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": redirectResult.headers["content-type"] || "application/octet-stream",
+            "Content-Disposition": `attachment; filename="${meta.name || "document"}"`,
+          },
+          body: redirectResult.body.toString("base64"),
+          isBase64Encoded: true,
+        }
+      }
+
+      return {
+        statusCode: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": fileResult.headers["content-type"] || "application/octet-stream",
+          "Content-Disposition": `attachment; filename="${meta.name || "document"}"`,
+        },
+        body: fileResult.body.toString("base64"),
+        isBase64Encoded: true,
+      }
     } catch (err) {
-      return { statusCode: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: err.message }) }
+      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
     }
   }
 
