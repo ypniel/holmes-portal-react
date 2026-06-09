@@ -36,12 +36,11 @@ exports.handler = async (event) => {
   // ── File download ─────────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
-      const filesToken = FILES_TOKEN
       const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
         path: `/filemanager/api/v3/files/${fileId}`,
         method: "GET",
-        headers: { "Authorization": `Bearer ${filesToken}`, "Content-Type": "application/json" },
+        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
       })
       const meta = JSON.parse(metaResult.body.toString())
       const proxyUrl = meta.url || meta.s3_url || meta.default_hosting_url || ""
