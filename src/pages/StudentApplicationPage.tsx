@@ -10,6 +10,15 @@ const MARKETERS = [
   { name: "Don Kauffman",     title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
 ]
 
+const TEAMS = [
+  { name: "Agent Finance",            email: "agentfinance@holmes.edu.au",    description: "Commissions enquiries" },
+  { name: "Hello",                    email: "hello@holmes.edu.au",            description: "General enquiries" },
+  { name: "Deposit",                  email: "deposits@holmes.edu.au",         description: "Payment enquiries" },
+  { name: "Student Services",         email: "studentservices@holmes.edu.au",  description: "Deferment, suspension, cancellation and appeal enquiries" },
+  { name: "Credit Assessment Team",   email: "CAT@holmes.edu.au",              description: "Transfer credit assessment / enquiries" },
+  { name: "Early Childhood Placement",email: "ecplacement@holmes.edu.au",      description: "Work placement for GDEC / Master of Teaching students enquiries" },
+]
+
 export default function StudentApplicationPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -366,32 +375,47 @@ export default function StudentApplicationPage() {
 
         {/* Need Help box */}
         <div className="mt-4 bg-white rounded-xl border border-stone-200 p-5">
-          <h3 className="font-semibold text-gray-800 text-sm mb-4">Need Help?</h3>
+          <h3 className="font-semibold text-gray-800 text-sm mb-1">Need Help?</h3>
+          <p className="text-xs text-gray-500 mb-4">You can reach out to other teams at:</p>
           <div className="space-y-2 mb-4">
             <p className="text-sm text-gray-600">📞 <span className="font-medium">+61 3 9564 1444</span></p>
-            <p className="text-sm text-gray-600">✉️ <span className="font-medium">admissions@holmes.edu.au</span></p>
             <p className="text-xs text-gray-400">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
           </div>
-          <div className="border-t border-stone-100 pt-4">
-            <p className="text-xs text-gray-500 font-medium mb-3">Your Holmes Sales Representatives</p>
-            <div className="space-y-2">
-              {MARKETERS.map(m => (
-                <a
-                  key={m.email}
-                  href={`mailto:${m.email}`}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
-                >
-                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs flex-shrink-0">
-                    {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
-                    <p className="text-xs text-gray-500">{m.title}</p>
-                  </div>
-                  <span className="text-sm">✉️</span>
-                </a>
-              ))}
-            </div>
+          {/* Sales Reps */}
+          <div className="space-y-2 mb-3">
+            {MARKETERS.map(m => (
+              <a key={m.email} href={`mailto:${m.email}`}
+                className="flex items-center gap-3 p-3 rounded-lg border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+              >
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs flex-shrink-0">
+                  {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
+                  <p className="text-xs text-gray-500">{m.title}</p>
+                  <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+          {/* Divider */}
+          <div className="border-t border-stone-100 my-3" />
+          {/* Teams */}
+          <div className="space-y-2">
+            {TEAMS.map(t => (
+              <a key={t.email} href={`mailto:${t.email}`}
+                className="flex items-center gap-3 p-3 rounded-lg border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+              >
+                <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 font-bold text-xs flex-shrink-0">
+                  {t.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{t.name}</p>
+                  <p className="text-xs text-gray-500">{t.description}</p>
+                  <p className="text-xs text-red-600 mt-0.5">{t.email}</p>
+                </div>
+              </a>
+            ))}
           </div>
         </div>
 
