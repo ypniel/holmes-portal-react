@@ -63,6 +63,15 @@ const MARKETERS = [
   { name: "Don Kauffman", title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
 ]
 
+const TEAMS = [
+  { name: "Agent Finance", email: "agentfinance@holmes.edu.au", description: "Commissions enquiries" },
+  { name: "Hello", email: "hello@holmes.edu.au", description: "General enquiries" },
+  { name: "Deposit", email: "deposits@holmes.edu.au", description: "Payment enquiries" },
+  { name: "Student Services", email: "studentservices@holmes.edu.au", description: "Deferment, suspension, cancellation and appeal enquiries" },
+  { name: "Credit Assessment Team", email: "CAT@holmes.edu.au", description: "Transfer credit assessment / enquiries" },
+  { name: "Early Childhood Placement", email: "ecplacement@holmes.edu.au", description: "Work placement for GDEC / Master of Teaching students enquiries" },
+]
+
 const BASE_APP_URL = "https://share.hsforms.com/2SycknjhmRRasYVCAV33Vkwnrkx6"
 
 export default function HomePage() {
@@ -376,34 +385,47 @@ const IS_DEMO = false // production mode — all pipeline deals
       {/* Send a Message Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-5 border-b border-stone-100">
-              <h2 className="text-lg font-bold text-gray-800">Contact Your Holmes Representative</h2>
-              <p className="text-sm text-gray-500 mt-1">Click an email to open in your mail app</p>
+              <h2 className="text-lg font-bold text-gray-800">Need Help?</h2>
+              <p className="text-sm text-gray-500 mt-1">You can reach out to other teams at:</p>
             </div>
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-2">
+              {/* Sales Reps */}
               {MARKETERS.map(m => (
-                <a
-                  key={m.email}
-                  href={`mailto:${m.email}`}
-                  className="flex items-center gap-4 p-4 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+                <a key={m.email} href={`mailto:${m.email}`}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs flex-shrink-0">
                     {m.name.split(" ").map(n => n[0]).join("").slice(0,2)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
+                    <p className="font-semibold text-sm text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
                     <p className="text-xs text-gray-500">{m.title}</p>
                     <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
                   </div>
-                  <span className="text-red-400 text-lg">✉️</span>
+                </a>
+              ))}
+              {/* Divider */}
+              <div className="border-t border-stone-100 my-2" />
+              {/* Teams */}
+              {TEAMS.map(t => (
+                <a key={t.email} href={`mailto:${t.email}`}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+                >
+                  <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 font-bold text-xs flex-shrink-0">
+                    {t.name.split(" ").map(n => n[0]).join("").slice(0,2)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-800 group-hover:text-red-700 transition-colors">{t.name}</p>
+                    <p className="text-xs text-gray-500">{t.description}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{t.email}</p>
+                  </div>
                 </a>
               ))}
             </div>
             <div className="px-6 py-4 border-t border-stone-100">
-              <button onClick={() => setShowModal(false)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                Close
-              </button>
+              <button onClick={() => setShowModal(false)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Close</button>
             </div>
           </div>
         </div>
