@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import {
   ArrowLeft, FileText, GraduationCap, User, Building2,
-  MessageSquare, Send, Paperclip, Dot, Download, ExternalLink
+  MessageSquare, Send, Paperclip, Dot, Download, ExternalLink, X
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
 import {
@@ -12,6 +12,21 @@ import {
 import { formatDate, formatDateTime, formatIntake, BADGE_CLASSES as BC, initials } from "../lib/utils"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { DetailPageSkeleton } from "../components/Skeleton"
+
+const MARKETERS = [
+  { name: "Indra Adhikari",   title: "Victoria Representative",       email: "iadhikari@holmes.edu.au" },
+  { name: "Dinesh Chetwani",  title: "Queensland Representative",      email: "dchetwani@holmes.edu.au" },
+  { name: "Don Kauffman",     title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
+]
+
+const TEAMS = [
+  { name: "Agent Finance",             email: "agentfinance@holmes.edu.au",   description: "Commissions enquiries" },
+  { name: "Hello",                     email: "hello@holmes.edu.au",           description: "General enquiries" },
+  { name: "Deposit",                   email: "deposits@holmes.edu.au",        description: "Payment enquiries" },
+  { name: "Student Services",          email: "studentservices@holmes.edu.au", description: "Deferment, suspension, cancellation and appeal enquiries" },
+  { name: "Credit Assessment Team",    email: "CAT@holmes.edu.au",             description: "Transfer credit assessment / enquiries" },
+  { name: "Early Childhood Placement", email: "ecplacement@holmes.edu.au",     description: "Work placement for GDEC / Master of Teaching students enquiries" },
+]
 
 type Tab = "course" | "student" | "agent" | "chatter" | "documents"
 
@@ -40,6 +55,7 @@ export default function ApplicationDetailPage() {
   }
   const [comment, setComment] = useState("")
   const [sending, setSending] = useState(false)
+  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -87,6 +103,7 @@ export default function ApplicationDetailPage() {
   const ActiveIcon = tabs.find(t => t.id === activeTab)?.icon || FileText
 
   return (
+    <>
     <PageContainer className="min-w-0 max-w-full overflow-x-hidden">
       {/* Back — hidden for direct students */}
       {!isDirectStudent && (
@@ -423,6 +440,12 @@ export default function ApplicationDetailPage() {
             <div className="pt-3 border-t border-stone-100">
               <p className="text-xs text-gray-500 font-medium mb-0.5">Available Hours</p>
               <p className="text-xs text-gray-700">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
+              <button
+                onClick={() => setShowModal(true)}
+                className="mt-3 w-full py-2 text-xs font-medium text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                Contact our Holmes Teams →
+              </button>
             </div>
           </div>
 
@@ -431,6 +454,56 @@ export default function ApplicationDetailPage() {
         </div>
       </div>
     </PageContainer>
+
+    {/* Need Help Modal */}
+    {showModal && (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">Need Help?</h2>
+              <p className="text-sm text-gray-500 mt-0.5">You can reach out to other teams at:</p>
+            </div>
+            <button onClick={() => setShowModal(false)} className="text-stone-400 hover:text-stone-600 p-1"><X className="h-5 w-5" /></button>
+          </div>
+          <div className="p-4 space-y-2">
+            {MARKETERS.map(m => (
+              <a key={m.email} href={`mailto:${m.email}`}
+                className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+              >
+                <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs flex-shrink-0">
+                  {m.name.split(" ").map(n => n[0]).join("").slice(0,2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
+                  <p className="text-xs text-gray-500">{m.title}</p>
+                  <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
+                </div>
+              </a>
+            ))}
+            <div className="border-t border-stone-100 my-2" />
+            {TEAMS.map(t => (
+              <a key={t.email} href={`mailto:${t.email}`}
+                className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+              >
+                <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 font-bold text-xs flex-shrink-0">
+                  {t.name.split(" ").map(n => n[0]).join("").slice(0,2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-gray-800 group-hover:text-red-700 transition-colors">{t.name}</p>
+                  <p className="text-xs text-gray-500">{t.description}</p>
+                  <p className="text-xs text-red-600 mt-0.5">{t.email}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+          <div className="px-6 py-4 border-t border-stone-100">
+            <button onClick={() => setShowModal(false)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Close</button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   )
 }
 
