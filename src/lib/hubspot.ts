@@ -500,10 +500,13 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
           if (files.find(f => f.id === fileId)) continue
           try {
             const fileData = await hsFetch(`/filemanager/api/v3/files/${fileId}`)
-            const publicUrl = fileData.default_hosting_url || fileData.s3_url || fileData.url || hrefUrl
+            const rawUrl = fileData.default_hosting_url || fileData.s3_url || fileData.url || ""
+            const publicUrl = rawUrl.includes("hubspotusercontent")
+              ? rawUrl
+              : `/.netlify/functions/hubspot?download=true&fileId=${fileId}`
             files.push({ name, id: fileId, url: publicUrl, createdAt: eng.engagement?.createdAt })
           } catch {
-            files.push({ name, id: fileId, url: hrefUrl, createdAt: eng.engagement?.createdAt })
+            files.push({ name, id: fileId, url: `/.netlify/functions/hubspot?download=true&fileId=${fileId}`, createdAt: eng.engagement?.createdAt })
           }
         }
       }
@@ -512,7 +515,6 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
       for (const att of eng.attachments || []) {
         if (!att.id || att.id === 0) continue
         const attId = String(att.id)
-        // Skip if already added via body link
         if (files.find(f => f.id === attId)) continue
         try {
           const fileData = await hsFetch(`/filemanager/api/v3/files/${attId}`)
@@ -521,11 +523,13 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
           name = name.replace(/^file_upload_\d+-/, "")
           name = name.replace(/-[a-f0-9]{6}$/, "")
           name = name.replace(/_/g, " ")
-          const url = fileData.default_hosting_url || fileData.s3_url || fileData.url ||
-            `/.netlify/functions/hubspot?download=true&fileId=${attId}`
+          const rawUrl = fileData.default_hosting_url || fileData.s3_url || fileData.url || ""
+          const url = rawUrl.includes("hubspotusercontent")
+            ? rawUrl
+            : `/.netlify/functions/hubspot?download=true&fileId=${attId}`
           files.push({ name, id: attId, url, createdAt: eng.engagement?.createdAt })
         } catch {
-          files.push({ name: "Document", id: attId, url: "", createdAt: eng.engagement?.createdAt })
+          files.push({ name: "Document", id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt })
         }
       }
     }
