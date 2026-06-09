@@ -216,6 +216,12 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
           .replace(/&nbsp;/g, " ")
           .replace(/\n{3,}/g, "\n\n")
           .trim()
+        // Strip email signature — everything from "Please do not reply" onwards
+        const sigIndex = body.search(/please do not reply|kind regards|holmes education group|holmes institute/i)
+        if (sigIndex > 0) body = body.substring(0, sigIndex).trim()
+        // Also strip unsubscribe footer
+        const unsubIndex = body.search(/prefer fewer emails|unsubscribe/i)
+        if (unsubIndex > 0) body = body.substring(0, unsubIndex).trim()
         author = "Agent"
         if (!body || body.includes("File uploaded")) continue
       } else {
