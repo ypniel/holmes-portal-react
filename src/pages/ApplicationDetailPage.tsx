@@ -271,9 +271,7 @@ export default function ApplicationDetailPage() {
               {activeTab === "agent" && (
                 <div className="grid md:grid-cols-2 gap-x-8">
                   <DetailRow label="Agent Company"  value={company?.name || deal.agentCompany} />
-                  <DetailRow label="Contact Person" value={company?.contactPerson || deal.agentContact} />
                   <DetailRow label="Email"          value={company?.email || deal.agentEmail} />
-                  <DetailRow label="Mobile"         value={company?.phone || deal.agentPhone} />
                   <DetailRow label="City"           value={company?.city} />
                   <DetailRow label="Country"        value={company?.country} />
                 </div>
@@ -526,13 +524,12 @@ function SidebarRow({ label, value }: { label: string; value?: string }) {
 }
 
 const PRO_TIPS = [
-  "Keep student documents up to date to ensure faster processing times for visa applications.",
-  "Submit IELTS or English test results early — verification delays are the most common cause of offer letter hold-ups.",
-  "Double-check passport expiry dates before submitting — passports must be valid for at least 6 months beyond the course end date.",
+  "Keep student documents up to date to ensure faster processing times for offer letter and COE applications.",
+  "Submit Australian academic transcript or English test results early — verification delays are the most common cause of offer letter and COE hold-ups.",
   "Ensure the student's name on all documents exactly matches the passport. Discrepancies cause significant delays.",
-  "OSHC must be arranged before the COE can be issued. Remind students to arrange health cover early.",
   "Advanced Standing applications take longer to assess — submit these cases as early as possible before intake.",
   "For onshore students, make sure their current visa allows them to study before submitting an application.",
+  "Always remember to submit passport, English test, offshore and onshore transcript, OSHC and WWCC/Blue Card (for Teaching related courses).",
 ]
 
 function RotatingProTip() {
