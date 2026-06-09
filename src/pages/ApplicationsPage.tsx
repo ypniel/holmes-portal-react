@@ -145,7 +145,6 @@ export default function ApplicationsPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const pageRows   = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
-  // Fetch associated contact email per deal (current page only, cached)
   const [contactEmails, setContactEmails] = useState<Record<string, string>>({})
   const pageKey = pageRows.map(d => d.id).join(",")
   useEffect(() => {
