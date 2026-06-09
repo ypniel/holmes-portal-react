@@ -30,6 +30,25 @@ const TEAMS = [
 
 type Tab = "course" | "student" | "agent" | "chatter" | "documents"
 
+function useLiveStatus() {
+  const [isLive, setIsLive] = useState(false)
+  useEffect(() => {
+    const check = () => {
+      const melbStr = new Date().toLocaleString("en-AU", { timeZone: "Australia/Melbourne", hour12: false })
+      const parts = melbStr.split(", ")
+      if (parts.length < 2) return
+      const h = parseInt(parts[1].split(":")[0])
+      const dateSegments = parts[0].split("/")
+      const day = new Date(parseInt(dateSegments[2]), parseInt(dateSegments[1]) - 1, parseInt(dateSegments[0])).getDay()
+      setIsLive(day >= 1 && day <= 5 && h >= 9 && h < 17)
+    }
+    check()
+    const interval = setInterval(check, 30000)
+    return () => clearInterval(interval)
+  }, [])
+  return isLive
+}
+
 export default function ApplicationDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
@@ -56,6 +75,7 @@ export default function ApplicationDetailPage() {
   const [comment, setComment] = useState("")
   const [sending, setSending] = useState(false)
   const [showModal, setShowModal] = useState(false)
+  const isLive = useLiveStatus()
 
   useEffect(() => {
     if (!id) return
@@ -426,9 +446,9 @@ export default function ApplicationDetailPage() {
           <div className="bg-white rounded-xl border border-stone-200 p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-gray-800 text-sm">Need Assistance?</h3>
-              <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
-                <Dot className="h-3 w-3 fill-current animate-pulse" />
-                <span className="text-xs font-semibold">Live Now</span>
+              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-semibold ${isLive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-stone-100 text-stone-500 border-stone-200"}`}>
+                <Dot className={`h-3 w-3 fill-current ${isLive ? "animate-pulse" : ""}`} />
+                <span className="text-xs font-semibold">{isLive ? "Live Now" : "Closed"}</span>
               </div>
             </div>
             <div className="space-y-2 text-sm mb-3">
