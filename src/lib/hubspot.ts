@@ -158,56 +158,20 @@ export async function fetchDeal(id: string): Promise<Deal> {
 export async function fetchNotes(dealId: string): Promise<Note[]> {
   const allNotes: Note[] = []
 
-  // Method 1 — CRM Notes API (internal notes)
-  try {
-    const assoc = await hsFetch(`/crm/v3/objects/deals/${dealId}/associations/notes`)
-    const noteIds: string[] = (assoc.results || []).slice(0, 50).map((a: any) => a.id)
-    if (noteIds.length) {
-      const notes = await Promise.all(
-        noteIds.map(async (nid) => {
-          try {
-            return await hsFetch(`/crm/v3/objects/notes/${nid}?properties=hs_note_body,hs_createdate,hubspot_owner_id`)
-          } catch { return null }
-        })
-      )
-      notes.filter(Boolean).forEach((n: any) => {
-        const body = (n.properties.hs_note_body || "")
-          .replace(/<br\s*\/?>/gi, "\n")
-          .replace(/<\/p>/gi, "\n")
-          .replace(/<b>(.*?)<\/b>/gi, "$1")
-          .replace(/<[^>]*>/g, "")
-          .replace(/&amp;/g, "&")
-          .replace(/&nbsp;/g, " ")
-          .replace(/\n{3,}/g, "\n\n")
-          .trim()
-        if (!body.includes("File uploaded")) {
-          allNotes.push({
-            id: n.id,
-            body,
-            createdAt: n.properties.hs_createdate,
-            ownerId: n.properties.hubspot_owner_id,
-            type: "note",
-          })
-        }
-      })
-    }
-  } catch {}
-
-  // Method 2 — Legacy Engagements API (emails + notes from HubSpot/portal)
+  // Email engagements only — no CRM notes
   try {
     const eng = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100`)
     for (const e of eng.results || []) {
       const type = e.engagement?.type
-      if (type !== "NOTE" && type !== "EMAIL") continue
+      if (type !== "EMAIL") continue
       const id = String(e.engagement.id)
       if (allNotes.find(n => n.id === id)) continue
 
       let body = ""
       let author = ""
 
-      if (type === "EMAIL") {
-        body = e.metadata?.body || e.metadata?.html || ""
-        body = body
+      body = e.metadata?.body || e.metadata?.html || ""
+      body = body
           .replace(/<img[^>]*>/gi, "")
           .replace(/<br\s*\/?>/gi, "\n")
           .replace(/<\/p>/gi, "\n")
@@ -216,29 +180,17 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
           .replace(/&nbsp;/g, " ")
           .replace(/\n{3,}/g, "\n\n")
           .trim()
-        // Strip email signature — everything from "Please do not reply" onwards
-        const sigIndex = body.search(/please do not reply|kind regards|holmes education group|holmes institute/i)
-        if (sigIndex > 0) body = body.substring(0, sigIndex).trim()
-        // Also strip unsubscribe footer
-        const unsubIndex = body.search(/prefer fewer emails|unsubscribe/i)
-        if (unsubIndex > 0) body = body.substring(0, unsubIndex).trim()
+      // Strip portal disclaimer block and everything after
+      const disclaimerIndex = body.search(/please do not reply to this email/i)
+      if (disclaimerIndex > 0) body = body.substring(0, disclaimerIndex).trim()
+      // Strip signature block
+      const sigIndex = body.search(/kind regards|holmes education group|holmes institute/i)
+      if (sigIndex > 0) body = body.substring(0, sigIndex).trim()
+      // Strip unsubscribe footer
+      const unsubIndex = body.search(/prefer fewer emails|unsubscribe/i)
+      if (unsubIndex > 0) body = body.substring(0, unsubIndex).trim()
         author = "Agent"
         if (!body || body.includes("File uploaded")) continue
-      } else {
-        body = (e.metadata?.body || "")
-          .replace(/<br\s*\/?>/gi, "\n")
-          .replace(/<\/p>/gi, "\n")
-          .replace(/<b>(.*?)<\/b>/gi, "$1")
-          .replace(/<[^>]*>/g, "")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&nbsp;/g, " ")
-          .replace(/\n{3,}/g, "\n\n")
-          .trim()
-        if (!body || body.includes("File uploaded")) continue
-        author = "Holmes Admissions"
-      }
 
       allNotes.push({
         id,
