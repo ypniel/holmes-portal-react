@@ -362,6 +362,12 @@ const IS_DEMO = false // production mode — all pipeline deals
             </div>
             <div className="pt-3 border-t border-stone-100">
               <p className="text-xs text-gray-500">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
+              <button
+                onClick={() => setShowModal(true)}
+                className="mt-3 w-full py-2 text-xs font-medium text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                Contact our Holmes Teams →
+              </button>
             </div>
           </div>
 
