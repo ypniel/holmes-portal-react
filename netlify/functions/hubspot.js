@@ -36,7 +36,7 @@ exports.handler = async (event) => {
   // ── File download ─────────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
-      // Step 1: Get file metadata to get the URL
+      // Step 1: Get file metadata
       const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
         path: `/filemanager/api/v3/files/${fileId}`,
@@ -44,55 +44,53 @@ exports.handler = async (event) => {
         headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
       })
       const meta = JSON.parse(metaResult.body.toString())
-      const fileUrl = meta.url || meta.s3_url || meta.default_hosting_url || ""
+
+      // Use proxy URL for private files, CDN URL for public ones
+      const isPrivate = meta.meta?.allows_anonymous_access === false || meta.meta?.sensitive === true
+      const fileUrl = isPrivate
+        ? `https://api-na1.hubspot.com/filemanager/api/v3/files/${fileId}/proxy?portalId=39917994`
+        : (meta.default_hosting_url || meta.s3_url || meta.url || "")
+
       if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File not found" }
 
-      // Step 2: Fetch the actual file content using HubSpot token (handles private files)
+      // For public files just redirect
+      if (!isPrivate) {
+        return { statusCode: 302, headers: { ...corsHeaders, "Location": fileUrl }, body: "" }
+      }
+
+      // For private files fetch with token and stream back
       const parsedUrl = new URL(fileUrl)
       const fileResult = await makeRequest({
         hostname: parsedUrl.hostname,
         path: parsedUrl.pathname + parsedUrl.search,
         method: "GET",
-        headers: {
-          "Authorization": `Bearer ${TOKEN}`,
-        },
+        headers: { "Authorization": `Bearer ${TOKEN}` },
       })
 
-      // If we got a redirect, follow it
-      if (fileResult.status === 302 && fileResult.location) {
-        const redirectUrl = new URL(fileResult.location)
-        const redirectResult = await makeRequest({
-          hostname: redirectUrl.hostname,
-          path: redirectUrl.pathname + redirectUrl.search,
-          method: "GET",
-          headers: {},
-        })
-        return {
-          statusCode: 200,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": redirectResult.headers["content-type"] || "application/octet-stream",
-            "Content-Disposition": `attachment; filename="${meta.name || "document"}"`,
-          },
-          body: redirectResult.body.toString("base64"),
-          isBase64Encoded: true,
-        }
-      }
+      const finalResult = fileResult.status === 302 && fileResult.location
+        ? await makeRequest({
+            hostname: new URL(fileResult.location).hostname,
+            path: new URL(fileResult.location).pathname + new URL(fileResult.location).search,
+            method: "GET",
+            headers: {},
+          })
+        : fileResult
 
       return {
         statusCode: 200,
         headers: {
           ...corsHeaders,
-          "Content-Type": fileResult.headers["content-type"] || "application/octet-stream",
+          "Content-Type": finalResult.headers["content-type"] || "application/octet-stream",
           "Content-Disposition": `attachment; filename="${meta.name || "document"}"`,
         },
-        body: fileResult.body.toString("base64"),
+        body: finalResult.body.toString("base64"),
         isBase64Encoded: true,
       }
     } catch (err) {
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
     }
   }
+
 
   // ── Standard proxy ────────────────────────────────────────────────────────
   if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
