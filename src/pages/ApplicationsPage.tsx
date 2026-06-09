@@ -145,6 +145,28 @@ export default function ApplicationsPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const pageRows   = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
+  // Fetch associated contact email per deal (current page only, cached)
+  const [contactEmails, setContactEmails] = useState<Record<string, string>>({})
+  const pageKey = pageRows.map(d => d.id).join(",")
+  useEffect(() => {
+    if (!pageRows.length) return
+    const missing = pageRows.filter(d => !(d.id in contactEmails))
+    if (!missing.length) return
+    missing.forEach(async d => {
+      try {
+        const assocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/deals/${d.id}/associations/contacts`)}`)
+        const assocData = await assocRes.json()
+        const contactId = assocData.results?.[0]?.toObjectId
+        if (!contactId) { setContactEmails(prev => ({ ...prev, [d.id]: "" })); return }
+        const cRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/contacts/${contactId}?properties=email`)}`)
+        const cData = await cRes.json()
+        setContactEmails(prev => ({ ...prev, [d.id]: cData.properties?.email || "" }))
+      } catch {
+        setContactEmails(prev => ({ ...prev, [d.id]: "" }))
+      }
+    })
+  }, [pageKey])
+
   const stats = useMemo(() => ({
     total:   deals.length,
     waiting: deals.filter(d => d.responseStatus.toLowerCase().includes("waiting")).length,
@@ -167,7 +189,7 @@ export default function ApplicationsPage() {
       ["Student Name","Country","Residency","Course Name","Intake","Campus","Response Status","Case Status","Last Modified"],
       ...filtered.map(d => [
         d.studentName, d.nationality, d.residencyStatus, d.courseName,
-        d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.lastModified)
+        d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.lastModified), d.agentEmail || ""
       ])
     ]
     const csv = rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n")
@@ -310,6 +332,7 @@ export default function ApplicationsPage() {
                     { key: null, label: "Response Status" },
                     { key: "stageLabel" as SortKey, label: "Case Status" },
                     { key: "lastModified" as SortKey, label: "Last Modified" },
+                    { key: null, label: "Submitted By" },
                   ].map(col => (
                     <th key={col.label}
                       className={`text-left px-4 py-3 text-xs font-semibold text-stone-500 uppercase tracking-wider ${col.key ? "cursor-pointer select-none hover:text-gray-700" : ""}`}
@@ -375,6 +398,11 @@ export default function ApplicationsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-stone-500">{formatDate(deal.lastModified)}</td>
+                      <td className="px-4 py-3.5">
+                        {contactEmails[deal.id]
+                          ? <span className="text-xs text-stone-500 bg-stone-50 px-2 py-0.5 rounded border border-stone-200 truncate max-w-[160px] block" title={contactEmails[deal.id]}>{contactEmails[deal.id]}</span>
+                          : <span className="text-stone-300 text-xs">—</span>}
+                      </td>
                     </tr>
                   )
                 })}
