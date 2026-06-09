@@ -471,9 +471,11 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
     const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
+    console.log("Total engagements:", data.results?.length)
     const files: FileItem[] = []
     
     for (const eng of data.results || []) {
+      console.log("Engagement type:", eng.engagement?.type, "attachments:", eng.attachments?.length, "body length:", eng.metadata?.body?.length)
       const body = eng.metadata?.body || ""
       
       // Method 1 — parse CDN URL from metadata body first (most reliable)
