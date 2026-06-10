@@ -1,146 +1,87 @@
-const https = require("https")
+import React, { createContext, useContext, useState, useEffect } from "react"
 
-const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
-const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
+const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
 
-function makeRequest(options, body) {
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        resolve({ status: 302, location: res.headers.location, body: Buffer.alloc(0), headers: res.headers })
-        return
-      }
-      const chunks = []
-      res.on("data", chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
-      res.on("end", () => resolve({ status: res.statusCode, body: Buffer.concat(chunks), headers: res.headers }))
-    })
-    req.on("error", reject)
-    if (body) req.write(body)
-    req.end()
-  })
+export function isHolmesStaff(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase() || ""
+  return HOLMES_DOMAINS.some(d => domain === d)
 }
 
-exports.handler = async (event) => {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
-  }
+export function isDirectStudent(companyName?: string): boolean {
+  return companyName === "Direct Student"
+}
 
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
+interface User {
+  id: string
+  name: string
+  email: string
+  fullName: string
+  companyName?: string
+  phone?: string
+}
 
-  const path = event.queryStringParameters?.path || ""
-  const isDownload = event.queryStringParameters?.download === "true"
-  const fileId = event.queryStringParameters?.fileId || ""
+interface AuthContextType {
+  user: User | null
+  isLoading: boolean
+  isStaff: boolean
+  login: (user: User) => void
+  logout: () => void
+}
 
-  // ── File download ─────────────────────────────────────────────────────────
-  if (isDownload && fileId) {
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isLoading: true,
+  isStaff: false,
+  login: () => {},
+  logout: () => {},
+})
+
+const STORAGE_KEY = "holmes_portal_user"
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
     try {
-      // Step 1: Get file metadata
-      const metaResult = await makeRequest({
-        hostname: "api.hubapi.com",
-        path: `/filemanager/api/v3/files/${fileId}`,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-      })
-      const meta = JSON.parse(metaResult.body.toString())
-
-      // Use proxy URL for private files, CDN URL for public ones
-      const isPrivate = meta.meta?.allows_anonymous_access === false || meta.meta?.sensitive === true
-      const fileUrl = isPrivate
-        ? `https://api-na1.hubspot.com/filemanager/api/v3/files/${fileId}/proxy?portalId=39917994`
-        : (meta.default_hosting_url || meta.s3_url || meta.url || "")
-
-      if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File not found" }
-
-      // For public files just redirect
-      if (!isPrivate) {
-        return { statusCode: 302, headers: { ...corsHeaders, "Location": fileUrl }, body: "" }
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        const parsedUser = JSON.parse(stored)
+        // Fix #5: if no company_id in sessionStorage, force re-login for agents
+        const companyId = sessionStorage.getItem("holmes_company_id")
+        const staffUser = isHolmesStaff(parsedUser.email)
+        if (!staffUser && parsedUser.companyName !== "Direct Student" && !companyId) {
+          // Agent with no sessionStorage company ID — clear and force re-login
+          localStorage.removeItem(STORAGE_KEY)
+        } else {
+          setUser(parsedUser)
+        }
       }
+    } catch {}
+    setIsLoading(false)
+  }, [])
 
-      // For private files fetch with token and stream back
-      const parsedUrl = new URL(fileUrl)
-      const fileResult = await makeRequest({
-        hostname: parsedUrl.hostname,
-        path: parsedUrl.pathname + parsedUrl.search,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${TOKEN}` },
-      })
-
-      const finalResult = fileResult.status === 302 && fileResult.location
-        ? await makeRequest({
-            hostname: new URL(fileResult.location).hostname,
-            path: new URL(fileResult.location).pathname + new URL(fileResult.location).search,
-            method: "GET",
-            headers: {},
-          })
-        : fileResult
-
-      return {
-        statusCode: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": finalResult.headers["content-type"] || "application/octet-stream",
-          "Content-Disposition": `attachment; filename="${meta.name || "document"}"`,
-        },
-        body: finalResult.body.toString("base64"),
-        isBase64Encoded: true,
-      }
-    } catch (err) {
-      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
-    }
+  const login = (u: User) => {
+    setUser(u)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(u))
   }
 
-
-  // ── Standard proxy ────────────────────────────────────────────────────────
-  if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
-
-  // Use TOKEN for everything
-  const token = TOKEN
-
-  try {
-    const isPost = event.httpMethod === "POST"
-    const isPatch = event.httpMethod === "PATCH"
-    let bodyToSend = event.body || ""
-
-    if (isPost && path.includes("/deals/search")) {
-      const parsed = event.body ? JSON.parse(event.body) : {}
-      // Check if request already has agent_email filter — if so preserve it and just add pipeline
-      const hasAgentFilter = parsed.filterGroups?.[0]?.filters?.some(
-        (f) => f.propertyName === "agent_email"
-      )
-      if (hasAgentFilter) {
-        // Add pipeline to existing filters
-        parsed.filterGroups = parsed.filterGroups.map((group) => ({
-          ...group,
-          filters: [...group.filters, { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
-        }))
-      } else {
-        // Replace with pipeline only filter
-        parsed.filterGroups = [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }]
-      }
-      bodyToSend = JSON.stringify(parsed)
-    }
-
-    const bodyBuf = Buffer.from(bodyToSend || "", "utf8")
-    const options = {
-      hostname: "api.hubapi.com",
-      path: path,
-      method: isPatch ? "PATCH" : isPost ? "POST" : "GET",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "Content-Length": bodyBuf.length,
-      },
-    }
-
-    const result = await makeRequest(options, bodyBuf.length > 0 ? bodyToSend : undefined)
-    return {
-      statusCode: result.status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      body: result.body.toString(),
-    }
-  } catch (err) {
-    return { statusCode: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: err.message }) }
+  const logout = () => {
+    setUser(null)
+    localStorage.removeItem(STORAGE_KEY)
+    // Fix #6: clear sessionStorage on logout so next agent starts clean
+    sessionStorage.removeItem("holmes_company_id")
   }
+
+  const isStaff = user ? isHolmesStaff(user.email) : false
+
+  return (
+    <AuthContext.Provider value={{ user, isLoading, isStaff, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  return useContext(AuthContext)
 }
