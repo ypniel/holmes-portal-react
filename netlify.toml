@@ -12,4 +12,4 @@
   included_files = ["netlify/functions/**"]
 
 [functions."upload"]
-  node_bundler = "nft"
+  node_bundler = "esbuild"
