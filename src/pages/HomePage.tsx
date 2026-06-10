@@ -2,12 +2,11 @@ import React, { useEffect, useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Users, FileText, CheckCircle, Clock, ArrowRight, GraduationCap, MapPin } from "lucide-react"
 import { PageContainer } from "../components/Layout"
-import { useAuth } from "../lib/auth"
-import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail } from "../lib/hubspot"
+import { useAuth, isHolmesStaff } from "../lib/auth"
+import { fetchDeals, fetchDealsByCompanyId, Deal } from "../lib/hubspot"
 import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
 import { StatCardSkeleton, ActivityRowSkeleton } from "../components/Skeleton"
 
-// ── Rotating Pro Tips ─────────────────────────────────────────────────────────
 const PRO_TIPS = [
   "Keep student documents up to date to ensure faster processing times for offer letter and COE applications.",
   "Submit Australian academic transcript or English test results early — verification delays are the most common cause of offer letter and COE hold-ups.",
@@ -26,27 +25,17 @@ function useRotatingTip() {
   return PRO_TIPS[idx]
 }
 
-// ── Live/Closed status ────────────────────────────────────────────────────────
 function useLiveStatus() {
   const [isLive, setIsLive] = useState(false)
   useEffect(() => {
     const check = () => {
-      // Force Melbourne timezone
       const melbStr = new Date().toLocaleString("en-AU", { timeZone: "Australia/Melbourne", hour12: false })
-      // Parse "dd/mm/yyyy, HH:MM:SS"
       const parts = melbStr.split(", ")
       if (parts.length < 2) return
-      const timePart = parts[1] // "HH:MM:SS"
-      const h = parseInt(timePart.split(":")[0])
-      const datePart = parts[0] // "dd/mm/yyyy"
-      const dateSegments = datePart.split("/")
-      const day = new Date(
-        parseInt(dateSegments[2]),
-        parseInt(dateSegments[1]) - 1,
-        parseInt(dateSegments[0])
-      ).getDay() // 0=Sun, 6=Sat
-      const isWeekday = day >= 1 && day <= 5
-      setIsLive(isWeekday && h >= 9 && h < 17)
+      const h = parseInt(parts[1].split(":")[0])
+      const dateSegments = parts[0].split("/")
+      const day = new Date(parseInt(dateSegments[2]), parseInt(dateSegments[1]) - 1, parseInt(dateSegments[0])).getDay()
+      setIsLive(day >= 1 && day <= 5 && h >= 9 && h < 17)
     }
     check()
     const interval = setInterval(check, 30000)
@@ -55,20 +44,19 @@ function useLiveStatus() {
   return isLive
 }
 
-// ── Marketers contact list ────────────────────────────────────────────────────
 const MARKETERS = [
-  { name: "Indra Adhikari", title: "Victoria Representative", email: "iadhikari@holmes.edu.au" },
-  { name: "Dinesh Chetwani", title: "Queensland Representative", email: "dchetwani@holmes.edu.au" },
-  { name: "Don Kauffman", title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
+  { name: "Indra Adhikari",  title: "Victoria Representative",       email: "iadhikari@holmes.edu.au" },
+  { name: "Dinesh Chetwani", title: "Queensland Representative",      email: "dchetwani@holmes.edu.au" },
+  { name: "Don Kauffman",    title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
 ]
 
 const TEAMS = [
-  { name: "Agent Finance", email: "agentfinance@holmes.edu.au", description: "Commissions enquiries" },
-  { name: "Hello", email: "hello@holmes.edu.au", description: "General enquiries" },
-  { name: "Deposit", email: "deposits@holmes.edu.au", description: "Payment enquiries" },
-  { name: "Student Services", email: "studentservices@holmes.edu.au", description: "Deferment, suspension, cancellation and appeal enquiries" },
-  { name: "Credit Assessment Team", email: "CAT@holmes.edu.au", description: "Transfer credit assessment / enquiries" },
-  { name: "Early Childhood Placement", email: "ecplacement@holmes.edu.au", description: "Work placement for GDEC / Master of Teaching students enquiries" },
+  { name: "Agent Finance",             email: "agentfinance@holmes.edu.au",   description: "Commissions enquiries" },
+  { name: "Hello",                     email: "hello@holmes.edu.au",           description: "General enquiries" },
+  { name: "Deposit",                   email: "deposits@holmes.edu.au",        description: "Payment enquiries" },
+  { name: "Student Services",          email: "studentservices@holmes.edu.au", description: "Deferment, suspension, cancellation and appeal enquiries" },
+  { name: "Credit Assessment Team",    email: "CAT@holmes.edu.au",             description: "Transfer credit assessment / enquiries" },
+  { name: "Early Childhood Placement", email: "ecplacement@holmes.edu.au",     description: "Work placement for GDEC / Master of Teaching students enquiries" },
 ]
 
 const BASE_APP_URL = "https://share.hsforms.com/2SycknjhmRRasYVCAV33Vkwnrkx6"
@@ -84,9 +72,8 @@ export default function HomePage() {
   const tipIdx = PRO_TIPS.indexOf(tip)
   const isLive = useLiveStatus()
 
-  // Resolve form URL — pre-fill agent email (use main agent email for sub-agents)
   useEffect(() => {
-    if (!user?.email || user?.email?.endsWith("@holmes.edu.au") || user?.email?.endsWith("@holmeseducation.group")) return
+    if (!user?.email || isHolmesStaff(user.email)) return
     setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
   }, [user])
 
@@ -95,42 +82,20 @@ export default function HomePage() {
       ["Student Name","Nationality","Residency","Course","Intake","Campus","Response Status","Case Status","Last Modified"],
       ...deals.map(d => [d.studentName, d.nationality, d.residencyStatus, d.courseName, d.intake, d.campus, d.responseStatus, d.stageLabel, d.lastModified])
     ]
-    const csv = rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g,'""')}"`).join(",")).join("\n")
+    // Add UTF-8 BOM for Excel compatibility
+    const bom = "\uFEFF"
+    const csv = bom + rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g,'""')}"`).join(",")).join("\n")
     const a = document.createElement("a")
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }))
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }))
     a.download = "Holmes_Applications.csv"
     a.click()
   }
 
-const IS_DEMO = false // production mode — all pipeline deals
-
-  const DEMO_IDS = new Set([
-  "60381128785","60381128784","60380825611","60378197016","60377570929",
-  "60377428743","60377260695","60370916106","60403561910","60403249337",
-  "60402480141","60402016566","60400476795","60398921390","60392126252",
-  "60391661937","60389422710","60387874402","60387095405","60386786364",
-  "60385406373","60384232607","60383764014","60382524535","60381287187",
-  "60380522790","60377570930","60377428742","60403734325","60401408118",
-  "60399387941","60384232608","60382842773","60382227022","60381756777",
-  "60381605513","60380216396","60377889444","60376963612","60399086164",
-  "60398614292","60387728242","60385406374","60385257345","60383618881",
-  "60383453468","60381605512","60381434740","60380825613","60378197015",
-  "60370916105","60404652885","60400331804","60400014508","60400014507",
-  "60398306967","60392752262","60392443761","60392126251","60391204532",
-  "60388974630","60388656175","60388341116","60384473904","60384081585",
-  "60382078108","60381756776","60379437606","60377734533","60371377249",
-  "60400779899","60400159393","60399552286","60392286903","60390208859",
-  "60382380355","60378197014","60378197013","60378041524","60404493625",
-  "60401408117","60399552285","60391520301","60390208858","60387574612",
-  "60384473903","60382380354","60379584144","60378814034","60378041523",
-  "60371998843","60371843958","60400331808","60391969076","60390208857",
-  "60388974629","60387728241","60387728240","60385868040","60385406372",
-  "60380392369","60385885280","60370933828",
-])
   useEffect(() => {
     const load = async () => {
       try {
-        if (user?.email && !user?.email?.endsWith("@holmes.edu.au") || user?.email?.endsWith("@holmeseducation.group")) {
+        // Fix #4: use isHolmesStaff() instead of manual domain check with precedence bug
+        if (user?.email && !isHolmesStaff(user.email)) {
           // Agent — fetch deals by company association
           const companyId = sessionStorage.getItem("holmes_company_id")
           if (companyId) {
@@ -141,9 +106,7 @@ const IS_DEMO = false // production mode — all pipeline deals
           }
         } else {
           // Holmes staff — fetch all deals
-          const d = IS_DEMO
-            ? await fetchDealsByIds([...DEMO_IDS])
-            : await fetchDeals()
+          const d = await fetchDeals()
           setDeals(d)
         }
       } catch {}
@@ -153,69 +116,47 @@ const IS_DEMO = false // production mode — all pipeline deals
   }, [user])
 
   const stats = useMemo(() => ({
-    total: deals.length,
-    offers: deals.filter(d => d.stageLabel.includes("Offer")).length,
-    coes: deals.filter(d => d.stageLabel === "Application Completed" || d.stageLabel === "Enrolled").length,
+    total:   deals.length,
+    offers:  deals.filter(d => d.stageLabel.includes("Offer")).length,
+    coes:    deals.filter(d => d.stageLabel === "Application Completed" || d.stageLabel === "Enrolled").length,
     waiting: deals.filter(d => d.responseStatus.toLowerCase().includes("waiting")).length,
   }), [deals])
 
-  const recent = [...deals].sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()).slice(0, 5)
-
-  const STATUS_DISP: Record<string, [string, string]> = {
-    "New Application Received":   ["Assessment In Progress", "#1d4ed8"],
-    "Documentation Outstanding":  ["Document Check",         "#6d28d9"],
-    "Offer Issued":               ["Offer Issued",           "#b45309"],
-    "Conditional Offer Issued":   ["Conditional Offer",      "#b45309"],
-    "Offer Letter Requested":     ["Offer Requested",        "#b45309"],
-    "Receipting":                 ["Receipting",             "#b45309"],
-    "COE Request":                ["COE Request",            "#047857"],
-    "COE Team":                   ["COE Team",               "#047857"],
-    "Application Completed":      ["Completed",              "#047857"],
-    "Enrolled":                   ["Enrolled",               "#047857"],
-    "Application Refused":        ["Refused",                "#b91c1c"],
-    "Application Closed":         ["Closed",                 "#57534e"],
-    "GTE in Process":             ["GTE in Process",         "#b45309"],
-    "Credit Assessment Team":     ["Credit Assessment",      "#b45309"],
-  }
+  const recent = [...deals]
+    .sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime())
+    .slice(0, 5)
 
   return (
     <PageContainer>
-      {/* Welcome */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-gray-800">
           Welcome back, {user?.fullName?.split(" ")[0] || "Agent"}!
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          {user?.email && user?.email?.endsWith("@holmes.edu.au") || user?.email?.endsWith("@holmeseducation.group")
+          {user?.email && isHolmesStaff(user.email)
             ? "You are viewing all applications across the Australia Admissions Pipeline."
             : "Here's what's happening with your student applications today."
           }
         </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {loading ? (
-          [1,2,3,4].map(i => <StatCardSkeleton key={i} />)
-        ) : (
+        {loading ? [1,2,3,4].map(i => <StatCardSkeleton key={i} />) : (
           <>
-            <StatCard icon={<Users className="h-5 w-5 text-red-700" />}     bg="bg-red-50"     label="Total"   value={stats.total}   desc="Applications" />
-            <StatCard icon={<FileText className="h-5 w-5 text-amber-600" />} bg="bg-amber-50"   label="Active"  value={stats.offers}  desc="Offers Issued" />
-            <StatCard icon={<CheckCircle className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Success" value={stats.coes} desc="COEs Completed" />
-            <StatCard icon={<Clock className="h-5 w-5 text-rose-600" />}    bg="bg-rose-50"    label="Action Required" value={stats.waiting} desc="Action Required" />
+            <StatCard icon={<Users className="h-5 w-5 text-red-700" />}          bg="bg-red-50"     label="Total"         value={stats.total}   desc="Applications" />
+            <StatCard icon={<FileText className="h-5 w-5 text-amber-600" />}      bg="bg-amber-50"   label="Active"        value={stats.offers}  desc="Offers Issued" />
+            <StatCard icon={<CheckCircle className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Success"       value={stats.coes}    desc="COEs Completed" />
+            <StatCard icon={<Clock className="h-5 w-5 text-rose-600" />}          bg="bg-rose-50"    label="Action Required" value={stats.waiting} desc="Action Required" />
           </>
         )}
       </div>
 
-      {/* Main Grid */}
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Quick Actions */}
           <div className="bg-gradient-to-br from-red-700 to-red-800 rounded-xl p-6 text-white shadow-lg">
             <h2 className="text-lg font-semibold mb-5">Quick Actions</h2>
             <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
-              {/* New Application → HubSpot form */}
               <a href={formUrl} target="_blank" rel="noopener noreferrer"
                 className="bg-white rounded-lg p-4 flex items-start gap-3 hover:bg-red-50 transition-colors"
               >
@@ -225,8 +166,6 @@ const IS_DEMO = false // production mode — all pipeline deals
                   <div className="text-xs text-gray-500 mt-0.5">Start an inquiry</div>
                 </div>
               </a>
-
-              {/* Waiting on Agent */}
               <button onClick={() => navigate("/applications")}
                 className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
               >
@@ -236,8 +175,6 @@ const IS_DEMO = false // production mode — all pipeline deals
                   <div className="text-xs text-white/60 mt-0.5">{stats.waiting} items require action</div>
                 </div>
               </button>
-
-              {/* Send a Message */}
               <button onClick={() => setShowModal(true)}
                 className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
               >
@@ -247,8 +184,6 @@ const IS_DEMO = false // production mode — all pipeline deals
                   <div className="text-xs text-white/60 mt-0.5">Contact our Holmes Teams</div>
                 </div>
               </button>
-
-              {/* Export CSV */}
               <button onClick={exportCSV}
                 className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
               >
@@ -261,7 +196,6 @@ const IS_DEMO = false // production mode — all pipeline deals
             </div>
           </div>
 
-          {/* Recent Activity */}
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
               <h2 className="font-semibold text-gray-800">Recent Activity</h2>
@@ -275,64 +209,46 @@ const IS_DEMO = false // production mode — all pipeline deals
               {loading && [1,2,3,4,5].map(i => <ActivityRowSkeleton key={i} />)}
               {!loading && recent.length === 0 && <p className="p-8 text-center text-gray-400 text-sm">No applications yet.</p>}
               {recent.map(deal => (
-                  <div key={deal.id} onClick={() => navigate(`/applications/${deal.id}`)}
-                    className="p-4 hover:bg-red-50 transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center text-red-700 text-xs font-medium flex-shrink-0">
-                        {initials(deal.studentName)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <div>
-                            <p className="font-medium text-gray-800 group-hover:text-red-600 transition-colors">{deal.studentName}</p>
-                            <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
-                              {deal.courseName && (
-                                <span className="flex items-center gap-1">
-                                  <GraduationCap className="h-3 w-3" />{deal.courseName}
-                                </span>
-                              )}
-                              {deal.campus && (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" />{deal.campus}
-                                </span>
-                              )}
-                            </div>
+                <div key={deal.id} onClick={() => navigate(`/applications/${deal.id}`)}
+                  className="p-4 hover:bg-red-50 transition-colors cursor-pointer group"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center text-red-700 text-xs font-medium flex-shrink-0">
+                      {initials(deal.studentName)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <div>
+                          <p className="font-medium text-gray-800 group-hover:text-red-600 transition-colors">{deal.studentName}</p>
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
+                            {deal.courseName && <span className="flex items-center gap-1"><GraduationCap className="h-3 w-3" />{deal.courseName}</span>}
+                            {deal.campus && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{deal.campus}</span>}
                           </div>
-                          <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border flex-shrink-0 ${BC[deal.stageColor] || BC.stone}`}>
-                            {deal.stageLabel}
-                          </span>
                         </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs text-stone-400">{deal.nationality}</span>
-                          <span className="text-xs text-stone-400">{formatRelativeTime(deal.lastModified)}</span>
-                        </div>
+                        <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border flex-shrink-0 ${BC[deal.stageColor] || BC.stone}`}>
+                          {deal.stageLabel}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-stone-400">{deal.nationality}</span>
+                        <span className="text-xs text-stone-400">{formatRelativeTime(deal.lastModified)}</span>
                       </div>
                     </div>
                   </div>
-                ))}
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Right sidebar */}
         <div className="space-y-5">
-          {/* Agent Profile */}
           <div className="bg-white rounded-xl border border-stone-200 p-5">
             <div className="text-center mb-4">
               <div className="h-16 w-16 mx-auto mb-3 rounded-full bg-red-50 border-2 border-red-100 flex items-center justify-center text-red-700 text-2xl font-semibold">
                 {initials(user?.fullName)}
               </div>
               <h3 className="font-semibold text-gray-800">{user?.fullName || "Agent"}</h3>
-              <div className="relative group inline-block">
-                <p className="text-sm text-gray-500 cursor-help border-b border-dashed border-gray-300">
-                  {user?.companyName || user?.email}
-                </p>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                  ⏳ Currently sourced from deal properties. Will upgrade to company record once HubSpot token is updated.
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
-                </div>
-              </div>
+              <p className="text-sm text-gray-500">{user?.companyName || user?.email}</p>
             </div>
             <div className="space-y-2 text-sm border-t border-stone-100 pt-4">
               <div className="flex justify-between">
@@ -342,14 +258,11 @@ const IS_DEMO = false // production mode — all pipeline deals
             </div>
           </div>
 
-          {/* Need Assistance — live/closed */}
           <div className="bg-white rounded-xl border border-stone-200 p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-gray-800">Need Assistance?</h3>
               <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${
-                isLive
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-stone-100 text-stone-500 border-stone-200"
+                isLive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-stone-100 text-stone-500 border-stone-200"
               }`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${isLive ? "bg-emerald-500 animate-pulse" : "bg-stone-400"}`} />
                 {isLive ? "Live Now" : "Closed"}
@@ -357,12 +270,11 @@ const IS_DEMO = false // production mode — all pipeline deals
             </div>
             <div className="space-y-2 text-sm mb-3">
               <div><p className="text-gray-500 text-xs">Phone</p><p className="font-medium text-gray-900">+61 3 9564 1444</p></div>
-              <div><p className="text-gray-500 text-xs">Email</p><p className="font-medium text-gray-900">admissions@holmes.edu.au</p></div>
+              <div><p className="text-gray-500 text-gray-900">Email</p><p className="font-medium text-gray-900">admissions@holmes.edu.au</p></div>
             </div>
             <div className="pt-3 border-t border-stone-100">
               <p className="text-xs text-gray-500">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
-              <button
-                onClick={() => setShowModal(true)}
+              <button onClick={() => setShowModal(true)}
                 className="mt-3 w-full py-2 text-xs font-medium text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg transition-colors"
               >
                 Contact our Holmes Teams →
@@ -370,7 +282,6 @@ const IS_DEMO = false // production mode — all pipeline deals
             </div>
           </div>
 
-          {/* Rotating Pro Tip */}
           <div className="bg-red-50 rounded-xl border border-red-100 p-5">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
@@ -383,11 +294,9 @@ const IS_DEMO = false // production mode — all pipeline deals
               ))}
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* Send a Message Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -396,7 +305,6 @@ const IS_DEMO = false // production mode — all pipeline deals
               <p className="text-sm text-gray-500 mt-1">You can reach out to other teams at:</p>
             </div>
             <div className="p-4 space-y-2">
-              {/* Sales Reps */}
               {MARKETERS.map(m => (
                 <a key={m.email} href={`mailto:${m.email}`}
                   className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
@@ -411,9 +319,7 @@ const IS_DEMO = false // production mode — all pipeline deals
                   </div>
                 </a>
               ))}
-              {/* Divider */}
               <div className="border-t border-stone-100 my-2" />
-              {/* Teams */}
               {TEAMS.map(t => (
                 <a key={t.email} href={`mailto:${t.email}`}
                   className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
