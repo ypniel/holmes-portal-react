@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null)
     localStorage.removeItem(STORAGE_KEY)
-    // Fix #6: clear company ID on logout so next agent starts clean
+    // clears company ID on logout so next agent starts clean
     sessionStorage.removeItem("holmes_company_id")
   }
 
