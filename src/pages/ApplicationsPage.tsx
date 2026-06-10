@@ -7,37 +7,11 @@ import {
 import { PageContainer } from "../components/Layout"
 import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail } from "../lib/hubspot"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
-import { useAuth } from "../lib/auth"
+import { useAuth, isHolmesStaff } from "../lib/auth"
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
 
 type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
 type SortDir  = "asc" | "desc"
-
-// ── Demo mode: hardcoded deal IDs for boss demo ──────────────────────────────
-const DEMO_IDS = new Set([
-  "60381128785","60381128784","60380825611","60378197016","60377570929",
-  "60377428743","60377260695","60370916106","60403561910","60403249337",
-  "60402480141","60402016566","60400476795","60398921390","60392126252",
-  "60391661937","60389422710","60387874402","60387095405","60386786364",
-  "60385406373","60384232607","60383764014","60382524535","60381287187",
-  "60380522790","60377570930","60377428742","60403734325","60401408118",
-  "60399387941","60384232608","60382842773","60382227022","60381756777",
-  "60381605513","60380216396","60377889444","60376963612","60399086164",
-  "60398614292","60387728242","60385406374","60385257345","60383618881",
-  "60383453468","60381605512","60381434740","60380825613","60378197015",
-  "60370916105","60404652885","60400331804","60400014508","60400014507",
-  "60398306967","60392752262","60392443761","60392126251","60391204532",
-  "60388974630","60388656175","60388341116","60384473904","60384081585",
-  "60382078108","60381756776","60379437606","60377734533","60371377249",
-  "60400779899","60400159393","60399552286","60392286903","60390208859",
-  "60382380355","60378197014","60378197013","60378041524","60404493625",
-  "60401408117","60399552285","60391520301","60390208858","60387574612",
-  "60384473903","60382380354","60379584144","60378814034","60378041523",
-  "60371998843","60371843958","60400331808","60391969076","60390208857",
-  "60388974629","60387728241","60387728240","60385868040","60385406372",
-  "60380392369","60385885280","60370933828",
-])
-const IS_DEMO = false // production mode — all pipeline deals
 
 const BASE_APP_URL = "https://share.hsforms.com/2SycknjhmRRasYVCAV33Vkwnrkx6"
 
@@ -48,18 +22,17 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  // Pre-fill search from URL param (e.g. from header search) — update when URL changes
   const urlSearch = new URLSearchParams(location.search).get("search") || ""
   const [search, setSearch] = useState(urlSearch)
   useEffect(() => { setSearch(urlSearch) }, [urlSearch])
-  const [statusFilter, setStatusFilter]     = useState("all")
-  const [campusFilter, setCampusFilter]     = useState("all")
-  const [responseFilter, setResponseFilter] = useState("all")
+  const [statusFilter, setStatusFilter]         = useState("all")
+  const [campusFilter, setCampusFilter]         = useState("all")
+  const [responseFilter, setResponseFilter]     = useState("all")
   const [nationalityFilter, setNationalityFilter] = useState("all")
-  const [residencyFilter, setResidencyFilter]     = useState("all")
-  const [courseFilter, setCourseFilter]           = useState("all")
-  const [intakeFilter, setIntakeFilter]           = useState("all")
-  const [openDropdown, setOpenDropdown]   = useState<string | null>(null)
+  const [residencyFilter, setResidencyFilter]   = useState("all")
+  const [courseFilter, setCourseFilter]         = useState("all")
+  const [intakeFilter, setIntakeFilter]         = useState("all")
+  const [openDropdown, setOpenDropdown]         = useState<string | null>(null)
   const [sortKey, setSortKey]   = useState<SortKey>("lastModified")
   const [sortDir, setSortDir]   = useState<SortDir>("desc")
   const [page, setPage]         = useState(1)
@@ -69,29 +42,26 @@ export default function ApplicationsPage() {
   const [formUrl, setFormUrl] = useState(BASE_APP_URL)
 
   useEffect(() => {
-    if (!user?.email || user?.email?.endsWith("@holmes.edu.au") || user?.email?.endsWith("@holmeseducation.group")) return
-    // Always use the logged-in user's own email on the form
+    if (!user?.email || isHolmesStaff(user.email)) return
     setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
   }, [user])
 
   useEffect(() => {
     const load = async () => {
       try {
-        if (user?.email && !user?.email?.endsWith("@holmes.edu.au") || user?.email?.endsWith("@holmeseducation.group")) {
+        // Fix #4: use isHolmesStaff() instead of manual domain check with precedence bug
+        if (user?.email && !isHolmesStaff(user.email)) {
           // Agent — fetch deals by company association
           const companyId = sessionStorage.getItem("holmes_company_id")
           if (companyId) {
             const d = await fetchDealsByCompanyId(companyId)
             setDeals(d)
           } else {
-            // Fallback — fetch all and show empty (company ID not set)
             setDeals([])
           }
         } else {
           // Holmes staff — fetch all deals
-          const d = IS_DEMO 
-            ? await fetchDealsByIds([...DEMO_IDS])
-            : await fetchDeals()
+          const d = await fetchDeals()
           setDeals(d)
         }
       } catch { setError(true) }
@@ -100,12 +70,12 @@ export default function ApplicationsPage() {
     load()
   }, [user])
 
-  const campuses     = useMemo(() => [...new Set(deals.map(d => d.campus).filter(Boolean))].sort(), [deals])
-  const stages       = useMemo(() => [...new Set(deals.map(d => d.stageLabel).filter(Boolean))].sort(), [deals])
+  const campuses      = useMemo(() => [...new Set(deals.map(d => d.campus).filter(Boolean))].sort(), [deals])
+  const stages        = useMemo(() => [...new Set(deals.map(d => d.stageLabel).filter(Boolean))].sort(), [deals])
   const nationalities = useMemo(() => [...new Set(deals.map(d => d.nationality).filter(Boolean))].sort(), [deals])
-  const residencies  = useMemo(() => [...new Set(deals.map(d => d.residencyStatus).filter(Boolean))].sort(), [deals])
-  const courses      = useMemo(() => [...new Set(deals.map(d => d.courseName).filter(Boolean))].sort(), [deals])
-  const intakes      = useMemo(() => [...new Set(deals.map(d => d.intake).filter(Boolean))].sort(), [deals])
+  const residencies   = useMemo(() => [...new Set(deals.map(d => d.residencyStatus).filter(Boolean))].sort(), [deals])
+  const courses       = useMemo(() => [...new Set(deals.map(d => d.courseName).filter(Boolean))].sort(), [deals])
+  const intakes       = useMemo(() => [...new Set(deals.map(d => d.intake).filter(Boolean))].sort(), [deals])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -121,7 +91,7 @@ export default function ApplicationsPage() {
         d.passport.toLowerCase().includes(q) ||
         d.studentId.toLowerCase().includes(q) ||
         d.dealId.toLowerCase().includes(q)
-      const mst = statusFilter === "all"      || d.stageLabel === statusFilter
+      const mst = statusFilter === "all"       || d.stageLabel === statusFilter
       const mc  = campusFilter === "all"       || d.campus === campusFilter
       const mr  = responseFilter === "all"     || d.responseStatus === responseFilter
       const mn  = nationalityFilter === "all"  || d.nationality === nationalityFilter
@@ -132,15 +102,38 @@ export default function ApplicationsPage() {
     }).sort((a, b) => {
       let av: any = a[sortKey as keyof Deal]
       let bv: any = b[sortKey as keyof Deal]
-      if (sortKey === "intake" || sortKey === "lastModified") {
+      if (sortKey === "lastModified") {
+        // Date sort — always reliable
         av = av ? new Date(av).getTime() : 0
         bv = bv ? new Date(bv).getTime() : 0
-      } else { av = String(av ?? ""); bv = String(bv ?? "") }
+      } else if (sortKey === "intake") {
+        // Fix #9: stable intake sort — extract year+month numerically instead of Date parse
+        const parseIntake = (v: string) => {
+          if (!v) return 0
+          const d = new Date(v)
+          if (!isNaN(d.getTime())) return d.getTime()
+          // Handle "July_2026_20_07_2026" style — extract first month+year
+          const m = v.match(/(January|February|March|April|May|June|July|August|September|October|November|December)[_\s,]?(\d{4})/i)
+          if (m) {
+            const months: Record<string, number> = {
+              january:0,february:1,march:2,april:3,may:4,june:5,
+              july:6,august:7,september:8,october:9,november:10,december:11
+            }
+            return new Date(parseInt(m[2]), months[m[1].toLowerCase()]).getTime()
+          }
+          return 0
+        }
+        av = parseIntake(String(av ?? ""))
+        bv = parseIntake(String(bv ?? ""))
+      } else {
+        av = String(av ?? "").toLowerCase()
+        bv = String(bv ?? "").toLowerCase()
+      }
       if (av < bv) return sortDir === "asc" ? -1 : 1
       if (av > bv) return sortDir === "asc" ? 1 : -1
       return 0
     })
-  }, [deals, search, statusFilter, campusFilter, responseFilter, sortKey, sortDir])
+  }, [deals, search, statusFilter, campusFilter, responseFilter, nationalityFilter, residencyFilter, courseFilter, intakeFilter, sortKey, sortDir])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const pageRows   = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
@@ -182,7 +175,6 @@ export default function ApplicationsPage() {
     setPage(1)
   }
 
-  // ── XLSX export ─────────────────────────────────────────────────────────────
   function exportXLSX() {
     const rows = [
       ["Student Name","Country","Residency","Course Name","Intake","Campus","Response Status","Case Status","Last Modified"],
@@ -191,8 +183,10 @@ export default function ApplicationsPage() {
         d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.lastModified), d.agentEmail || ""
       ])
     ]
-    const csv = rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n")
-    const blob = new Blob([csv], { type: "text/csv" })
+    // Add UTF-8 BOM so Excel renders accented characters correctly
+    const bom = "\uFEFF"
+    const csv = bom + rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement("a")
     a.href = url; a.download = "Holmes_Applications.csv"; a.click()
@@ -208,7 +202,6 @@ export default function ApplicationsPage() {
 
   return (
     <PageContainer className="min-w-0 max-w-full overflow-x-hidden">
-      {/* Header */}
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -216,13 +209,11 @@ export default function ApplicationsPage() {
             <p className="text-gray-500 mt-1">Australia Admissions Pipeline</p>
           </div>
           <div className="flex gap-2">
-            {/* Export button */}
             <button onClick={exportXLSX}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 hover:bg-stone-50 text-gray-700 rounded-lg text-sm font-medium transition-colors"
             >
               <Download className="h-4 w-4" />Export CSV
             </button>
-            {/* New Application → HubSpot form */}
             <a href={formUrl} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-medium transition-colors"
             >
@@ -232,15 +223,14 @@ export default function ApplicationsPage() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {loading ? [1,2,3,4].map(i => <StatCardSkeleton key={i} />) : (
           <>
             {[
-              { icon: <FileText className="h-5 w-5 text-stone-600" />,       bg: "bg-stone-100",   label: "Total Applications", value: stats.total },
-              { icon: <Clock className="h-5 w-5 text-amber-600" />,          bg: "bg-amber-50",    label: "Action Required",    value: stats.waiting },
-              { icon: <CheckCircle2 className="h-5 w-5 text-blue-600" />,    bg: "bg-blue-50",     label: "Offers Issued",      value: stats.offers },
-              { icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: "bg-emerald-50",  label: "COE Issued",         value: stats.coes },
+              { icon: <FileText className="h-5 w-5 text-stone-600" />,       bg: "bg-stone-100",  label: "Total Applications", value: stats.total },
+              { icon: <Clock className="h-5 w-5 text-amber-600" />,          bg: "bg-amber-50",   label: "Action Required",    value: stats.waiting },
+              { icon: <CheckCircle2 className="h-5 w-5 text-blue-600" />,    bg: "bg-blue-50",    label: "Offers Issued",      value: stats.offers },
+              { icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: "bg-emerald-50", label: "COE Issued",         value: stats.coes },
             ].map((s, i) => (
               <div key={i} className="bg-white border border-stone-200 rounded-xl p-4 flex items-center gap-4">
                 <div className={`p-3 rounded-full ${s.bg}`}>{s.icon}</div>
@@ -254,7 +244,6 @@ export default function ApplicationsPage() {
         )}
       </div>
 
-      {/* Conversion Rate */}
       <div className="bg-white border border-stone-200 rounded-xl p-4 mb-6 flex items-center gap-6">
         <div className="flex-shrink-0">
           <p className="text-xs text-stone-500 font-medium uppercase tracking-wider">Conversion Rate</p>
@@ -275,6 +264,7 @@ export default function ApplicationsPage() {
           </div>
         </div>
       </div>
+
       <div className="bg-white rounded-t-xl border border-stone-200 border-b-0 p-4">
         <div className="flex flex-col xl:flex-row xl:items-center gap-3">
           <div className="relative flex-1 min-w-0 xl:max-w-md">
@@ -288,7 +278,7 @@ export default function ApplicationsPage() {
             <FilterDropdown label="Case Status"      value={statusFilter}      options={stages}       onSelect={v => { setStatusFilter(v);      setPage(1) }} open={openDropdown==="status"}      onToggle={() => setOpenDropdown(openDropdown==="status"      ? null : "status")} />
             <FilterDropdown label="Campus"           value={campusFilter}      options={campuses}     onSelect={v => { setCampusFilter(v);      setPage(1) }} open={openDropdown==="campus"}      onToggle={() => setOpenDropdown(openDropdown==="campus"      ? null : "campus")} />
             <FilterDropdown label="Response Status"  value={responseFilter}    options={["Holmes Received","Waiting on Agent"]} onSelect={v => { setResponseFilter(v); setPage(1) }} open={openDropdown==="response"} onToggle={() => setOpenDropdown(openDropdown==="response" ? null : "response")} />
-            <FilterDropdown label="Country"      value={nationalityFilter} options={nationalities} onSelect={v => { setNationalityFilter(v); setPage(1) }} open={openDropdown==="nationality"} onToggle={() => setOpenDropdown(openDropdown==="nationality" ? null : "nationality")} />
+            <FilterDropdown label="Country"          value={nationalityFilter} options={nationalities} onSelect={v => { setNationalityFilter(v); setPage(1) }} open={openDropdown==="nationality"} onToggle={() => setOpenDropdown(openDropdown==="nationality" ? null : "nationality")} />
             <FilterDropdown label="Residency"        value={residencyFilter}   options={residencies}  onSelect={v => { setResidencyFilter(v);   setPage(1) }} open={openDropdown==="residency"}   onToggle={() => setOpenDropdown(openDropdown==="residency"   ? null : "residency")} />
             <FilterDropdown label="Course"           value={courseFilter}      options={courses}      onSelect={v => { setCourseFilter(v);      setPage(1) }} open={openDropdown==="course"}      onToggle={() => setOpenDropdown(openDropdown==="course"      ? null : "course")} />
             <FilterDropdown label="Intake"           value={intakeFilter}      options={intakes}      onSelect={v => { setIntakeFilter(v);      setPage(1) }} open={openDropdown==="intake"}      onToggle={() => setOpenDropdown(openDropdown==="intake"      ? null : "intake")} />
@@ -296,14 +286,11 @@ export default function ApplicationsPage() {
         </div>
       </div>
 
-      {/* Table */}
       {loading ? (
         <div className="bg-white border border-stone-200 rounded-b-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <tbody>
-                {[1,2,3,4,5,6,7,8,9,10].map(i => <TableRowSkeleton key={i} />)}
-              </tbody>
+              <tbody>{[1,2,3,4,5,6,7,8,9,10].map(i => <TableRowSkeleton key={i} />)}</tbody>
             </table>
           </div>
         </div>
@@ -352,7 +339,6 @@ export default function ApplicationsPage() {
                     : deal.responseStatus.toLowerCase().includes("waiting")
                     ? "bg-green-50 text-green-700 border-green-200"
                     : "bg-stone-100 text-stone-600 border-stone-200"
-
                   return (
                     <tr key={deal.id} onClick={() => navigate(`/applications/${deal.id}`)}
                       className="hover:bg-red-50/30 transition-colors cursor-pointer group"
@@ -365,27 +351,17 @@ export default function ApplicationsPage() {
                           <span className="font-medium text-gray-700 group-hover:text-red-600 transition-colors">{deal.studentName}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5">
-                        <span className="text-xs text-stone-500 bg-stone-50 px-2 py-0.5 rounded">{deal.dealId}</span>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className="text-xs text-stone-600">{deal.passport || "—"}</span>
-                      </td>
-                      <td className="px-4 py-3.5 text-sm text-stone-600">
-                        <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-stone-400" />{deal.nationality || "—"}</span>
-                      </td>
+                      <td className="px-4 py-3.5"><span className="text-xs text-stone-500 bg-stone-50 px-2 py-0.5 rounded">{deal.dealId}</span></td>
+                      <td className="px-4 py-3.5"><span className="text-xs text-stone-600">{deal.passport || "—"}</span></td>
+                      <td className="px-4 py-3.5 text-sm text-stone-600"><span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-stone-400" />{deal.nationality || "—"}</span></td>
                       <td className="px-4 py-3.5">
                         {deal.residencyStatus
                           ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-stone-100 text-stone-700 border-stone-200">{deal.residencyStatus}</span>
                           : <span className="text-stone-400">—</span>}
                       </td>
                       <td className="px-4 py-3.5 text-sm text-stone-600 max-w-[200px] truncate" title={deal.courseName}>{deal.courseName || "—"}</td>
-                      <td className="px-4 py-3.5 text-sm text-stone-600">
-                        <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-stone-400" />{formatIntake(deal.intake)}</span>
-                      </td>
-                      <td className="px-4 py-3.5 text-sm text-stone-600">
-                        <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-stone-400" />{deal.campus || "—"}</span>
-                      </td>
+                      <td className="px-4 py-3.5 text-sm text-stone-600"><span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-stone-400" />{formatIntake(deal.intake)}</span></td>
+                      <td className="px-4 py-3.5 text-sm text-stone-600"><span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-stone-400" />{deal.campus || "—"}</span></td>
                       <td className="px-4 py-3.5">
                         {deal.responseStatus
                           ? <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border ${respColor}`}>{deal.responseStatus}</span>
@@ -408,8 +384,6 @@ export default function ApplicationsPage() {
               </tbody>
             </table>
           </div>
-
-          {/* Pagination */}
           <div className="border-t border-stone-200 px-4 py-3 flex items-center justify-between bg-stone-50/50">
             <span className="text-sm text-stone-500">
               Showing {Math.min((page-1)*PER_PAGE+1, filtered.length)}–{Math.min(page*PER_PAGE, filtered.length)} of {filtered.length} applications
