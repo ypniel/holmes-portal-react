@@ -37,7 +37,6 @@ async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = f
       },
     }
   } else {
-    // Use Netlify serverless function as proxy to avoid CORS
     const extra = useCompanyToken ? "&useCompanyToken=true" : ""
     url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}${extra}`
     fetchInit = {
@@ -74,7 +73,6 @@ export const DEAL_PROPS = [
 
 // ── Pipeline Stage Map ────────────────────────────────────────────────────────
 export const STAGE_LABELS: Record<string, string> = {
-  // Real Australia Admissions Pipeline stage IDs
   "1155257364": "New Application Received",
   "1155257365": "Documentation Outstanding",
   "1155257366": "Approved for Interview",
@@ -128,7 +126,10 @@ export const STAGE_COLORS: Record<string, string> = {
   "1363564957": "red",
 }
 
-// ── Fetch Deals ───────────────────────────────────────────────────────────────
+// ── Fetch Deals (with page limit to avoid Netlify timeout) ────────────────────
+// Fix #8: cap at 5 pages (500 deals) to avoid hitting Netlify's 10s function timeout
+const MAX_PAGES = 5
+
 export async function fetchDeals(): Promise<Deal[]> {
   const payload: any = {
     filterGroups: PIPELINE_ID ? [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }] : [],
@@ -138,11 +139,13 @@ export async function fetchDeals(): Promise<Deal[]> {
   }
   const all: Deal[] = []
   let after: string | undefined
-  while (true) {
+  let pages = 0
+  while (pages < MAX_PAGES) {
     if (after) payload.after = after
     const data = await hsFetch("/crm/v3/objects/deals/search", { method: "POST", body: JSON.stringify(payload) })
     all.push(...data.results.map(mapDeal))
     after = data.paging?.next?.after
+    pages++
     if (!after) break
   }
   return all
@@ -158,7 +161,6 @@ export async function fetchDeal(id: string): Promise<Deal> {
 export async function fetchNotes(dealId: string): Promise<Note[]> {
   const allNotes: Note[] = []
 
-  // Email engagements only — no CRM notes
   try {
     const eng = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100`)
     for (const e of eng.results || []) {
@@ -168,37 +170,32 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
       if (allNotes.find(n => n.id === id)) continue
 
       let body = ""
-      let author = ""
-
       body = e.metadata?.body || e.metadata?.html || ""
       body = body
-          .replace(/<img[^>]*>/gi, "")
-          .replace(/<br\s*\/?>/gi, "\n")
-          .replace(/<\/p>/gi, "\n")
-          .replace(/<[^>]*>/g, "")
-          .replace(/&amp;/g, "&")
-          .replace(/&nbsp;/g, " ")
-          .replace(/\n{3,}/g, "\n\n")
-          .trim()
-      // Strip portal disclaimer block and everything after
+        .replace(/<img[^>]*>/gi, "")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n")
+        .replace(/<[^>]*>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&nbsp;/g, " ")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim()
       const disclaimerIndex = body.search(/please do not reply to this email/i)
       if (disclaimerIndex > 0) body = body.substring(0, disclaimerIndex).trim()
-      // Strip signature block
       const sigIndex = body.search(/kind regards|holmes education group|holmes institute/i)
       if (sigIndex > 0) body = body.substring(0, sigIndex).trim()
-      // Strip unsubscribe footer
       const unsubIndex = body.search(/prefer fewer emails|unsubscribe/i)
       if (unsubIndex > 0) body = body.substring(0, unsubIndex).trim()
-        author = "Agent"
-        if (!body || body.includes("File uploaded")) continue
+
+      if (!body || body.includes("File uploaded")) continue
 
       allNotes.push({
         id,
         body,
         createdAt: new Date(e.engagement.createdAt).toISOString(),
         ownerId: String(e.engagement.ownerId || ""),
-        author: author || undefined,
-        type: type === "EMAIL" ? "email" : "note",
+        author: "Agent",
+        type: "email",
       })
     }
   } catch {}
@@ -220,20 +217,15 @@ export async function createNote(dealId: string, body: string, authorName?: stri
         from: { email: "portal@holmes.edu.au", firstName: authorName || "Agent" },
         to: [{ email: "admissions@holmes.edu.au" }],
         subject,
-        body: body,
+        body,
         html: body,
       }
     })
-    await hsFetch("/engagements/v1/engagements", {
-      method: "POST",
-      body: engBody,
-    })
-    // Update response_status to Holmes_Received
-    const patchResult = await hsFetch(`/crm/v3/objects/deals/${dealId}`, {
+    await hsFetch("/engagements/v1/engagements", { method: "POST", body: engBody })
+    await hsFetch(`/crm/v3/objects/deals/${dealId}`, {
       method: "PATCH",
       body: JSON.stringify({ properties: { response_status: "Holmes_Received" } }),
     })
-    console.log("PATCH response_status result:", JSON.stringify(patchResult))
     return true
   } catch { return false }
 }
@@ -248,42 +240,28 @@ export async function fetchOwners(): Promise<Record<string, string>> {
   } catch { return {} }
 }
 
-// ── Fetch Company (Agent Details) ─────────────────────────────────────────────
-// ── Fetch the main agent email for a sub-agent ────────────────────────────────
-// 1. Find the contact by email
-// 2. Get their associated company
-// 3. Return the company's agent_email
+// ── Fetch Main Agent Email ────────────────────────────────────────────────────
 export async function fetchMainAgentEmail(subAgentEmail: string): Promise<string | null> {
   try {
-    // Step 1 — find contact by email
-    const contactRes = await hsFetch(
-      `/crm/v3/objects/contacts/search`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: subAgentEmail }] }],
-          properties: ["email", "firstname", "lastname"],
-          limit: 1,
-        })
-      }
-    )
+    const contactRes = await hsFetch(`/crm/v3/objects/contacts/search`, {
+      method: "POST",
+      body: JSON.stringify({
+        filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: subAgentEmail }] }],
+        properties: ["email", "firstname", "lastname"],
+        limit: 1,
+      })
+    })
     const contact = contactRes.results?.[0]
     if (!contact) return null
-
-    // Step 2 — get associated company
     const assoc = await hsFetch(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)
     const companyId = assoc.results?.[0]?.toObjectId
     if (!companyId) return null
-
-    // Step 3 — get company's agent_email
-    const company = await hsFetch(
-      `/crm/v3/objects/companies/${companyId}?properties=agent_email,name`,
-      {}, true
-    )
+    const company = await hsFetch(`/crm/v3/objects/companies/${companyId}?properties=agent_email,name`, {}, true)
     return company.properties?.agent_email || null
   } catch { return null }
 }
 
+// ── Fetch Deal Company ────────────────────────────────────────────────────────
 export async function fetchDealCompany(dealId: string): Promise<Company | null> {
   try {
     const assoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/companies`)
@@ -321,10 +299,9 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
   } catch { return null }
 }
 
-// ── Batch fetch deals by IDs (for demo mode) ─────────────────────────────────
+// ── Fetch Deals by IDs ────────────────────────────────────────────────────────
 export async function fetchDealsByIds(ids: string[]): Promise<Deal[]> {
   const results: Deal[] = []
-  // HubSpot batch read supports max 100 at a time
   const chunks = []
   for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100))
   for (const chunk of chunks) {
@@ -343,11 +320,9 @@ export async function fetchDealsByIds(ids: string[]): Promise<Deal[]> {
   }
   return results
 }
-// ── Fetch agent profile via Company association ───────────────────────────────
-// 1. Search contacts by email
-// 2. Get associated company
-// 3. Return company agent_email, name etc
-export async function fetchAgentByEmail(email: string): Promise<{ 
+
+// ── Fetch Agent by Email ──────────────────────────────────────────────────────
+export async function fetchAgentByEmail(email: string): Promise<{
   agentEmail: string
   companyName: string
   contactName: string
@@ -355,7 +330,6 @@ export async function fetchAgentByEmail(email: string): Promise<{
   contactId: string
 } | null> {
   try {
-    // Step 1 — find contact by email
     const contactRes = await hsFetch(`/crm/v3/objects/contacts/search`, {
       method: "POST",
       body: JSON.stringify({
@@ -364,79 +338,75 @@ export async function fetchAgentByEmail(email: string): Promise<{
         limit: 1,
       })
     })
-    console.log("Step 1 contact:", JSON.stringify(contactRes.results?.[0]?.id))
     const contact = contactRes.results?.[0]
-    if (!contact) { console.log("No contact found for", email); return null }
+    if (!contact) return null
 
-    // Step 2 — get associated company
     const assocRes = await hsFetch(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)
-    console.log("Step 2 associations:", JSON.stringify(assocRes.results))
     const companyId = assocRes.results?.[0]?.toObjectId
-    if (!companyId) { console.log("No company associated for contact", contact.id); return null }
+    if (!companyId) return null
 
-    // Step 3 — get company details
     const company = await hsFetch(
       `/crm/v3/objects/companies/${companyId}?properties=name,agent_email,contact_person_name`
     )
-    console.log("Step 3 company:", company.properties?.name, companyId)
     return {
       agentEmail: company.properties?.agent_email || email,
       companyName: company.properties?.name || "",
-      contactName: company.properties?.contact_person_name || 
+      contactName: company.properties?.contact_person_name ||
         `${contact.properties?.firstname || ""} ${contact.properties?.lastname || ""}`.trim(),
       companyId: String(companyId),
       contactId: String(contact.id),
     }
-  } catch (e) { console.log("fetchAgentByEmail error:", e); return null }
+  } catch { return null }
 }
 
-// ── Fetch all deals for a company ─────────────────────────────────────────────
+// ── Fetch Deals by Company ID (pipeline-filtered) ─────────────────────────────
+// Fix #7: filter by pipeline so agents only see Australia Admissions deals
 export async function fetchDealsByCompanyId(companyId: string): Promise<Deal[]> {
   try {
-    // Get deal IDs associated with this company
     const assocRes = await hsFetch(`/crm/v4/objects/companies/${companyId}/associations/deals`)
     const dealIds = (assocRes.results || []).map((r: any) => String(r.toObjectId))
     if (!dealIds.length) return []
-    return await fetchDealsByIds(dealIds)
+
+    // Fetch all deals then filter by pipeline client-side
+    // (batch/read doesn't support pipeline filter directly)
+    const all = await fetchDealsByIds(dealIds)
+    return PIPELINE_ID ? all.filter(d => d.pipeline === PIPELINE_ID) : all
   } catch { return [] }
 }
 
-// ── Fast agent lookup for login ───────────────────────────────────────────────
+// ── Fetch Deal by Agent Email ─────────────────────────────────────────────────
 export async function fetchDealByAgentEmail(email: string): Promise<Deal | null> {
   try {
-    const data = await hsFetch(
-      `/crm/v3/objects/deals/search`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          filterGroups: [{
-            filters: [
-              { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID },
-              { propertyName: "agent_email", operator: "EQ", value: email },
-            ]
-          }],
-          properties: DEAL_PROPS,
-          sorts: [{ propertyName: "hs_lastmodifieddate", direction: "DESCENDING" }],
-          limit: 1,
-        })
-      }
-    )
+    const data = await hsFetch(`/crm/v3/objects/deals/search`, {
+      method: "POST",
+      body: JSON.stringify({
+        filterGroups: [{
+          filters: [
+            { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID },
+            { propertyName: "agent_email", operator: "EQ", value: email },
+          ]
+        }],
+        properties: DEAL_PROPS,
+        sorts: [{ propertyName: "hs_lastmodifieddate", direction: "DESCENDING" }],
+        limit: 1,
+      })
+    })
     const raw = data.results?.[0]
     if (!raw) return null
     return mapDeal(raw)
   } catch { return null }
 }
+
+// ── Fetch Files ───────────────────────────────────────────────────────────────
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
     const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
-    console.log("Total engagements:", data.results?.length)
     const files: FileItem[] = []
-    
+
     for (const eng of data.results || []) {
-      console.log("Engagement type:", eng.engagement?.type, "attachments:", eng.attachments?.length, "body length:", eng.metadata?.body?.length)
       const body = eng.metadata?.body || ""
-      
-      // Method 1 — parse CDN URL from metadata body first (most reliable)
+
+      // Method 1 — parse CDN URL from metadata body
       const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
       for (const match of linkMatches) {
         const hrefUrl = match[1]
@@ -445,7 +415,6 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         name = name.replace(/_/g, " ")
         if (!name) continue
 
-        // If it's already a CDN URL — use it directly
         if (hrefUrl.includes("hubspotusercontent")) {
           if (!files.find(f => f.name === name)) {
             files.push({ name, id: hrefUrl, url: hrefUrl, createdAt: eng.engagement?.createdAt })
@@ -453,7 +422,6 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
           continue
         }
 
-        // Otherwise extract file ID and fetch public URL
         const fileIdMatch = hrefUrl.match(/\/files\/(\d+)\//)
         if (fileIdMatch) {
           const fileId = fileIdMatch[1]
@@ -471,7 +439,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         }
       }
 
-      // Method 2 — attachment with valid ID (fallback for files without body links)
+      // Method 2 — attachment fallback
       for (const att of eng.attachments || []) {
         if (!att.id || att.id === 0) continue
         const attId = String(att.id)
@@ -493,17 +461,11 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         }
       }
     }
-    
-    // Final dedup — remove any duplicates by URL or name
-    const seen = new Set<string>()
-    const deduped = files.filter(f => {
-      const key = f.url || f.name
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
 
-    return deduped.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    const seen = new Set<string>()
+    return files
+      .filter(f => { const key = f.url || f.name; if (seen.has(key)) return false; seen.add(key); return true })
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
   } catch { return [] }
 }
 
@@ -533,8 +495,7 @@ function mapDeal(raw: any): Deal {
   const p = raw.properties || {}
   const stageId = p.dealstage || ""
   const stageLabel = STAGE_LABELS[stageId] || stageId.replace(/_/g, " ")
-  
-  // Helper to get first non-empty value
+
   const g = (...keys: string[]) => {
     for (const k of keys) {
       const v = p[k]
@@ -547,6 +508,7 @@ function mapDeal(raw: any): Deal {
     id: raw.id,
     studentName: g("dealname") || `Deal #${raw.id}`,
     dealstage: stageId,
+    pipeline: g("pipeline"),
     stageLabel,
     stageColor: STAGE_COLORS[stageId] || "stone",
     responseStatus: g("response_status").replace(/_/g, " "),
@@ -584,7 +546,7 @@ function mapDeal(raw: any): Deal {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface Deal {
-  id: string; studentName: string; dealstage: string; stageLabel: string; stageColor: string
+  id: string; studentName: string; dealstage: string; pipeline: string; stageLabel: string; stageColor: string
   responseStatus: string; courseName: string; campus: string; intake: string; applyingFrom: string
   advancedStanding: string; oshc: string; eap: string; englishTestType: string; englishScore: string
   courseStart: string; courseEnd: string; tuitionFees: string; scholarship: string; totalCost: string
