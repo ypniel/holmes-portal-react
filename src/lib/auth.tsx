@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from "react"
 
-// Holmes staff emails — these users see ALL applications
 const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
 
 export function isHolmesStaff(email: string): boolean {
   const domain = email.split("@")[1]?.toLowerCase() || ""
   return HOLMES_DOMAINS.some(d => domain === d)
+}
+
+export function isDirectStudent(companyName?: string): boolean {
+  return companyName === "Direct Student"
 }
 
 interface User {
@@ -55,6 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null)
     localStorage.removeItem(STORAGE_KEY)
+    // Fix #6: clear company ID on logout so next agent starts clean
+    sessionStorage.removeItem("holmes_company_id")
   }
 
   const isStaff = user ? isHolmesStaff(user.email) : false
