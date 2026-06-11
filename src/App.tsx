@@ -8,6 +8,7 @@ import ApplicationsPage from "./pages/ApplicationsPage"
 import ApplicationDetailPage from "./pages/ApplicationDetailPage"
 import { SettingsPage, NotFoundPage } from "./pages/OtherPages"
 import StudentLoginPage from "./pages/StudentLoginPage"
+import StudentVerifyPage from "./pages/StudentVerifyPage"
 import StudentApplicationPage from "./pages/StudentApplicationPage"
 import AgentLoginPage from "./pages/AgentLoginPage"
 
@@ -31,6 +32,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/agent-login" element={user ? <Navigate to="/" replace /> : <AgentLoginPage />} />
       <Route path="/student" element={<StudentLoginPage />} />
+      <Route path="/student/verify" element={<StudentVerifyPage />} />
       <Route path="/student/application/:id" element={<StudentApplicationPage />} />
       <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       <Route path="/applications" element={<ProtectedRoute><ApplicationsPage /></ProtectedRoute>} />
