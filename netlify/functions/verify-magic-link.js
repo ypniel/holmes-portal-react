@@ -78,24 +78,22 @@ exports.handler = async (event) => {
       return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: "Account not found." }) }
     }
 
-    // 3. Get their associated deal
+    // 3. Get their associated deal (may not exist yet — new registrants
+    //    have a contact but no application until they submit the form)
     const dealAssoc = await hubspotRequest(
       `/crm/v4/objects/contacts/${contact.id}/associations/deals`,
       "GET"
     )
-    const dealId = dealAssoc.body.results?.[0]?.toObjectId
-    if (!dealId) {
-      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: "No application found for this account." }) }
-    }
+    const dealId = dealAssoc.body.results?.[0]?.toObjectId || null
 
-    // 4. Issue a SESSION token (longer-lived, scoped to this dealId).
-    //    This is what the app uses for subsequent requests. Because the
-    //    dealId is baked into a signed token, the student cannot tamper
-    //    with it client-side to view other applications.
+    // 4. Issue a SESSION token. dealId may be null (no application yet) —
+    //    that's fine; the portal will prompt them to apply. If a dealId
+    //    exists it's baked into the signed token so they can only ever
+    //    see their own application, not another student's.
     const sessionToken = jwt.sign(
       {
         email,
-        dealId: String(dealId),
+        dealId: dealId ? String(dealId) : null,
         contactId: String(contact.id),
         role: "student",
         purpose: "session",
@@ -114,7 +112,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         ok: true,
         sessionToken,
-        student: { email, fullName, dealId: String(dealId) },
+        student: { email, fullName, dealId: dealId ? String(dealId) : null },
       }),
     }
   } catch (err) {
