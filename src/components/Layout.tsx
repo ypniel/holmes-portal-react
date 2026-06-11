@@ -40,10 +40,10 @@ export function PageContainer({
   className?: string
 }) {
   if (fullBleed) {
-    return <div className={`pt-16 ${className}`}>{children}</div>
+    return <div className={`pt-16 page-fade-in ${className}`}>{children}</div>
   }
   return (
-    <div className={`pt-20 pb-8 max-w-7xl mx-auto px-4 md:px-6 ${className}`}>
+    <div className={`pt-20 pb-8 max-w-7xl mx-auto px-4 md:px-6 page-fade-in ${className}`}>
       {children}
     </div>
   )
