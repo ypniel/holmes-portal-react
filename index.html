@@ -8,17 +8,28 @@
     <style>
       /* Painted instantly, before CSS bundle or React load — prevents white flash */
       html, body, #root { margin: 0; background-color: #0c0a09; }
-      /* Prevent white flash on page transitions — fade in new pages */
-#root > * {
-  animation: pageFadeIn 0.15s ease-in;
-}
-@keyframes pageFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+
+      /* Persistent dark layer behind everything — never unmounts, so route
+         changes can never flash white */
+      #bg-layer {
+        position: fixed;
+        inset: 0;
+        background-color: #0c0a09;
+        z-index: -1;
+      }
+
+      /* Fade new pages in */
+      #root > * {
+        animation: pageFadeIn 0.15s ease-in;
+      }
+      @keyframes pageFadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
     </style>
   </head>
   <body>
+    <div id="bg-layer"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
