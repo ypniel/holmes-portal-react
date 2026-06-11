@@ -5,6 +5,10 @@
     <link rel="icon" type="image/svg+xml" href="/holmes-favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Holmes Agent Portal</title>
+    <style>
+      /* Painted instantly, before CSS bundle or React load — prevents white flash */
+      html, body, #root { margin: 0; background-color: #0c0a09; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
