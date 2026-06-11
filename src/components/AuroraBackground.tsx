@@ -147,5 +147,5 @@ export function AuroraBackground({
     }
   }, [])
 
-  return <div ref={ref} style={{ position: "absolute", inset: 0, backgroundColor: "#0c0a09" }} />
+return <div ref={ref} style={{ position: "absolute", inset: 0, backgroundColor: "#0c0a09" }} />
 }
