@@ -55,7 +55,7 @@ export default function StudentLoginPage() {
 
       if (companyId) {
         setStatus("error")
-        setErrorMessage("This email is registered as an agent account. Please use the Agent Portal instead.")
+        setErrorMessage("This email is registered as an agent account. Please use the Agent Portal instead. If you believe this message is wrong, please contact Hello@holmes.edu.au")
         return
       }
 
