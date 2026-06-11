@@ -53,11 +53,6 @@ export default function ApplicationDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
-  const DIRECT_STUDENT_EMAILS = ["leticia.fernansilva@gmail.com"]
-  const isDirectStudent = !!user && (
-    DIRECT_STUDENT_EMAILS.includes(user.email) ||
-    user.companyName?.toLowerCase() === "direct student"
-  )
   const [deal, setDeal] = useState<Deal | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [owners, setOwners] = useState<Record<string, string>>({})
@@ -116,7 +111,7 @@ export default function ApplicationDetailPage() {
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "course",    label: "Course Information", icon: GraduationCap },
     { id: "student",   label: "Student Details",    icon: User },
-    ...(!isDirectStudent ? [{ id: "agent" as Tab, label: "Agent Details", icon: Building2 }] : []),
+    { id: "agent" as Tab, label: "Agent Details", icon: Building2 },
     { id: "chatter",   label: "Messages",           icon: MessageSquare },
     { id: "documents", label: "Documents",          icon: Paperclip },
   ]
@@ -125,8 +120,7 @@ export default function ApplicationDetailPage() {
   return (
     <>
     <PageContainer className="min-w-0 max-w-full overflow-x-hidden">
-      {/* Back — hidden for direct students */}
-      {!isDirectStudent && (
+      {/* Back to Applications */}
         <button
           onClick={() => navigate("/applications")}
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 transition-colors mb-6 group"
@@ -134,7 +128,6 @@ export default function ApplicationDetailPage() {
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
           Back to Applications
         </button>
-      )}
 
       {/* ── Beautiful gradient top card ── */}
       <div className="relative rounded-xl overflow-hidden mb-6 shadow-lg">
