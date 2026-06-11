@@ -40,8 +40,8 @@ export default function StudentVerifyPage() {
         }
 
         // Store the verified session — includes the signed sessionToken
-        // and the server-confirmed dealId. The student cannot tamper with
-        // which deal they see because dealId came from the signed token.
+        // and the server-confirmed dealId (which may be null if they
+        // haven't submitted an application yet).
         sessionStorage.setItem("holmes_student", JSON.stringify({
           email: data.student.email,
           fullName: data.student.fullName,
@@ -49,7 +49,13 @@ export default function StudentVerifyPage() {
           sessionToken: data.sessionToken,
         }))
 
-        navigate(`/student/application/${data.student.dealId}`, { replace: true })
+        if (data.student.dealId) {
+          // Has an application — go straight to it
+          navigate(`/student/application/${data.student.dealId}`, { replace: true })
+        } else {
+          // Logged in but no application yet — prompt them to apply
+          navigate("/student/apply", { replace: true })
+        }
       } catch {
         setStatus("error")
         setErrorMessage("Something went wrong verifying your link. Please try again.")
