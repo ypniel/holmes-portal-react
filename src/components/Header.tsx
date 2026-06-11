@@ -47,50 +47,29 @@ export function Header() {
   }
 
   const handleNav = (path: string) => { navigate(path); setMobileOpen(false) }
-  const DIRECT_STUDENT_EMAILS = ["leticia.fernansilva@gmail.com"]
-  const isDirect = !!user && (
-    DIRECT_STUDENT_EMAILS.includes(user.email) ||
-    user.companyName?.toLowerCase() === "direct student"
-  )
-  const navItems = isDirect ? [] : NAV_ITEMS
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-red-800/95 backdrop-blur-sm border-b border-red-900">
       <div className="max-w-7xl mx-auto px-4 md:px-6">
         <div className="flex items-center justify-between h-16">
 
-          {/* Logo — non-clickable for direct students */}
-          {isDirect ? (
-            <div className="flex items-center gap-2 flex-shrink-0 mr-4">
-              <img
-                src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
-                alt="Holmes Institute Australia"
-                className="h-7 w-auto"
-                onError={(e) => { e.currentTarget.style.display = "none" }}
-              />
-              <div className="hidden lg:flex flex-col leading-tight text-left">
-                <span className="text-white text-xs font-bold leading-none">Holmes Institute Australia</span>
-                <span className="text-red-200 text-[10px] leading-none mt-0.5">Admissions Portal</span>
-              </div>
+          {/* Logo */}
+          <button onClick={() => handleNav("/")} className="flex items-center gap-2 flex-shrink-0 mr-4">
+            <img
+              src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
+              alt="Holmes Institute Australia"
+              className="h-7 w-auto"
+              onError={(e) => { e.currentTarget.style.display = "none" }}
+            />
+            <div className="hidden lg:flex flex-col leading-tight text-left">
+              <span className="text-white text-xs font-bold leading-none">Holmes Institute Australia</span>
+              <span className="text-red-200 text-[10px] leading-none mt-0.5">Admissions Portal</span>
             </div>
-          ) : (
-            <button onClick={() => handleNav("/")} className="flex items-center gap-2 flex-shrink-0 mr-4">
-              <img
-                src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
-                alt="Holmes Institute Australia"
-                className="h-7 w-auto"
-                onError={(e) => { e.currentTarget.style.display = "none" }}
-              />
-              <div className="hidden lg:flex flex-col leading-tight text-left">
-                <span className="text-white text-xs font-bold leading-none">Holmes Institute Australia</span>
-                <span className="text-red-200 text-[10px] leading-none mt-0.5">Admissions Portal</span>
-              </div>
-            </button>
-          )}
+          </button>
 
-          {/* Desktop Nav — hidden for direct students */}
+          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => {
+            {NAV_ITEMS.map((item) => {
               const active = location.pathname === item.path ||
                 (item.path !== "/" && location.pathname.startsWith(item.path))
               return (
@@ -105,14 +84,13 @@ export function Header() {
             })}
           </nav>
 
-          {/* Global Search — hidden for direct students */}
-          {!isDirect && (
-            <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-lg mx-4">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-300 pointer-events-none" />
-                <input
-                  ref={searchRef}
-                  type="text"
+          {/* Global Search */}
+          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-lg mx-4">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-300 pointer-events-none" />
+              <input
+                ref={searchRef}
+                type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search students, passport, deal ID…"
@@ -120,7 +98,6 @@ export function Header() {
               />
             </div>
           </form>
-          )}
 
           {/* Right: Live status + user */}
           <div className="flex items-center gap-3 relative">
@@ -180,7 +157,7 @@ export function Header() {
         {mobileOpen && (
           <div className="md:hidden py-4 border-t border-red-900 bg-red-800">
             <nav className="space-y-1">
-              {navItems.map((item) => (
+              {NAV_ITEMS.map((item) => (
                 <button key={item.path} onClick={() => handleNav(item.path)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     location.pathname === item.path ? "bg-red-900/50 text-red-50" : "text-red-100 hover:text-white hover:bg-red-900/30"
