@@ -39,13 +39,13 @@ export default function AgentLoginPage() {
     const cleanEmail = email.trim().toLowerCase()
 
     try {
-      // Verify credentials server-side (bcrypt against HubSpot password hash)
+      // Server-side password verification — the password is never checked
+      // in the browser, and no shared password lives in the bundle anymore.
       const res = await fetch("/.netlify/functions/agent-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cleanEmail, password }),
       })
-
       const data = await res.json()
 
       if (!res.ok || !data.ok) {
@@ -54,24 +54,18 @@ export default function AgentLoginPage() {
         return
       }
 
-      // Persist session token + company scope
-      if (data.sessionToken) {
-        sessionStorage.setItem("holmes_session_token", data.sessionToken)
-      }
-      if (data.user?.companyId) {
+      // Persist company scoping + session token, then log in
+      if (data.user.companyId) {
         sessionStorage.setItem("holmes_company_id", String(data.user.companyId))
       }
-
-      const u = data.user || {}
-      const fullName = u.fullName || cleanEmail.split("@")[0]
-      const name = fullName.split(" ")[0] || cleanEmail.split("@")[0]
+      sessionStorage.setItem("holmes_session_token", data.sessionToken)
 
       login({
-        id: "session",
-        name,
-        fullName,
+        id: data.user.contactId || "agent",
+        name: data.user.fullName?.split(" ")[0] || cleanEmail.split("@")[0],
+        fullName: data.user.fullName,
         email: cleanEmail,
-        companyName: u.companyName || "",
+        companyName: data.user.companyName || "",
       })
       setStatus("success")
     } catch {
@@ -85,6 +79,7 @@ export default function AgentLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-stone-950">
       <AuroraBackground colorStops={HOLMES_AURORA_COLORS} speed={0.6} amplitude={1.2} blend={0.6} />
+
       {/* Logo */}
       <div className="absolute top-6 left-8 z-10">
         <div className="flex items-center gap-2.5">
@@ -100,9 +95,11 @@ export default function AgentLoginPage() {
           </div>
         </div>
       </div>
-      <div className="w-full max-w-sm relative z-10">
+
+      <div className="w-full max-w-sm relative z-10 page-fade-in">
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="p-8">
+
             {status === "success" && (
               <div className="text-center">
                 <CheckCircle className="h-10 w-10 mx-auto mb-4 text-emerald-500" />
@@ -110,6 +107,7 @@ export default function AgentLoginPage() {
                 <p className="mt-1 text-sm text-gray-500">Signing you in…</p>
               </div>
             )}
+
             {status === "error" && (
               <div className="text-center">
                 <AlertCircle className="h-10 w-10 mx-auto mb-4 text-gray-400" />
@@ -124,6 +122,7 @@ export default function AgentLoginPage() {
                 </button>
               </div>
             )}
+
             {(status === "idle" || status === "loading") && (
               <>
                 <div className="flex items-center gap-3 mb-6">
@@ -138,6 +137,7 @@ export default function AgentLoginPage() {
                     <p className="text-xs text-gray-500">Holmes Admissions Portal</p>
                   </div>
                 </div>
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-gray-600">Email address</label>
@@ -156,6 +156,7 @@ export default function AgentLoginPage() {
                       />
                     </div>
                   </div>
+
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-gray-600">Password</label>
                     <div className="relative">
@@ -179,6 +180,7 @@ export default function AgentLoginPage() {
                       </button>
                     </div>
                   </div>
+
                   <button
                     type="submit"
                     disabled={status === "loading" || !email || !password}
@@ -192,6 +194,7 @@ export default function AgentLoginPage() {
                     )}
                   </button>
                 </form>
+
                 <p className="mt-4 text-center text-xs text-gray-400">
                   Need portal access?{" "}
                   <button
@@ -205,10 +208,12 @@ export default function AgentLoginPage() {
             )}
           </div>
         </div>
+
         <p className="mt-3 text-center text-xs text-white/40">
           © {new Date().getFullYear()} Holmes Institute Australia. All rights reserved.
         </p>
       </div>
+
       {/* Contact modal */}
       {showModal && (
         <div
