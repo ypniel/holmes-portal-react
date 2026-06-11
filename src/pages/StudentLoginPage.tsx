@@ -1,11 +1,16 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { AuroraBackground } from "../components/AuroraBackground"
-import { ArrowRight, Mail, Lock, Eye, EyeOff, GraduationCap, AlertCircle } from "lucide-react"
+import { ArrowRight, Mail, Lock, Eye, EyeOff, GraduationCap, AlertCircle, X } from "lucide-react"
 import { LoaderCircle } from "lucide-react"
 
 const DEMO_PASSWORD = import.meta.env.VITE_PORTAL_PASSWORD
 const HOLMES_AURORA = ["#991b1b", "#b91c1c", "#7f1d1d"]
+const MARKETERS = [
+  { name: "Indra Adhikari",   title: "Victoria Representative",       email: "iadhikari@holmes.edu.au" },
+  { name: "Dinesh Chetwani",  title: "Queensland Representative",      email: "dchetwani@holmes.edu.au" },
+  { name: "Don Kauffman",     title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
+]
 
 export default function StudentLoginPage() {
   const navigate = useNavigate()
@@ -14,11 +19,14 @@ export default function StudentLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [showContactButton, setShowContactButton] = useState(false)
+  const [showModal, setShowModal] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setStatus("loading")
     setErrorMessage(null)
+    setShowContactButton(false)
 
     if (password !== DEMO_PASSWORD) {
       setStatus("error")
@@ -55,7 +63,8 @@ export default function StudentLoginPage() {
 
       if (companyId) {
         setStatus("error")
-        setErrorMessage("This email is registered as an agent account. Please use the Agent Portal instead. If you believe this message is wrong, please contact Hello@holmes.edu.au")
+        setErrorMessage("This email is registered as an agent account. Please use the Agent Portal instead.")
+        setShowContactButton(true)
         return
       }
 
@@ -119,7 +128,18 @@ export default function StudentLoginPage() {
             {status === "error" && errorMessage && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-700">{errorMessage}</p>
+                <div className="text-sm text-red-700">
+                  <p>{errorMessage}</p>
+                  {showContactButton && (
+                    <button
+                      type="button"
+                      onClick={() => setShowModal(true)}
+                      className="mt-2 underline underline-offset-2 font-medium hover:text-red-800 transition-colors"
+                    >
+                      Contact your Holmes representative →
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -209,4 +229,40 @@ export default function StudentLoginPage() {
       </div>
     </div>
   )
-}
+
+      {/* Contact modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Contact Your Holmes Representative</h2>
+                <p className="text-sm text-gray-500 mt-0.5">Click an email to open in your mail app</p>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-stone-400 hover:text-stone-600 p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {MARKETERS.map(m => (
+                <a key={m.email} href={`mailto:${m.email}`}
+                  className="flex items-center gap-4 p-4 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm flex-shrink-0">
+                    {m.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
+                    <p className="text-xs text-gray-500">{m.title}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
+                  </div>
+                  <span className="text-lg">✉️</span>
+                </a>
+              ))}
+            </div>
+            <div className="px-6 py-4 border-t border-stone-100">
+              <button onClick={() => setShowModal(false)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Close</button>
+            </div>
+          </div>
+        </div>
+      )}}
