@@ -73,7 +73,7 @@ export default function StudentApplyPage() {
         </div>
       </div>
 
-      <div className="w-full max-w-md relative z-10">
+      <div className="w-full max-w-md relative z-10 page-fade-in">
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="p-8 text-center">
             <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
