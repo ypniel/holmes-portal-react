@@ -150,7 +150,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="w-full max-w-sm relative z-10">
+      <div className="w-full max-w-sm relative z-10 page-fade-in">
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="p-8">
             {/* Header */}
