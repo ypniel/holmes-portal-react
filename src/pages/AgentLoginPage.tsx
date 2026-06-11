@@ -4,7 +4,6 @@ import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, Eye, EyeOff, Lock,
 import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
 import { useAuth } from "../lib/auth"
 
-const DEMO_PASSWORD = import.meta.env.VITE_PORTAL_PASSWORD
 const MARKETERS = [
   { name: "Indra Adhikari",   title: "Victoria Representative",       email: "iadhikari@holmes.edu.au" },
   { name: "Dinesh Chetwani",  title: "Queensland Representative",      email: "dchetwani@holmes.edu.au" },
@@ -37,87 +36,48 @@ export default function AgentLoginPage() {
     setStatus("loading")
     setErrorMessage(null)
 
-    if (password !== DEMO_PASSWORD) {
-      setStatus("error")
-      setErrorMessage("Incorrect password. Please try again.")
-      return
-    }
-
     const cleanEmail = email.trim().toLowerCase()
-    let name = cleanEmail.split("@")[0]
-    let fullName = name
-    let companyName = ""
 
     try {
-      // Step 1: Find contact in HubSpot
-      const contactRes = await fetch(
-        `/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/contacts/search")}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: cleanEmail }] }],
-            properties: ["email", "firstname", "lastname"],
-            limit: 1,
-          }),
-        }
-      )
-      const contactData = await contactRes.json()
-      const contact = contactData.results?.[0]
+      // Verify credentials server-side (bcrypt against HubSpot password hash)
+      const res = await fetch("/.netlify/functions/agent-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, password }),
+      })
 
-      if (!contact) {
+      const data = await res.json()
+
+      if (!res.ok || !data.ok) {
         setStatus("error")
-        setErrorMessage("No account found for this email. If you're a direct student, please use the Student Portal.")
+        setErrorMessage(data.error || "Incorrect email or password.")
         return
       }
 
-      const fn = contact.properties?.firstname || ""
-      const ln = contact.properties?.lastname || ""
-      fullName = `${fn} ${ln}`.trim() || name
-      name = fn || name
-
-      const isHolmes =
-        cleanEmail.endsWith("@holmes.edu.au") ||
-        cleanEmail.endsWith("@holmeseducation.group")
-
-      if (isHolmes) {
-        // Holmes staff — domain check only
-        companyName = "Holmes Institute Australia"
-      } else {
-        // Step 2: Get company association
-        const companyAssocRes = await fetch(
-          `/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)}`
-        )
-        const companyAssocData = await companyAssocRes.json()
-        const companyId = companyAssocData.results?.[0]?.toObjectId
-
-        if (!companyId) {
-          setStatus("error")
-          setErrorMessage("No agency found for this account. If you're a direct student, please use the Student Portal.")
-          return
-        }
-
-        // Step 3: Get company details
-        const companyRes = await fetch(
-          `/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/companies/${companyId}?properties=name,contact_person_name`)}`
-        )
-        const companyData = await companyRes.json()
-        companyName = companyData.properties?.name || ""
-        const contactPerson = companyData.properties?.contact_person_name || ""
-        if (contactPerson) {
-          fullName = contactPerson
-          name = contactPerson.split(" ")[0]
-        }
-        sessionStorage.setItem("holmes_company_id", String(companyId))
+      // Persist session token + company scope
+      if (data.sessionToken) {
+        sessionStorage.setItem("holmes_session_token", data.sessionToken)
       }
+      if (data.user?.companyId) {
+        sessionStorage.setItem("holmes_company_id", String(data.user.companyId))
+      }
+
+      const u = data.user || {}
+      const fullName = u.fullName || cleanEmail.split("@")[0]
+      const name = fullName.split(" ")[0] || cleanEmail.split("@")[0]
+
+      login({
+        id: "session",
+        name,
+        fullName,
+        email: cleanEmail,
+        companyName: u.companyName || "",
+      })
+      setStatus("success")
     } catch {
       setStatus("error")
       setErrorMessage("Something went wrong. Please try again.")
-      return
     }
-
-    login({ id: "demo", name, fullName, email: cleanEmail, companyName })
-    setStatus("success")
   }
 
   const primaryColor = "#991b1b"
@@ -125,7 +85,6 @@ export default function AgentLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-stone-950">
       <AuroraBackground colorStops={HOLMES_AURORA_COLORS} speed={0.6} amplitude={1.2} blend={0.6} />
-
       {/* Logo */}
       <div className="absolute top-6 left-8 z-10">
         <div className="flex items-center gap-2.5">
@@ -141,11 +100,9 @@ export default function AgentLoginPage() {
           </div>
         </div>
       </div>
-
       <div className="w-full max-w-sm relative z-10">
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="p-8">
-
             {status === "success" && (
               <div className="text-center">
                 <CheckCircle className="h-10 w-10 mx-auto mb-4 text-emerald-500" />
@@ -153,7 +110,6 @@ export default function AgentLoginPage() {
                 <p className="mt-1 text-sm text-gray-500">Signing you in…</p>
               </div>
             )}
-
             {status === "error" && (
               <div className="text-center">
                 <AlertCircle className="h-10 w-10 mx-auto mb-4 text-gray-400" />
@@ -168,7 +124,6 @@ export default function AgentLoginPage() {
                 </button>
               </div>
             )}
-
             {(status === "idle" || status === "loading") && (
               <>
                 <div className="flex items-center gap-3 mb-6">
@@ -183,7 +138,6 @@ export default function AgentLoginPage() {
                     <p className="text-xs text-gray-500">Holmes Admissions Portal</p>
                   </div>
                 </div>
-
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-gray-600">Email address</label>
@@ -202,7 +156,6 @@ export default function AgentLoginPage() {
                       />
                     </div>
                   </div>
-
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-gray-600">Password</label>
                     <div className="relative">
@@ -226,7 +179,6 @@ export default function AgentLoginPage() {
                       </button>
                     </div>
                   </div>
-
                   <button
                     type="submit"
                     disabled={status === "loading" || !email || !password}
@@ -240,7 +192,6 @@ export default function AgentLoginPage() {
                     )}
                   </button>
                 </form>
-
                 <p className="mt-4 text-center text-xs text-gray-400">
                   Need portal access?{" "}
                   <button
@@ -254,12 +205,10 @@ export default function AgentLoginPage() {
             )}
           </div>
         </div>
-
         <p className="mt-3 text-center text-xs text-white/40">
           © {new Date().getFullYear()} Holmes Institute Australia. All rights reserved.
         </p>
       </div>
-
       {/* Contact modal */}
       {showModal && (
         <div
