@@ -5,6 +5,9 @@
 @layer base {
   html { font-family: system-ui, -apple-system, sans-serif; }
   * { box-sizing: border-box; }
+  /* Dark base so the first paint (before React mounts) and page swaps
+     never flash white. Matches the aurora pages' bg-stone-950. */
+  html, body, #root { background-color: #0c0a09; }
 }
 
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
