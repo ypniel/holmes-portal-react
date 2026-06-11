@@ -1,3 +1,7 @@
 {
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "resend": "^4.0.0"
+  }
 }
