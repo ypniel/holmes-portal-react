@@ -48,7 +48,18 @@ export default function StudentLoginPage() {
         return
       }
 
-      // Step 2: Get associated deals
+      // Step 2: Check for company association — if present, this is an agent not a student
+      const companyAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)}`)
+      const companyAssocData = await companyAssocRes.json()
+      const companyId = companyAssocData.results?.[0]?.toObjectId
+
+      if (companyId) {
+        setStatus("error")
+        setErrorMessage("This email is registered as an agent account. Please use the Agent Portal instead.")
+        return
+      }
+
+      // Step 3: Get associated deals
       const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/deals`)}`)
       const dealAssocData = await dealAssocRes.json()
       const dealId = dealAssocData.results?.[0]?.toObjectId
