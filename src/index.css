@@ -8,6 +8,11 @@
   /* Dark base so the first paint (before React mounts) and page swaps
      never flash white. Matches the aurora pages' bg-stone-950. */
   html, body, #root { background-color: #0c0a09; }
+
+  /* Prevent white flash between route transitions —
+     the BrowserRouter wrapper div sits between #root and the page,
+     so it must also be dark */
+  #root > * > * { background-color: inherit; }
 }
 
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -27,4 +32,15 @@
 /* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .page-fade-in { animation: none; }
+}
+
+/* Route transition — fade between pages so there's no hard cut */
+@keyframes routeFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Applied to every top-level route component */
+.min-h-screen {
+  animation: routeFadeIn 0.15s ease-in;
 }
