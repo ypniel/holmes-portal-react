@@ -10,7 +10,6 @@ import { SettingsPage, NotFoundPage } from "./pages/OtherPages"
 import StudentLoginPage from "./pages/StudentLoginPage"
 import StudentApplicationPage from "./pages/StudentApplicationPage"
 import AgentLoginPage from "./pages/AgentLoginPage"
-import AdminPasswordPage from "./pages/AdminPasswordPage"
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
@@ -31,7 +30,6 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/agent-login" element={user ? <Navigate to="/" replace /> : <AgentLoginPage />} />
-      <Route path="/admin/set-password" element={<AdminPasswordPage />} />
       <Route path="/student" element={<StudentLoginPage />} />
       <Route path="/student/application/:id" element={<StudentApplicationPage />} />
       <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
