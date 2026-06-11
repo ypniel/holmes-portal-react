@@ -27,6 +27,7 @@ export default function StudentLoginPage() {
     setStatus("loading")
     setErrorMessage(null)
     setShowContactButton(false)
+    setShowModal(false)
 
     if (password !== DEMO_PASSWORD) {
       setStatus("error")
@@ -56,7 +57,7 @@ export default function StudentLoginPage() {
         return
       }
 
-      // Step 2: Check for company association — if present, this is an agent not a student
+      // Step 2: Check company association — agents have a company, students don't
       const companyAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)}`)
       const companyAssocData = await companyAssocRes.json()
       const companyId = companyAssocData.results?.[0]?.toObjectId
@@ -134,7 +135,7 @@ export default function StudentLoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowModal(true)}
-                      className="mt-2 underline underline-offset-2 font-medium hover:text-red-800 transition-colors"
+                      className="mt-2 underline underline-offset-2 font-medium hover:text-red-800 transition-colors text-left"
                     >
                       Contact your Holmes representative →
                     </button>
@@ -223,12 +224,6 @@ export default function StudentLoginPage() {
             </div>
           </div>
         </div>
-        <p className="mt-3 text-center text-xs text-white/40">
-          © {new Date().getFullYear()} Holmes Institute Australia. All rights reserved.
-        </p>
-      </div>
-    </div>
-  )
 
       {/* Contact modal */}
       {showModal && (
@@ -265,4 +260,11 @@ export default function StudentLoginPage() {
             </div>
           </div>
         </div>
-      )}}
+      )}
+        <p className="mt-3 text-center text-xs text-white/40">
+          © {new Date().getFullYear()} Holmes Institute Australia. All rights reserved.
+        </p>
+      </div>
+    </div>
+  )
+}
