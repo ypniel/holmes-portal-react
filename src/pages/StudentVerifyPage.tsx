@@ -69,7 +69,7 @@ export default function StudentVerifyPage() {
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-stone-950">
       <AuroraBackground colorStops={HOLMES_AURORA} speed={0.6} amplitude={1.2} blend={0.6} />
 
-      <div className="w-full max-w-sm relative z-10">
+      <div className="w-full max-w-sm relative z-10 page-fade-in">
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="p-8 text-center">
             {status === "verifying" && (
