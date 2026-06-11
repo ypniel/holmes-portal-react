@@ -8,16 +8,15 @@ import ApplicationsPage from "./pages/ApplicationsPage"
 import ApplicationDetailPage from "./pages/ApplicationDetailPage"
 import { SettingsPage, NotFoundPage } from "./pages/OtherPages"
 import StudentLoginPage from "./pages/StudentLoginPage"
-import StudentVerifyPage from "./pages/StudentVerifyPage"
-import StudentApplyPage from "./pages/StudentApplyPage"
 import StudentApplicationPage from "./pages/StudentApplicationPage"
 import AgentLoginPage from "./pages/AgentLoginPage"
+import AdminPasswordPage from "./pages/AdminPasswordPage"
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-100">
+      <div className="min-h-screen flex items-center justify-center bg-stone-950">
         <div className="h-8 w-8 border-4 border-stone-300 border-t-red-700 rounded-full animate-spin" />
       </div>
     )
@@ -32,9 +31,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/agent-login" element={user ? <Navigate to="/" replace /> : <AgentLoginPage />} />
+      <Route path="/admin/set-password" element={<AdminPasswordPage />} />
       <Route path="/student" element={<StudentLoginPage />} />
-      <Route path="/student/verify" element={<StudentVerifyPage />} />
-      <Route path="/student/apply" element={<StudentApplyPage />} />
       <Route path="/student/application/:id" element={<StudentApplicationPage />} />
       <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       <Route path="/applications" element={<ProtectedRoute><ApplicationsPage /></ProtectedRoute>} />
