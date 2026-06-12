@@ -5,26 +5,26 @@
 @layer base {
   html { font-family: system-ui, -apple-system, sans-serif; }
   * { box-sizing: border-box; }
-  /* Dark base so the first paint (before React mounts) and page swaps
-     never flash white. Matches the aurora pages' bg-stone-950. */
-  html, body, #root { background-color: #0c0a09; }
+  /* Match the agent portal background — root is never visibly dark during transitions */
+  html, body, #root { background-color: #f8fafc; }
 }
 
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 2px; }
 
-/* Smooth page transitions */
+/* Smooth page transitions — translateY only, NO opacity change.
+   Content stays fully visible at all times (no background flash),
+   just slides in gently from 8px below. */
 @keyframes pageFadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(8px); }
+  to   { transform: translateY(0); }
 }
 
 .page-fade-in {
-  animation: pageFadeIn 0.28s ease-out;
+  animation: pageFadeIn 0.25s ease-out;
 }
 
-/* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .page-fade-in { animation: none; }
 }
