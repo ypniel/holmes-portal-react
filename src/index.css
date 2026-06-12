@@ -5,7 +5,6 @@
 @layer base {
   html { font-family: system-ui, -apple-system, sans-serif; }
   * { box-sizing: border-box; }
-  /* Dark base matches login/aurora pages — no white flash on initial load */
   html, body, #root { background-color: #0c0a09; }
 }
 
@@ -13,9 +12,20 @@
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 2px; }
 
-/* Page transitions — translateY ONLY, no opacity.
-   Content stays at opacity 1 at all times so the dark base
-   never shows through between page navigations. */
+/* Animated gradient background — replaces WebGL aurora */
+.animated-bg {
+  background: linear-gradient(135deg, #1a0505, #3d0a0a, #1a0505, #2d0505);
+  background-size: 300% 300%;
+  animation: gradientShift 6s ease infinite;
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Page transitions */
 @keyframes pageFadeIn {
   from { transform: translateY(8px); }
   to   { transform: translateY(0); }
@@ -27,4 +37,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .page-fade-in { animation: none; }
+  .animated-bg { animation: none; }
 }
