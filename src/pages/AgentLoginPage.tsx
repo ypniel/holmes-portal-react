@@ -122,6 +122,12 @@ export default function AgentLoginPage() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {errorMessage && (
+                    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                      <p className="text-sm text-red-700">{errorMessage}</p>
+                    </div>
+                  )}
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-gray-600">Email address</label>
                     <div className="relative">
