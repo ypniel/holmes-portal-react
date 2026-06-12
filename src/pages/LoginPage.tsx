@@ -205,6 +205,15 @@ export default function LoginPage() {
         <p className="mt-3 text-center text-xs text-white/40">
           © {new Date().getFullYear()} Holmes Institute Australia. All rights reserved.
         </p>
+        <div className="mt-2 flex justify-center">
+          <a
+            href="/admin"
+            className="flex items-center gap-1 text-white/20 hover:text-white/50 transition-colors text-xs"
+          >
+            <Settings className="h-3 w-3" />
+            <span>Admin</span>
+          </a>
+        </div>
       </div>
 
       {/* Contact Modal */}
