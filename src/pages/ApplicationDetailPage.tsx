@@ -53,6 +53,11 @@ export default function ApplicationDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
+  const DIRECT_STUDENT_EMAILS = ["leticia.fernansilva@gmail.com"]
+  const isDirectStudent = !!user && (
+    DIRECT_STUDENT_EMAILS.includes(user.email) ||
+    user.companyName?.toLowerCase() === "direct student"
+  )
   const [deal, setDeal] = useState<Deal | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [owners, setOwners] = useState<Record<string, string>>({})
@@ -111,7 +116,7 @@ export default function ApplicationDetailPage() {
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "course",    label: "Course Information", icon: GraduationCap },
     { id: "student",   label: "Student Details",    icon: User },
-    { id: "agent" as Tab, label: "Agent Details", icon: Building2 },
+    ...(!isDirectStudent ? [{ id: "agent" as Tab, label: "Agent Details", icon: Building2 }] : []),
     { id: "chatter",   label: "Messages",           icon: MessageSquare },
     { id: "documents", label: "Documents",          icon: Paperclip },
   ]
@@ -120,7 +125,8 @@ export default function ApplicationDetailPage() {
   return (
     <>
     <PageContainer className="min-w-0 max-w-full overflow-x-hidden">
-      {/* Back to Applications */}
+      {/* Back — hidden for direct students */}
+      {!isDirectStudent && (
         <button
           onClick={() => navigate("/applications")}
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 transition-colors mb-6 group"
@@ -128,6 +134,7 @@ export default function ApplicationDetailPage() {
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
           Back to Applications
         </button>
+      )}
 
       {/* ── Beautiful gradient top card ── */}
       <div className="relative rounded-xl overflow-hidden mb-6 shadow-lg">
@@ -293,6 +300,15 @@ export default function ApplicationDetailPage() {
               {/* ── Chatter ── */}
               {activeTab === "chatter" && (
                 <div className="flex flex-col h-[500px]">
+                  {/* Response time notice */}
+                  <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 flex-shrink-0">
+                    <span className="text-amber-500 mt-0.5 flex-shrink-0">⏱</span>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      <span className="font-semibold">Response time: 24–48 hrs</span> for standard cases.
+                      Cases with credit assessment requests may take up to <span className="font-semibold">72 hrs</span>.
+                      Please do not chase up before this window has passed.
+                    </p>
+                  </div>
                   {/* Messages list */}
                   <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
                     {notes.length === 0 ? (
