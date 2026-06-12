@@ -81,7 +81,21 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: false, notFound: true }) }
     }
 
-    // 3. Mint a short-lived signed token (15 minutes)
+    // 3. Block agents — contacts associated with a company are agents, not students
+    const companyAssoc = await hubspotRequest(
+      `/crm/v4/objects/contacts/${contact.id}/associations/companies`,
+      "GET"
+    )
+    const hasCompany = companyAssoc.body.results?.length > 0
+    if (hasCompany) {
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ ok: false, isAgent: true })
+      }
+    }
+
+    // 4. Mint a short-lived signed token (15 minutes)
     const token = jwt.sign(
       { email: cleanEmail, purpose: "magic-login" },
       JWT_SECRET,
