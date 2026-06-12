@@ -2,6 +2,7 @@ import React from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { AuthProvider, useAuth } from "./lib/auth"
 import { Layout } from "./components/Layout"
+import { NavigationProgress } from "./components/NavigationProgress"
 import LoginPage from "./pages/LoginPage"
 import HomePage from "./pages/HomePage"
 import ApplicationsPage from "./pages/ApplicationsPage"
@@ -11,53 +12,15 @@ import StudentLoginPage from "./pages/StudentLoginPage"
 import StudentApplicationPage from "./pages/StudentApplicationPage"
 import AgentLoginPage from "./pages/AgentLoginPage"
 
-function SplashScreen() {
-  return (
-    <div
-      style={{
-        position: "fixed", inset: 0,
-        background: "#0c0a09",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        gap: "24px",
-        animation: "splashFadeOut 0.3s ease-out 0.4s forwards",
-        zIndex: 9999,
-      }}
-    >
-      <style>{`
-        @keyframes splashFadeOut {
-          to { opacity: 0; pointer-events: none; }
-        }
-        @keyframes splashPulse {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
-        }
-      `}</style>
-      <img
-        src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
-        alt="Holmes"
-        style={{
-          height: "36px", width: "auto",
-          animation: "splashPulse 1.2s ease-in-out infinite",
-          filter: "brightness(0) invert(1)",
-        }}
-        onError={(e) => { e.currentTarget.style.display = "none" }}
-      />
-      <div style={{
-        width: "32px", height: "32px",
-        border: "3px solid #44403c",
-        borderTopColor: "#991b1b",
-        borderRadius: "50%",
-        animation: "spin 0.7s linear infinite",
-      }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  )
-}
-
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
-  if (isLoading) return <SplashScreen />
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-100">
+        <div className="h-8 w-8 border-4 border-stone-300 border-t-red-700 rounded-full animate-spin" />
+      </div>
+    )
+  }
   if (!user) return <Navigate to="/login" replace />
   return <Layout>{children}</Layout>
 }
@@ -83,6 +46,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <NavigationProgress />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>
