@@ -6,7 +6,7 @@ import { ArrowRight, Mail, GraduationCap, AlertCircle, CheckCircle, LoaderCircle
 export default function StudentLoginPage() {
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
-  const [status, setStatus] = useState<"idle" | "loading" | "sent" | "notFound" | "error">("idle")
+  const [status, setStatus] = useState<"idle" | "loading" | "sent" | "notFound" | "isAgent" | "error">("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,6 +32,11 @@ export default function StudentLoginPage() {
 
       if (data.notFound) {
         setStatus("notFound")
+        return
+      }
+
+      if (data.isAgent) {
+        setStatus("isAgent")
         return
       }
 
@@ -65,7 +70,31 @@ export default function StudentLoginPage() {
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="p-8">
 
-            {status === "notFound" ? (
+            {status === "isAgent" ? (
+              /* ── Agent trying student portal ── */
+              <div className="text-center">
+                <div className="w-14 h-14 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="h-7 w-7 text-amber-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800">Wrong portal</h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  This email is registered as an agent account. Please use the Agent Partner login instead.
+                </p>
+                <button
+                  onClick={() => navigate("/agent-login")}
+                  className="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white text-sm font-medium transition-opacity hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg, #991b1b, #7f1d1d)" }}
+                >
+                  Go to Agent Sign In →
+                </button>
+                <button
+                  onClick={() => { setStatus("idle"); setEmail("") }}
+                  className="mt-3 w-full text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ← Go back
+                </button>
+              </div>
+            ) : status === "notFound" ? (
               /* ── Not registered ── */
               <div className="text-center">
                 <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
