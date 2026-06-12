@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X, Eye, EyeOff, Lock, Building2, GraduationCap } from "lucide-react"
-import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { fetchAgentByEmail, fetchDealsByCompanyId } from "../lib/hubspot"
 
@@ -131,8 +130,7 @@ export default function LoginPage() {
   const primaryColor = "#991b1b"
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-stone-950">
-      <AuroraBackground colorStops={HOLMES_AURORA_COLORS} speed={0.6} amplitude={1.2} blend={0.6} />
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden animated-bg">
 
       {/* Logo top-left */}
       <div className="absolute top-6 left-8 z-10">
@@ -150,7 +148,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="w-full max-w-sm relative z-10 page-fade-in">
+      <div className="w-full max-w-sm relative z-10">
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="p-8">
             {/* Header */}
