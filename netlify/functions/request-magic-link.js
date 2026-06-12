@@ -76,11 +76,9 @@ exports.handler = async (event) => {
     )
     const contact = contactRes.body.results?.[0]
 
-    // 2. SECURITY: always respond with success, even if no contact found.
-    //    This prevents attackers from using this endpoint to discover which
-    //    emails are registered. We simply don't send an email if there's no match.
+    // 2. If no contact found, tell them clearly so they know to register first.
     if (!contact) {
-      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: true }) }
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: false, notFound: true }) }
     }
 
     // 3. Mint a short-lived signed token (15 minutes)
