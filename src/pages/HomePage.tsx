@@ -163,7 +163,6 @@ export default function HomePage() {
                 <div className="w-8 h-8 bg-red-50 rounded-full flex items-center justify-center text-red-700 flex-shrink-0">➕</div>
                 <div>
                   <div className="font-semibold text-sm text-red-700">New Application</div>
-                  <div className="text-xs text-gray-500 mt-0.5">Start an inquiry</div>
                   <div className="text-xs text-red-400 mt-1 font-medium">Higher education courses only</div>
                 </div>
               </a>
