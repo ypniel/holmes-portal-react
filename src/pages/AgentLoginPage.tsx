@@ -15,7 +15,7 @@ export default function AgentLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [status, setStatus] = useState<"idle" | "loading" | "success">("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
 
@@ -48,7 +48,7 @@ export default function AgentLoginPage() {
       const data = await res.json()
 
       if (!res.ok || !data.ok) {
-        setStatus("error")
+        setStatus("idle")
         setErrorMessage(data.error || "Incorrect email or password.")
         return
       }
@@ -68,7 +68,7 @@ export default function AgentLoginPage() {
       })
       setStatus("success")
     } catch {
-      setStatus("error")
+      setStatus("idle")
       setErrorMessage("Something went wrong. Please try again.")
     }
   }
@@ -103,21 +103,6 @@ export default function AgentLoginPage() {
                 <CheckCircle className="h-10 w-10 mx-auto mb-4 text-emerald-500" />
                 <h2 className="text-2xl font-bold text-gray-800">Welcome back!</h2>
                 <p className="mt-1 text-sm text-gray-500">Signing you in…</p>
-              </div>
-            )}
-
-            {status === "error" && (
-              <div className="text-center">
-                <AlertCircle className="h-10 w-10 mx-auto mb-4 text-gray-400" />
-                <h2 className="text-2xl font-bold text-gray-800">Sign in failed</h2>
-                <p className="mt-1 text-sm text-gray-500 mb-6">{errorMessage}</p>
-                <button
-                  onClick={reset}
-                  className="px-6 py-2 rounded-lg text-white text-sm font-medium"
-                  style={{ background: primaryColor }}
-                >
-                  Try again
-                </button>
               </div>
             )}
 
@@ -177,24 +162,6 @@ export default function AgentLoginPage() {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                  </div>
-
-                  {/* Forgot password */}
-                  <div className="flex justify-end -mt-1">
-                    <a
-                      href={`mailto:hello@holmes.edu.au?subject=${encodeURIComponent("Password Reset Request - Holmes Agent Portal")}&body=${encodeURIComponent(`Hi Holmes Admissions Team,
-
-I would like to request a password reset for my Holmes Agent Portal account.
-
-Email address: ${email || "[your email address]"}
-
-Please reset my password at your earliest convenience.
-
-Thank you.`)}`}
-                      className="text-xs text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors"
-                    >
-                      Forgot password?
-                    </a>
                   </div>
 
                   <button
