@@ -168,7 +168,7 @@ export default function LoginPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-800 group-hover:text-red-700 transition-colors">Agent Partner</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Agents & Holmes staff — sign in here</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Sign in to manage your applications</p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-stone-300 group-hover:text-red-500 transition-colors flex-shrink-0" />
               </button>
