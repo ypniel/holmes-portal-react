@@ -6,8 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Holmes Agent Portal</title>
     <style>
-      /* Matches agent portal bg — prevents any flash before CSS loads */
-      html, body, #root { margin: 0; background-color: #f8fafc; }
+      /* Dark base — matches the login/aurora pages.
+         Prevents white flash before React mounts.
+         Agent portal pages use bg-slate-50 which paints immediately
+         after React mounts so no dark flash there either. */
+      html, body, #root { margin: 0; background-color: #0c0a09; }
     </style>
   </head>
   <body>
