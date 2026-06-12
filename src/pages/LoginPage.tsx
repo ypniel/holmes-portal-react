@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X, Eye, EyeOff, Lock, Building2, GraduationCap } from "lucide-react"
+import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X, Eye, EyeOff, Lock, Building2, GraduationCap, Settings } from "lucide-react"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { fetchAgentByEmail, fetchDealsByCompanyId } from "../lib/hubspot"
 
