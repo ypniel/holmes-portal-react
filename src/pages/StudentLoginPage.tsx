@@ -6,7 +6,7 @@ import { ArrowRight, Mail, GraduationCap, AlertCircle, CheckCircle, LoaderCircle
 export default function StudentLoginPage() {
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
-  const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">("idle")
+  const [status, setStatus] = useState<"idle" | "loading" | "sent" | "notFound" | "error">("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,14 +24,17 @@ export default function StudentLoginPage() {
       })
       const data = await res.json()
 
-      if (!res.ok || !data.ok) {
+      if (!res.ok) {
         setStatus("error")
         setErrorMessage("Something went wrong. Please try again.")
         return
       }
 
-      // Always show "sent" — even if the email wasn't found, we don't reveal
-      // that, to prevent attackers fishing for which emails are registered.
+      if (data.notFound) {
+        setStatus("notFound")
+        return
+      }
+
       setStatus("sent")
     } catch {
       setStatus("error")
@@ -62,7 +65,34 @@ export default function StudentLoginPage() {
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="p-8">
 
-            {status === "sent" ? (
+            {status === "notFound" ? (
+              /* ── Not registered ── */
+              <div className="text-center">
+                <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="h-7 w-7 text-red-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800">No account found</h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  There is no account registered for <span className="font-medium text-gray-700">{email.trim().toLowerCase()}</span>.
+                  You must register first before you can log in.
+                </p>
+                <a
+                  href="https://share.hsforms.com/2nrqky_hbSQu2wZj0XxTnVgnrkx6"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white text-sm font-medium transition-opacity hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg, #991b1b, #7f1d1d)" }}
+                >
+                  Register here →
+                </a>
+                <button
+                  onClick={() => { setStatus("idle"); setEmail("") }}
+                  className="mt-3 w-full text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ← Go back
+                </button>
+              </div>
+            ) : status === "sent" ? (
               /* ── Sent confirmation ── */
               <div className="text-center">
                 <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -70,8 +100,7 @@ export default function StudentLoginPage() {
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800">Check your email</h2>
                 <p className="mt-2 text-sm text-gray-500">
-                  If an account exists for <span className="font-medium text-gray-700">{email.trim().toLowerCase()}</span>,
-                  we've sent a secure login link. It expires in 15 minutes.
+                  We've sent a secure login link to <span className="font-medium text-gray-700">{email.trim().toLowerCase()}</span>. It expires in 15 minutes.
                 </p>
                 <p className="mt-4 text-xs text-gray-400">
                   Didn't get it? Check your spam folder, or{" "}
