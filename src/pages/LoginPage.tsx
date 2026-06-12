@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X, Eye, EyeOff, Lock, Building2, GraduationCap } from "lucide-react"
+import { AuroraBackground, HOLMES_AURORA_COLORS } from "../components/AuroraBackground"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { fetchAgentByEmail, fetchDealsByCompanyId } from "../lib/hubspot"
 
@@ -130,7 +131,8 @@ export default function LoginPage() {
   const primaryColor = "#991b1b"
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden animated-bg">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-stone-950">
+      <AuroraBackground colorStops={HOLMES_AURORA_COLORS} speed={0.6} amplitude={1.2} blend={0.6} />
 
       {/* Logo top-left */}
       <div className="absolute top-6 left-8 z-10">
@@ -167,8 +169,8 @@ export default function LoginPage() {
                   <Building2 className="h-6 w-6 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-800 group-hover:text-red-700 transition-colors">Agent / Staff</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Manage your student applications</p>
+                  <p className="font-bold text-gray-800 group-hover:text-red-700 transition-colors">Agent Partner</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Agents & Holmes staff — sign in here</p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-stone-300 group-hover:text-red-500 transition-colors flex-shrink-0" />
               </button>
