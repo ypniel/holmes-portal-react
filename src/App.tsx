@@ -2,7 +2,7 @@ import React from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { AuthProvider, useAuth } from "./lib/auth"
 import { Layout } from "./components/Layout"
-import { NavigationProgress } from "./components/NavigationProgress"
+import AdminPage from "./pages/AdminPage"
 import LoginPage from "./pages/LoginPage"
 import HomePage from "./pages/HomePage"
 import ApplicationsPage from "./pages/ApplicationsPage"
@@ -29,6 +29,7 @@ function AppRoutes() {
   const { user } = useAuth()
   return (
     <Routes>
+      <Route path="/admin" element={<AdminPage />} />
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/agent-login" element={user ? <Navigate to="/" replace /> : <AgentLoginPage />} />
       <Route path="/student" element={<StudentLoginPage />} />
@@ -46,7 +47,6 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <NavigationProgress />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>
