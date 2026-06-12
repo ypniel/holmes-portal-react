@@ -164,6 +164,7 @@ export default function HomePage() {
                 <div>
                   <div className="font-semibold text-sm text-red-700">New Application</div>
                   <div className="text-xs text-gray-500 mt-0.5">Start an inquiry</div>
+                  <div className="text-xs text-red-400 mt-1 font-medium">Higher education courses only</div>
                 </div>
               </a>
               <button onClick={() => navigate("/applications")}
