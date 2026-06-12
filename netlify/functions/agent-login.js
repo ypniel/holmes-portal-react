@@ -4,6 +4,8 @@ const https = require("https")
 
 const JWT_SECRET = process.env.JWT_SECRET
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+// Standard password for all Holmes staff (@holmes.edu.au contacts in HubSpot)
+const HOLMES_STAFF_PASSWORD = process.env.HOLMES_STAFF_PASSWORD || "Holmes2026!"
 
 const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
 
@@ -53,7 +55,6 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "Server not configured" }) }
   }
 
-  // Generic error for any auth failure — never reveal which part failed
   const genericFail = { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Incorrect email or password." }) }
 
   try {
@@ -63,8 +64,9 @@ exports.handler = async (event) => {
     }
 
     const cleanEmail = String(email).trim().toLowerCase()
+    const staff = isHolmesStaff(cleanEmail)
 
-    // 1. Find the contact + their password hash
+    // ── Look up contact in HubSpot (required for both staff and agents) ──────
     const contactRes = await hubspotRequest(
       "/crm/v3/objects/contacts/search",
       "POST",
@@ -75,33 +77,49 @@ exports.handler = async (event) => {
       }
     )
     const contact = contactRes.body.results?.[0]
+
+    // Contact MUST exist in HubSpot — both for staff and agents
     if (!contact) return genericFail
 
-    const hash = contact.properties?.portal_password_hash
-    if (!hash) {
-      // No password set yet — distinct message so they know to contact admin
-      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "No password has been set for this account. Please contact Holmes admissions." }) }
+    let valid = false
+
+    if (staff) {
+      // ── Holmes staff: check against the shared standard password ───────────
+      // The contact must exist in HubSpot AND know the staff password.
+      valid = (password === HOLMES_STAFF_PASSWORD)
+    } else {
+      // ── External agents: check their individual bcrypt hash ─────────────────
+      const hash = contact.properties?.portal_password_hash
+      if (!hash) {
+        return {
+          statusCode: 403,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: "No password has been set for this account. Please contact Holmes admissions." }),
+        }
+      }
+      valid = await bcrypt.compare(password, hash)
     }
 
-    // 2. Verify the password server-side
-    const valid = await bcrypt.compare(password, hash)
     if (!valid) return genericFail
 
-    // 3. Determine role + scope
-    const staff = isHolmesStaff(cleanEmail)
+    // ── Build session ────────────────────────────────────────────────────────
     let companyId = null
     let companyName = staff ? "Holmes Institute Australia" : ""
     let fullName = `${contact.properties?.firstname || ""} ${contact.properties?.lastname || ""}`.trim()
 
     if (!staff) {
-      // Agent — get their company for deal scoping
+      // Agents: scope to their company
       const companyAssoc = await hubspotRequest(
         `/crm/v4/objects/contacts/${contact.id}/associations/companies`,
         "GET"
       )
       companyId = companyAssoc.body.results?.[0]?.toObjectId
       if (!companyId) {
-        return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "No agency is linked to this account. Please contact Holmes admissions." }) }
+        return {
+          statusCode: 403,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: "No agency is linked to this account. Please contact Holmes admissions." }),
+        }
       }
       const companyRes = await hubspotRequest(
         `/crm/v3/objects/companies/${companyId}?properties=name,contact_person_name`,
@@ -114,7 +132,7 @@ exports.handler = async (event) => {
 
     if (!fullName) fullName = cleanEmail.split("@")[0]
 
-    // 4. Issue session token (role + company baked in, server-signed)
+    // Staff get companyId: null → frontend/hubspot.ts shows ALL pipeline deals
     const sessionToken = jwt.sign(
       {
         email: cleanEmail,
