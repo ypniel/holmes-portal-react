@@ -179,6 +179,24 @@ export default function AgentLoginPage() {
                     </div>
                   </div>
 
+                  {/* Forgot password */}
+                  <div className="flex justify-end -mt-1">
+                    <a
+                      href={`mailto:hello@holmes.edu.au?subject=${encodeURIComponent("Password Reset Request - Holmes Agent Portal")}&body=${encodeURIComponent(`Hi Holmes Admissions Team,
+
+I would like to request a password reset for my Holmes Agent Portal account.
+
+Email address: ${email || "[your email address]"}
+
+Please reset my password at your earliest convenience.
+
+Thank you.`)}`}
+                      className="text-xs text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors"
+                    >
+                      Forgot password?
+                    </a>
+                  </div>
+
                   <button
                     type="submit"
                     disabled={status === "loading" || !email || !password}
