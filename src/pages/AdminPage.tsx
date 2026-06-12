@@ -1,9 +1,12 @@
 import { useState } from "react"
-import { Shield, Mail, Lock, Copy, Check, RefreshCw } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Shield, Mail, Lock, Copy, Check, RefreshCw, ArrowLeft, Eye, EyeOff } from "lucide-react"
 
 export default function AdminPage() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [secret, setSecret] = useState("")
+  const [showSecret, setShowSecret] = useState(false)
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [result, setResult] = useState<{ email: string; fullName: string; password: string; contactId: string } | null>(null)
   const [errorMsg, setErrorMsg] = useState("")
@@ -54,6 +57,15 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-stone-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+
+        {/* Back button */}
+        <button
+          onClick={() => navigate("/login")}
+          className="flex items-center gap-1.5 text-sm text-stone-400 hover:text-white transition-colors mb-6"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to login
+        </button>
 
         {/* Header */}
         <div className="text-center mb-8">
@@ -135,15 +147,22 @@ export default function AdminPage() {
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <input
-                        type="password"
+                        type={showSecret ? "text" : "password"}
                         value={secret}
                         onChange={e => setSecret(e.target.value)}
                         required
                         disabled={status === "loading"}
                         placeholder="••••••••••••"
                         autoComplete="off"
-                        className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 disabled:opacity-50"
+                        className="w-full pl-10 pr-10 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 disabled:opacity-50"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowSecret(!showSecret)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
 
