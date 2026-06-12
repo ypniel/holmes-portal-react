@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { AuroraBackground } from "../components/AuroraBackground"
 import { GraduationCap, FileText, LogOut, RefreshCw } from "lucide-react"
 
-const HOLMES_AURORA = ["#991b1b", "#b91c1c", "#7f1d1d"]
 const APPLICATION_FORM_URL = "https://share.hsforms.com/2nrqky_hbSQu2wZj0XxTnVgnrkx6"
 
 export default function StudentApplyPage() {
@@ -54,8 +52,7 @@ export default function StudentApplyPage() {
   const firstName = session?.fullName?.split(" ")[0] || ""
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-stone-950">
-      <AuroraBackground colorStops={HOLMES_AURORA} speed={0.6} amplitude={1.2} blend={0.6} />
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden animated-bg">
 
       {/* Logo */}
       <div className="absolute top-6 left-8 z-10">
@@ -73,7 +70,7 @@ export default function StudentApplyPage() {
         </div>
       </div>
 
-      <div className="w-full max-w-md relative z-10 page-fade-in">
+      <div className="w-full max-w-md relative z-10">
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="p-8 text-center">
             <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
