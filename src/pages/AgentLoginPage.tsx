@@ -18,6 +18,9 @@ export default function AgentLoginPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success">("idle")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [showResetForm, setShowResetForm] = useState(false)
+  const [resetEmail, setResetEmail] = useState("")
+  const [resetStatus, setResetStatus] = useState<"idle" | "loading" | "sent">("idle")
 
   useEffect(() => {
     if (user) navigate("/")
@@ -28,6 +31,19 @@ export default function AgentLoginPage() {
     setEmail("")
     setPassword("")
     setErrorMessage(null)
+  }
+
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setResetStatus("loading")
+    try {
+      await fetch("/.netlify/functions/request-password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail.trim().toLowerCase() }),
+      })
+    } catch {}
+    setResetStatus("sent")
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -172,20 +188,13 @@ export default function AgentLoginPage() {
 
                   {/* Forgot password */}
                   <div className="flex justify-end -mt-1">
-                    <a
-                      href={`mailto:hello@holmes.edu.au?subject=${encodeURIComponent("Password Reset Request - Holmes Agent Portal")}&body=${encodeURIComponent(`Hi Holmes Admissions Team,
-
-I would like to request a password reset for my Holmes Agent Portal account.
-
-Email address: ${email || "[your email address]"}
-
-Please reset my password at your earliest convenience.
-
-Thank you.`)}`}
+                    <button
+                      type="button"
+                      onClick={() => setShowResetForm(true)}
                       className="text-xs text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors"
                     >
                       Forgot password?
-                    </a>
+                    </button>
                   </div>
 
                   <button
@@ -220,6 +229,58 @@ Thank you.`)}`}
           © {new Date().getFullYear()} Holmes Institute Australia. All rights reserved.
         </p>
       </div>
+
+      {/* Password reset overlay */}
+      {showResetForm && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setShowResetForm(false); setResetStatus("idle"); setResetEmail("") }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="p-8">
+              {resetStatus === "sent" ? (
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="h-6 w-6 text-emerald-600" />
+                  </div>
+                  <h2 className="text-lg font-bold text-gray-800">Check your email</h2>
+                  <p className="mt-2 text-sm text-gray-500">If an agent account exists for that email, we've sent a password reset link. It expires in 15 minutes.</p>
+                  <button onClick={() => { setShowResetForm(false); setResetStatus("idle"); setResetEmail("") }}
+                    className="mt-6 w-full py-2.5 rounded-lg text-white text-sm font-medium"
+                    style={{ background: "linear-gradient(135deg, #991b1b, #7f1d1d)" }}>
+                    Back to Sign In
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h2 className="text-lg font-bold text-gray-800 mb-1">Reset your password</h2>
+                  <p className="text-sm text-gray-500 mb-6">Enter your email and we'll send you a reset link.</p>
+                  <form onSubmit={handleReset} className="space-y-4">
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="email"
+                        value={resetEmail}
+                        onChange={e => setResetEmail(e.target.value)}
+                        required
+                        autoFocus
+                        placeholder="you@agency.com"
+                        className="w-full pl-10 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                      />
+                    </div>
+                    <button type="submit" disabled={resetStatus === "loading" || !resetEmail}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-white text-sm font-medium disabled:opacity-50"
+                      style={{ background: "linear-gradient(135deg, #991b1b, #7f1d1d)" }}>
+                      {resetStatus === "loading" ? <><Loader2 className="h-4 w-4 animate-spin" />Sending…</> : "Send reset link"}
+                    </button>
+                    <button type="button" onClick={() => { setShowResetForm(false); setResetStatus("idle"); setResetEmail("") }}
+                      className="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                      Cancel
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contact modal */}
       {showModal && (
