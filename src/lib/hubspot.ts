@@ -52,7 +52,7 @@ async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = f
 
 // ── Deal Properties ───────────────────────────────────────────────────────────
 export const DEAL_PROPS = [
-  "dealname","dealstage","pipeline","response_status",
+  "dealname","dealstage","pipeline","response_status","date_modified",
   "course_name_australia_","course_name_australia","course_name","coursename",
   "campus_australia_","campus_australia","campus",
   "intake_australia_","intake_australia","intake",
@@ -219,7 +219,12 @@ export async function createNote(dealId: string, body: string, authorName?: stri
     await hsFetch("/engagements/v1/engagements", { method: "POST", body: engBody })
     await hsFetch(`/crm/v3/objects/deals/${dealId}`, {
       method: "PATCH",
-      body: JSON.stringify({ properties: { response_status: "Holmes_Received" } }),
+      body: JSON.stringify({
+        properties: {
+          response_status: "Holmes_Received",
+          date_modified: new Date().toISOString(),
+        }
+      }),
     })
     return true
   } catch { return false }
