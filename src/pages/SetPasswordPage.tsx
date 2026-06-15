@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Eye, EyeOff, Lock, CheckCircle, AlertCircle, LoaderCircle, ShieldCheck } from "lucide-react"
+import { Eye, EyeOff, Lock, CheckCircle, AlertCircle, Loader2, ShieldCheck } from "lucide-react"
 
 export default function SetPasswordPage() {
   const navigate = useNavigate()
@@ -210,7 +210,7 @@ export default function SetPasswordPage() {
                     style={{ background: "linear-gradient(135deg, #991b1b, #7f1d1d)" }}
                   >
                     {status === "loading" ? (
-                      <><LoaderCircle className="h-4 w-4 animate-spin" />Saving…</>
+                      <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
                     ) : (
                       <><ShieldCheck className="h-4 w-4" />Save Password</>
                     )}
