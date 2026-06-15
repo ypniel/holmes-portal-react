@@ -52,7 +52,7 @@ async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = f
 
 // ── Deal Properties ───────────────────────────────────────────────────────────
 export const DEAL_PROPS = [
-  "dealname","dealstage","pipeline","response_status","date_modified",
+  "dealname","dealstage","pipeline","response_status",
   "course_name_australia_","course_name_australia","course_name","coursename",
   "campus_australia_","campus_australia","campus",
   "intake_australia_","intake_australia","intake",
@@ -222,7 +222,6 @@ export async function createNote(dealId: string, body: string, authorName?: stri
       body: JSON.stringify({
         properties: {
           response_status: "Holmes_Received",
-          date_modified: new Date().toISOString(),
         }
       }),
     })
