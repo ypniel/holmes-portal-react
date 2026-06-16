@@ -147,7 +147,7 @@ export default function HomePage() {
     <PageContainer>
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-gray-800">
-          Welcome back, {user?.fullName?.split(" ")[0] || "Agent"}!
+          Welcome back, {user?.companyName || user?.fullName?.split(" ")[0] || "Agent"}!
         </h1>
         <p className="text-sm text-gray-500 mt-1">
           {user?.email && isHolmesStaff(user.email)
@@ -262,10 +262,10 @@ export default function HomePage() {
           <div className="bg-white rounded-xl border border-stone-200 p-5">
             <div className="text-center mb-4">
               <div className="h-16 w-16 mx-auto mb-3 rounded-full bg-red-50 border-2 border-red-100 flex items-center justify-center text-red-700 text-2xl font-semibold">
-                {initials(user?.fullName)}
+                {initials(user?.companyName || user?.fullName)}
               </div>
-              <h3 className="font-semibold text-gray-800">{user?.fullName || "Agent"}</h3>
-              <p className="text-sm text-gray-500">{user?.companyName || user?.email}</p>
+              <h3 className="font-semibold text-gray-800">{user?.companyName || user?.fullName || "Agent"}</h3>
+              <p className="text-sm text-gray-500">{user?.email}</p>
             </div>
             <div className="space-y-2 text-sm border-t border-stone-100 pt-4">
               <div className="flex justify-between">
