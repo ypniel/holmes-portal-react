@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom"
 import {
   ArrowLeft, FileText, GraduationCap, User, Building2,
   MessageSquare, Send, Paperclip, Dot, Download, ExternalLink, X
+  FileDown,
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
 import {
@@ -49,6 +50,23 @@ function useLiveStatus() {
   return isLive
 }
 
+
+const AGENT_FORMS = [
+  { name: "Academic Calendar 2026–2030",        url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Academic%20Calendar%202026-2030.pdf" },
+  { name: "Manual Enrolment Form",              url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Manual%20Enrolment%20form.pdf" },
+  { name: "Subject Variation Request Form",     url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Subject%20variation%20request%20form.pdf" },
+  { name: "Special Consideration Application",  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Special%20Consideration%20Application%20Form.pdf" },
+  { name: "Study Overload Application Form",    url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Study%20Overload%20Application%20Form.pdf" },
+  { name: "Request for Reduced Study Load",     url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20Reduced%20Study%20Load.pdf" },
+  { name: "Concurrent Enrolment Form",          url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Concurrent%20enrolment%20form.pdf" },
+  { name: "Request for Documents",              url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20Documents.pdf" },
+  { name: "Appeals Form",                       url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Appeals%20Form.pdf" },
+  { name: "Request for Academic Documents",     url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20Academic%20Documents%20Form.pdf" },
+  { name: "Change of Campus or Course",         url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Change%20of%20Campus%20or%20Course.pdf" },
+  { name: "Defer, Cancel and Suspend Request",  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Defer%20Cancel%20and%20Suspend%20Request.pdf" },
+  { name: "Request for Course Extension",       url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20course%20extension%20form.pdf" },
+]
+
 export default function ApplicationDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
@@ -75,6 +93,7 @@ export default function ApplicationDetailPage() {
   const [comment, setComment] = useState("")
   const [sending, setSending] = useState(false)
   const [showModal, setShowModal] = useState(false)
+  const [formsOpen, setFormsOpen] = useState(false)
   const isLive = useLiveStatus()
 
   useEffect(() => {
@@ -476,6 +495,36 @@ export default function ApplicationDetailPage() {
             </div>
           </div>
 
+
+          {/* Forms & Documents */}
+          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <button
+              onClick={() => setFormsOpen(o => !o)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-stone-50 transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <FileDown className="h-4 w-4 text-red-700" />
+                <span className="text-sm font-semibold text-gray-800">Forms &amp; Documents</span>
+              </div>
+              <span className="text-xs text-gray-400">{formsOpen ? "▲" : "▼"}</span>
+            </button>
+            {formsOpen && (
+              <div className="border-t border-stone-100 divide-y divide-stone-50">
+                {AGENT_FORMS.map(form => (
+                  <a
+                    key={form.url}
+                    href={form.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between px-5 py-3 hover:bg-red-50 transition-colors group"
+                  >
+                    <span className="text-xs text-gray-700 group-hover:text-red-700 transition-colors">{form.name}</span>
+                    <FileDown className="h-3.5 w-3.5 text-gray-300 group-hover:text-red-500 flex-shrink-0 ml-2 transition-colors" />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
           {/* Pro Tip — rotating */}
           <RotatingProTip />
         </div>
