@@ -2,7 +2,7 @@ const bcrypt = require("bcryptjs")
 const https = require("https")
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET
-const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN_WRITE || process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
 const SALT_ROUNDS = 10
 
 function hubspotRequest(path, method, body) {
