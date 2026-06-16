@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import {
   ArrowLeft, FileText, GraduationCap, User, Building2,
-  MessageSquare, Send, Paperclip, Dot, Download, ExternalLink, X
+  MessageSquare, Send, Paperclip, Dot, Download, ExternalLink, X,
   FileDown,
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
