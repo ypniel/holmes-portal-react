@@ -267,12 +267,7 @@ export default function HomePage() {
               <h3 className="font-semibold text-gray-800">{user?.companyName || user?.fullName || "Agent"}</h3>
               <p className="text-sm text-gray-500">{user?.email}</p>
             </div>
-            <div className="space-y-2 text-sm border-t border-stone-100 pt-4">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Email</span>
-                <span className="text-gray-800 font-medium truncate ml-4">{user?.email}</span>
-              </div>
-            </div>
+
           </div>
 
           <div className="bg-white rounded-xl border border-stone-200 p-5">
