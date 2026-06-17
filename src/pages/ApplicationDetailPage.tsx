@@ -241,7 +241,7 @@ export default function ApplicationDetailPage() {
 
       <div className="grid lg:grid-cols-12 gap-6 min-w-0 max-w-full overflow-hidden">
         {/* Main Left */}
-        <div className="lg:col-span-8 space-y-6 min-w-0 w-full">
+        <div className="lg:col-span-8 space-y-6">
           {/* Tabs */}
           <div className="bg-white rounded-xl border border-stone-200 p-1 flex overflow-x-auto gap-1">
             {tabs.map(tab => {
@@ -263,6 +263,7 @@ export default function ApplicationDetailPage() {
               )
             })}
           </div>
+          <p className="block sm:hidden text-center text-xs text-gray-400 -mt-2 mb-1">👆 Tap a tab above to switch sections</p>
 
           {/* Tab Content */}
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden min-h-[400px]">
@@ -274,7 +275,7 @@ export default function ApplicationDetailPage() {
 
               {/* ── Course ── */}
               {activeTab === "course" && (
-                <div className="grid md:grid-cols-2 gap-x-8 min-w-0">
+                <div className="grid md:grid-cols-2 gap-x-8">
                   <DetailRow label="Course Name"       value={deal.courseName} />
                   <DetailRow label="Campus"            value={deal.campus} />
                   <DetailRow label="Intake"            value={formatIntake(deal.intake)} />
@@ -294,7 +295,7 @@ export default function ApplicationDetailPage() {
 
               {/* ── Student ── */}
               {activeTab === "student" && (
-                <div className="grid md:grid-cols-2 gap-x-8 min-w-0">
+                <div className="grid md:grid-cols-2 gap-x-8">
                   <DetailRow label="Student Name"     value={deal.studentName} />
                   <DetailRow label="Country"          value={deal.nationality} />
                   <DetailRow label="Residency Status" value={deal.residencyStatus} />
@@ -308,7 +309,7 @@ export default function ApplicationDetailPage() {
 
               {/* ── Agent ── */}
               {activeTab === "agent" && (
-                <div className="grid md:grid-cols-2 gap-x-8 min-w-0">
+                <div className="grid md:grid-cols-2 gap-x-8">
                   <DetailRow label="Agent Company"  value={company?.name || deal.agentCompany} />
                   <DetailRow label="Email"          value={company?.email || deal.agentEmail} />
                   <DetailRow label="City"           value={company?.city} />
@@ -458,7 +459,7 @@ export default function ApplicationDetailPage() {
         </div>
 
         {/* ── Sidebar ── */}
-        <div className="lg:col-span-4 space-y-4 min-w-0 w-full">
+        <div className="lg:col-span-4 space-y-4">
           {/* Key Dates */}
           <div className="bg-white rounded-xl border border-stone-200 p-5">
             <div className="font-semibold text-gray-700 text-sm mb-3 flex items-center gap-2">📅 Key Dates</div>
