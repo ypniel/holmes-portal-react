@@ -13,6 +13,7 @@ export function isDirectStudent(companyName?: string): boolean {
 
 interface User {
   id: string
+  companyId?: string
   name: string
   email: string
   fullName: string
