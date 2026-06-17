@@ -3,9 +3,10 @@
 @tailwind utilities;
 
 @layer base {
-  html { font-family: system-ui, -apple-system, sans-serif; }
+  html { font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
   * { box-sizing: border-box; }
   html, body, #root { background-color: #0c0a09; }
+  body { overflow-x: hidden; max-width: 100vw; }
 }
 
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
