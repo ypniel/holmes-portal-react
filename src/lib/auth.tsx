@@ -37,25 +37,39 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => {},
 })
 
-const SESSION_KEY = "holmes_portal_user"       // sessionStorage — clears on tab close
-const PERSIST_KEY = "holmes_portal_persist"    // localStorage  — mobile fallback
-const SESSION_EXPIRY_MS = 8 * 60 * 60 * 1000  // 8 hours
+// v3 keys — old keys (holmes_portal_user, holmes_portal_persist) are ignored automatically
+const PERSIST_KEY       = "holmes_portal_v3"    // localStorage — mobile fallback
+const TAB_FLAG          = "holmes_tab_v3"        // sessionStorage — tab lifecycle signal
+const SESSION_EXPIRY_MS = 8 * 60 * 60 * 1000    // 8 hours
+
+// Clean up any old keys from previous versions
+function cleanOldKeys() {
+  localStorage.removeItem("holmes_portal_user")
+  localStorage.removeItem("holmes_portal_persist")
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Always clean up old session keys from previous versions
+    cleanOldKeys()
+
     try {
-      // 1. Try sessionStorage first (desktop tab close = logged out)
-      const session = sessionStorage.getItem(SESSION_KEY)
-      if (session) {
-        setUser(JSON.parse(session))
+      const tabAlive = sessionStorage.getItem(TAB_FLAG)
+
+      if (!tabAlive) {
+        // No tab flag — fresh tab open, force re-login
+        localStorage.removeItem(PERSIST_KEY)
+        sessionStorage.removeItem("holmes_company_id")
+        sessionStorage.removeItem("holmes_session_token")
+        sessionStorage.setItem(TAB_FLAG, "1")
         setIsLoading(false)
         return
       }
 
-      // 2. Fall back to localStorage (mobile survives backgrounding)
+      // Tab flag exists — refresh within same open tab, restore session
       const persisted = localStorage.getItem(PERSIST_KEY)
       if (persisted) {
         const parsed = JSON.parse(persisted)
@@ -63,15 +77,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const expired = Date.now() - loginTime > SESSION_EXPIRY_MS
 
         if (expired) {
-          // Session too old — clear everything, force re-login
           localStorage.removeItem(PERSIST_KEY)
           sessionStorage.removeItem("holmes_company_id")
           sessionStorage.removeItem("holmes_session_token")
         } else {
-          // Still within 8 hours — restore session (mobile came back from background)
           setUser(parsed)
-          // Rewrite to sessionStorage so subsequent checks are fast
-          sessionStorage.setItem(SESSION_KEY, JSON.stringify(parsed))
         }
       }
     } catch {}
@@ -80,16 +90,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = (u: User) => {
     setUser(u)
-    // Write to both:
-    // sessionStorage — primary, clears on tab close
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(u))
-    // localStorage — fallback for mobile, includes timestamp for expiry check
+    sessionStorage.setItem(TAB_FLAG, "1")
     localStorage.setItem(PERSIST_KEY, JSON.stringify({ ...u, _loginTime: Date.now() }))
   }
 
   const logout = () => {
     setUser(null)
-    sessionStorage.removeItem(SESSION_KEY)
+    sessionStorage.removeItem(TAB_FLAG)
     sessionStorage.removeItem("holmes_company_id")
     sessionStorage.removeItem("holmes_session_token")
     localStorage.removeItem(PERSIST_KEY)
