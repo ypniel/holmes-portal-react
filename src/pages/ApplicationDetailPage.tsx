@@ -284,8 +284,9 @@ export default function ApplicationDetailPage() {
                   <DetailRow label="OSHC"              value={deal.oshc} />
                   <DetailRow label="EAP"               value={deal.eap} />
                   <DetailRow label="Advanced Standing" value={deal.advancedStanding} />
-                  <DetailRow label="English Test Type" value={deal.englishTestType} />
-                  <DetailRow label="English Score"     value={deal.englishScore} />
+                  <DetailRow label="English Proficiency Test" value={deal.englishTestType} />
+                  <DetailRow label="English Proficiency Results" value={deal.englishScore} />
+                  <DetailRow label="English Test Date"   value={deal.englishTestDate} />
                   <DetailRow label="Tuition Fees"      value={deal.tuitionFees} />
                   <DetailRow label="Scholarship"       value={deal.scholarship} />
                   <DetailRow label="Total Cost"        value={deal.totalCost} />
