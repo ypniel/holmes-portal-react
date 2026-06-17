@@ -44,7 +44,6 @@ exports.handler = async (event) => {
         headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
       })
       const meta = JSON.parse(metaResult.body.toString())
-      console.log("File meta status:", metaResult.status, "name:", meta.name, "isPrivate:", meta.meta?.allows_anonymous_access, "sensitive:", meta.meta?.sensitive)
 
       // For private files use signed URL redirect — works with API token
       const isPrivate = meta.meta?.allows_anonymous_access === false || meta.meta?.sensitive === true
@@ -57,13 +56,11 @@ exports.handler = async (event) => {
           method: "GET",
           headers: { "Authorization": `Bearer ${TOKEN}` },
         })
-        console.log("Signed URL status:", signedResult.status, "location:", signedResult.location)
         if (signedResult.status === 302 && signedResult.location) {
           return { statusCode: 302, headers: { ...corsHeaders, "Location": signedResult.location }, body: "" }
         }
         // If not a redirect, the body might be the URL
         const signedBody = signedResult.body.toString()
-        console.log("Signed URL body:", signedBody.substring(0, 200))
         try {
           const signedData = JSON.parse(signedBody)
           const signedUrl = signedData.url || signedData.signed_url || ""
