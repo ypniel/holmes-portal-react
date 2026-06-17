@@ -38,6 +38,7 @@ const AuthContext = createContext<AuthContextType>({
 })
 
 const STORAGE_KEY = "holmes_portal_user"
+const SESSION_EXPIRY_MS = 8 * 60 * 60 * 1000 // 8 hours
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -46,14 +47,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) setUser(JSON.parse(stored))
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        const loginTime = parsed._loginTime || 0
+        const expired = Date.now() - loginTime > SESSION_EXPIRY_MS
+        if (expired) {
+          // Session expired — clear and force re-login
+          localStorage.removeItem(STORAGE_KEY)
+          sessionStorage.removeItem("holmes_company_id")
+          sessionStorage.removeItem("holmes_session_token")
+        } else {
+          setUser(parsed)
+        }
+      }
     } catch {}
     setIsLoading(false)
   }, [])
 
   const login = (u: User) => {
     setUser(u)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(u))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...u, _loginTime: Date.now() }))
   }
 
   const logout = () => {
