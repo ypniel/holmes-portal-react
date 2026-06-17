@@ -260,8 +260,8 @@ export default function ApplicationsPage() {
         )}
       </div>
 
-      <div className="bg-white border border-stone-200 rounded-xl p-4 mb-6 flex items-center gap-6">
-        <div className="flex-shrink-0">
+      <div className="bg-white border border-stone-200 rounded-xl p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+        <div className="sm:flex-shrink-0">
           <p className="text-xs text-stone-500 font-medium uppercase tracking-wider">Conversion Rate</p>
           <p className="text-2xl font-bold text-gray-800">{stats.conversionRate}%</p>
           <p className="text-xs text-stone-400">COE Issued ÷ Total Applications</p>
