@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Shield, Mail, Lock, Copy, Check, RefreshCw, Send, UserPlus, AlertCircle } from "lucide-react"
+import { Shield, Mail, Lock, Copy, Check, RefreshCw, Send, UserPlus, AlertCircle, ArrowLeft } from "lucide-react"
 
 type Tab = "invite" | "setPassword"
 
@@ -91,6 +91,16 @@ export default function AdminPage() {
           </div>
           <h1 className="text-xl font-bold text-white">Agent Portal Admin</h1>
           <p className="text-sm text-stone-400 mt-1">Invite agents or manage passwords</p>
+        </div>
+
+        <div className="mb-4 flex justify-center">
+          <a
+            href="/login"
+            className="flex items-center gap-1.5 text-white/40 hover:text-white/70 transition-colors text-xs"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to welcome page</span>
+          </a>
         </div>
 
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl overflow-hidden">
