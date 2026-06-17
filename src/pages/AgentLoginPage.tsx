@@ -71,7 +71,6 @@ export default function AgentLoginPage() {
 
       // Persist company scoping + session token, then log in
       if (data.user.companyId) {
-        sessionStorage.setItem("holmes_company_id", String(data.user.companyId))
       }
       sessionStorage.setItem("holmes_session_token", data.sessionToken)
 
@@ -81,6 +80,7 @@ export default function AgentLoginPage() {
         fullName: data.user.fullName,
         email: cleanEmail,
         companyName: data.user.companyName || "",
+        companyId: data.user.companyId ? String(data.user.companyId) : undefined,
       })
       setStatus("success")
     } catch {
