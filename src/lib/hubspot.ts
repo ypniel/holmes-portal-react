@@ -127,6 +127,59 @@ export const STAGE_COLORS: Record<string, string> = {
 }
 
 // ── Fetch Deals (full pagination — all Australia pipeline deals) ──────────────
+function mapDeal(raw: any): Deal {
+  const p = raw.properties || {}
+  const stageId = p.dealstage || ""
+  const stageLabel = STAGE_LABELS[stageId] || stageId.replace(/_/g, " ")
+
+  const g = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = p[k]
+      if (v && String(v).trim() && v !== "null") return String(v).trim()
+    }
+    return ""
+  }
+
+  return {
+    id: raw.id,
+    studentName: g("dealname") || `Deal #${raw.id}`,
+    dealstage: stageId,
+    pipeline: g("pipeline"),
+    stageLabel,
+    stageColor: STAGE_COLORS[stageId] || "stone",
+    responseStatus: g("response_status").replace(/_/g, " "),
+    courseName: g("course_name_australia_", "course_name_australia", "course_name", "coursename"),
+    campus: g("campus_australia_", "campus_australia", "campus"),
+    intake: g("intake_australia_", "intake_australia", "intake"),
+    applyingFrom: g("where_applying_from_", "where_applying_from"),
+    advancedStanding: g("advanced_standing"),
+    oshc: g("oshc"),
+    eap: g("eap_required"),
+    englishTestType: g("english_test_type"),
+    englishScore: g("english_test_score"),
+    courseStart: g("course_start_date"),
+    courseEnd: g("course_end_date"),
+    tuitionFees: g("tuition_fees"),
+    scholarship: g("scholarship"),
+    totalCost: g("total_cost"),
+    ownerId: g("hubspot_owner_id"),
+    createdAt: g("createdate"),
+    lastModified: g("hs_lastmodifieddate"),
+    nationality: g("country", "nationality_", "nationality"),
+    residencyStatus: g("residency_status_", "residency_status"),
+    dob: g("date_of_birth"),
+    passport: g("passport_number"),
+    agentCompany: g("agent_company_name", "name", "agent_company", "agency_name_import_use_only"),
+    agentEmail: g("agent_email"),
+    agentPhone: g("agent_mobile_number"),
+    agentContact: g("agent_contact_name", "contact_person_name"),
+    branchOffice: g("branch_office"),
+    studentId: g("student_id"),
+    jupiterId: g("jupiter_id"),
+    dealId: raw.id,
+  }
+}
+
 export async function fetchDeals(): Promise<Deal[]> {
   const payload: any = {
     filterGroups: PIPELINE_ID ? [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }] : [],
@@ -299,6 +352,59 @@ export async function fetchDealCompany(dealId: string): Promise<Company | null> 
 }
 
 // ── Fetch Deals by IDs ────────────────────────────────────────────────────────
+function mapDeal(raw: any): Deal {
+  const p = raw.properties || {}
+  const stageId = p.dealstage || ""
+  const stageLabel = STAGE_LABELS[stageId] || stageId.replace(/_/g, " ")
+
+  const g = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = p[k]
+      if (v && String(v).trim() && v !== "null") return String(v).trim()
+    }
+    return ""
+  }
+
+  return {
+    id: raw.id,
+    studentName: g("dealname") || `Deal #${raw.id}`,
+    dealstage: stageId,
+    pipeline: g("pipeline"),
+    stageLabel,
+    stageColor: STAGE_COLORS[stageId] || "stone",
+    responseStatus: g("response_status").replace(/_/g, " "),
+    courseName: g("course_name_australia_", "course_name_australia", "course_name", "coursename"),
+    campus: g("campus_australia_", "campus_australia", "campus"),
+    intake: g("intake_australia_", "intake_australia", "intake"),
+    applyingFrom: g("where_applying_from_", "where_applying_from"),
+    advancedStanding: g("advanced_standing"),
+    oshc: g("oshc"),
+    eap: g("eap_required"),
+    englishTestType: g("english_test_type"),
+    englishScore: g("english_test_score"),
+    courseStart: g("course_start_date"),
+    courseEnd: g("course_end_date"),
+    tuitionFees: g("tuition_fees"),
+    scholarship: g("scholarship"),
+    totalCost: g("total_cost"),
+    ownerId: g("hubspot_owner_id"),
+    createdAt: g("createdate"),
+    lastModified: g("hs_lastmodifieddate"),
+    nationality: g("country", "nationality_", "nationality"),
+    residencyStatus: g("residency_status_", "residency_status"),
+    dob: g("date_of_birth"),
+    passport: g("passport_number"),
+    agentCompany: g("agent_company_name", "name", "agent_company", "agency_name_import_use_only"),
+    agentEmail: g("agent_email"),
+    agentPhone: g("agent_mobile_number"),
+    agentContact: g("agent_contact_name", "contact_person_name"),
+    branchOffice: g("branch_office"),
+    studentId: g("student_id"),
+    jupiterId: g("jupiter_id"),
+    dealId: raw.id,
+  }
+}
+
 export async function fetchDealsByIds(ids: string[]): Promise<Deal[]> {
   const results: Deal[] = []
   const chunks = []
@@ -360,6 +466,59 @@ export async function fetchAgentByEmail(email: string): Promise<{
 
 // ── Fetch Deals by Company ID (pipeline-filtered) ─────────────────────────────
 // Fix #7: filter by pipeline so agents only see Australia Admissions deals
+function mapDeal(raw: any): Deal {
+  const p = raw.properties || {}
+  const stageId = p.dealstage || ""
+  const stageLabel = STAGE_LABELS[stageId] || stageId.replace(/_/g, " ")
+
+  const g = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = p[k]
+      if (v && String(v).trim() && v !== "null") return String(v).trim()
+    }
+    return ""
+  }
+
+  return {
+    id: raw.id,
+    studentName: g("dealname") || `Deal #${raw.id}`,
+    dealstage: stageId,
+    pipeline: g("pipeline"),
+    stageLabel,
+    stageColor: STAGE_COLORS[stageId] || "stone",
+    responseStatus: g("response_status").replace(/_/g, " "),
+    courseName: g("course_name_australia_", "course_name_australia", "course_name", "coursename"),
+    campus: g("campus_australia_", "campus_australia", "campus"),
+    intake: g("intake_australia_", "intake_australia", "intake"),
+    applyingFrom: g("where_applying_from_", "where_applying_from"),
+    advancedStanding: g("advanced_standing"),
+    oshc: g("oshc"),
+    eap: g("eap_required"),
+    englishTestType: g("english_test_type"),
+    englishScore: g("english_test_score"),
+    courseStart: g("course_start_date"),
+    courseEnd: g("course_end_date"),
+    tuitionFees: g("tuition_fees"),
+    scholarship: g("scholarship"),
+    totalCost: g("total_cost"),
+    ownerId: g("hubspot_owner_id"),
+    createdAt: g("createdate"),
+    lastModified: g("hs_lastmodifieddate"),
+    nationality: g("country", "nationality_", "nationality"),
+    residencyStatus: g("residency_status_", "residency_status"),
+    dob: g("date_of_birth"),
+    passport: g("passport_number"),
+    agentCompany: g("agent_company_name", "name", "agent_company", "agency_name_import_use_only"),
+    agentEmail: g("agent_email"),
+    agentPhone: g("agent_mobile_number"),
+    agentContact: g("agent_contact_name", "contact_person_name"),
+    branchOffice: g("branch_office"),
+    studentId: g("student_id"),
+    jupiterId: g("jupiter_id"),
+    dealId: raw.id,
+  }
+}
+
 export async function fetchDealsByCompanyId(companyId: string): Promise<Deal[]> {
   try {
     const assocRes = await hsFetch(`/crm/v4/objects/companies/${companyId}/associations/deals`)
