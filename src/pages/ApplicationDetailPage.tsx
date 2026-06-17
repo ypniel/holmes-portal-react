@@ -143,7 +143,7 @@ export default function ApplicationDetailPage() {
 
   return (
     <>
-    <PageContainer className="min-w-0 w-full overflow-hidden">
+    <PageContainer className="min-w-0 w-full">
       {/* Back — hidden for direct students */}
       {!isDirectStudent && (
         <button
@@ -239,9 +239,9 @@ export default function ApplicationDetailPage() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-12 gap-6 min-w-0 max-w-full overflow-hidden">
+      <div className="grid lg:grid-cols-12 gap-6 min-w-0 w-full">
         {/* Main Left */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="lg:col-span-8 space-y-6 min-w-0 w-full">
           {/* Tabs */}
           <div className="bg-white rounded-xl border border-stone-200 p-1 flex overflow-x-auto gap-1">
             {tabs.map(tab => {
@@ -459,7 +459,7 @@ export default function ApplicationDetailPage() {
         </div>
 
         {/* ── Sidebar ── */}
-        <div className="lg:col-span-4 space-y-4">
+        <div className="lg:col-span-4 space-y-4 min-w-0 w-full">
           {/* Key Dates */}
           <div className="bg-white rounded-xl border border-stone-200 p-5">
             <div className="font-semibold text-gray-700 text-sm mb-3 flex items-center gap-2">📅 Key Dates</div>
