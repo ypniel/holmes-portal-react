@@ -56,7 +56,7 @@ export function Header() {
           {/* Logo */}
           <button onClick={() => handleNav("/")} className="flex items-center gap-2 flex-shrink-0 mr-4">
             <img
-              src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
+              src="https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/EDM%20Headers%20(1).png"
               alt="Holmes Institute Australia"
               className="h-7 w-auto"
               onError={(e) => { e.currentTarget.style.display = "none" }}
