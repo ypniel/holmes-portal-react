@@ -54,7 +54,7 @@ export default function StudentLoginPage() {
       <div className="absolute top-6 left-8 z-10">
         <div className="flex items-center gap-2.5">
           <img
-            src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
+            src="https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/EDM%20Headers%20(1).png"
             alt="Holmes Institute Australia"
             className="h-8 w-auto"
             onError={(e) => { e.currentTarget.style.display = "none" }}
