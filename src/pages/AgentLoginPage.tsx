@@ -74,6 +74,10 @@ export default function AgentLoginPage() {
       }
       sessionStorage.setItem("holmes_session_token", data.sessionToken)
 
+      // Save companyId to both localStorage (via login) AND sessionStorage (fallback)
+      if (data.user.companyId) {
+        sessionStorage.setItem("holmes_company_id", String(data.user.companyId))
+      }
       login({
         id: data.user.contactId || "agent",
         name: data.user.fullName?.split(" ")[0] || cleanEmail.split("@")[0],
