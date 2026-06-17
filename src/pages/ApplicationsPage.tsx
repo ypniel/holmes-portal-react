@@ -52,7 +52,23 @@ export default function ApplicationsPage() {
         // Fix #4: use isHolmesStaff() instead of manual domain check with precedence bug
         if (user?.email && !isHolmesStaff(user.email)) {
           // Agent — fetch deals by company association
-          const companyId = user?.companyId || sessionStorage.getItem("holmes_company_id")
+          let companyId = user?.companyId || sessionStorage.getItem("holmes_company_id")
+          // Fallback: if companyId is missing (old session), fetch from HubSpot
+          if (!companyId && user?.email) {
+            const res = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/contacts/search`)}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: user.email }] }], limit: 1 })
+            })
+            const data = await res.json()
+            const contactId = data.results?.[0]?.id
+            if (contactId) {
+              const assocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contactId}/associations/companies`)}`)
+              const assocData = await assocRes.json()
+              companyId = assocData.results?.[0]?.toObjectId ? String(assocData.results[0].toObjectId) : null
+              if (companyId) sessionStorage.setItem("holmes_company_id", companyId)
+            }
+          }
           if (companyId) {
             const d = await fetchDealsByCompanyId(companyId)
             setDeals(d)
