@@ -52,7 +52,7 @@ export default function ApplicationsPage() {
         // Fix #4: use isHolmesStaff() instead of manual domain check with precedence bug
         if (user?.email && !isHolmesStaff(user.email)) {
           // Agent — fetch deals by company association
-          const companyId = sessionStorage.getItem("holmes_company_id")
+          const companyId = user?.companyId || sessionStorage.getItem("holmes_company_id")
           if (companyId) {
             const d = await fetchDealsByCompanyId(companyId)
             setDeals(d)
