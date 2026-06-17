@@ -1,133 +1,22 @@
-import React, { useState, useEffect } from "react"
+import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Loader2, CheckCircle, Mail, ArrowRight, AlertCircle, XCircle, X, Eye, EyeOff, Lock, Building2, GraduationCap, Settings } from "lucide-react"
-import { useAuth, isHolmesStaff } from "../lib/auth"
-import { fetchAgentByEmail, fetchDealsByCompanyId } from "../lib/hubspot"
+import { ArrowRight, X, Building2, GraduationCap, Settings } from "lucide-react"
+import { useAuth } from "../lib/auth"
 
-type Status = "idle" | "loading" | "success" | "not_found" | "error"
-
-// ── Demo direct students ──────────────────────────────────────────────────────
 const MARKETERS = [
   { name: "Indra Adhikari",   title: "Victoria Representative",        email: "iadhikari@holmes.edu.au" },
   { name: "Dinesh Chetwani",  title: "Queensland Representative",       email: "dchetwani@holmes.edu.au" },
   { name: "Don Kauffman",     title: "New South Wales Representative",  email: "dkauffman@holmes.edu.au" },
 ]
 
-const DEMO_PASSWORD = import.meta.env.VITE_PORTAL_PASSWORD
-
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { user, login } = useAuth()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [status, setStatus] = useState<Status>("idle")
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const { user } = useAuth()
   const [showModal, setShowModal] = useState(false)
 
-  const directDealRef = React.useRef<string | null>(null)
-
   useEffect(() => {
-    if (user) {
-      if (directDealRef.current) {
-        const dealId = directDealRef.current
-        directDealRef.current = null
-        navigate(`/applications/${dealId}`)
-      } else {
-        navigate("/")
-      }
-    }
+    if (user) navigate("/")
   }, [user])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setStatus("loading")
-    setErrorMessage(null)
-
-    try {
-      const cleanEmail = email.trim().toLowerCase()
-
-      if (password !== DEMO_PASSWORD) {
-        setStatus("error")
-        setErrorMessage("Incorrect password. Please try again.")
-        return
-      }
-
-      let name = cleanEmail.split("@")[0]
-      let fullName = name
-      let companyName = isHolmesStaff(cleanEmail) ? "Holmes Institute Australia" : ""
-
-      if (!isHolmesStaff(cleanEmail)) {
-        try {
-          // Step 1: find contact by email
-          const contactRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent("/crm/v3/objects/contacts/search")}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: cleanEmail }] }],
-              properties: ["email", "firstname", "lastname"],
-              limit: 1,
-            })
-          })
-          const contactData = await contactRes.json()
-          const contact = contactData.results?.[0]
-
-          if (!contact) {
-            // Not found in HubSpot at all
-            setStatus("error")
-            setErrorMessage("No account found for this email. Please contact your Holmes representative.")
-            return
-          }
-
-          const fn = contact.properties?.firstname || ""
-          const ln = contact.properties?.lastname || ""
-          fullName = `${fn} ${ln}`.trim() || name
-          name = fn || name
-
-          // Step 2: get company association
-          const companyAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)}`)
-          const companyAssocData = await companyAssocRes.json()
-          const companyId = companyAssocData.results?.[0]?.toObjectId
-
-          if (companyId) {
-            // Has company — regular agent
-            const companyRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/companies/${companyId}?properties=name,agent_email,contact_person_name`)}`)
-            const companyData = await companyRes.json()
-            companyName = companyData.properties?.name || ""
-            const contactPerson = companyData.properties?.contact_person_name || ""
-            if (contactPerson) { fullName = contactPerson; name = contactPerson.split(" ")[0] }
-            sessionStorage.setItem("holmes_company_id", String(companyId))
-          } else {
-            // No company — Direct Student
-            const dealAssocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${contact.id}/associations/deals`)}`)
-            const dealAssocData = await dealAssocRes.json()
-            const dealId = dealAssocData.results?.[0]?.toObjectId
-            if (dealId) {
-              directDealRef.current = String(dealId)
-              companyName = "Direct Student"
-            } else {
-              setStatus("error")
-              setErrorMessage("No applications found for this email. Please contact your Holmes representative.")
-              return
-            }
-          }
-        } catch {
-          setStatus("error")
-          setErrorMessage("Something went wrong. Please try again.")
-          return
-        }
-      }
-
-      login({ id: "demo", name, fullName, email: cleanEmail, companyName })
-      setStatus("success")
-    } catch {
-      setStatus("error")
-      setErrorMessage("Something went wrong. Please try again.")
-    }
-  }
-
-  const reset = () => { setStatus("idle"); setEmail(""); setPassword(""); setErrorMessage(null) }
-  const primaryColor = "#991b1b"
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden animated-bg">
