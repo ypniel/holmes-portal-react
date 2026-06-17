@@ -35,8 +35,6 @@ exports.handler = async (event) => {
 
     if (!dealId) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No dealId" }) }
 
-    console.log("TOKEN starts with:", TOKEN?.substring(0, 15))
-    console.log("CRM_TOKEN starts with:", CRM_TOKEN?.substring(0, 15))
     // Decode base64 file — Netlify sends binary as base64
     const fileBuffer = event.isBase64Encoded 
       ? Buffer.from(event.body, "base64")
@@ -64,14 +62,12 @@ exports.handler = async (event) => {
       },
     }, body)
 
-    console.log("Upload status:", uploadResult.status, uploadResult.body.toString().substring(0, 200))
 
     if (uploadResult.status !== 200 && uploadResult.status !== 201) {
       return { statusCode: uploadResult.status, headers: corsHeaders, body: uploadResult.body.toString() }
     }
 
     const fileData = JSON.parse(uploadResult.body.toString())
-    console.log("File data:", JSON.stringify(fileData).substring(0, 300))
     const fileObj = fileData.objects?.[0] || fileData
     const fileId = fileObj.id
     // Build public CDN URL directly
@@ -96,7 +92,6 @@ exports.handler = async (event) => {
       },
     }, engagementBody)
 
-    console.log("Engagement status:", engResult.status, engResult.body.toString().substring(0, 200))
 
     // Step 3 — Attach file directly to deal record via CRM v3
     const attachBody = JSON.stringify({ id: String(fileId) })
