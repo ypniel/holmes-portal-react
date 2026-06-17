@@ -143,7 +143,7 @@ export default function ApplicationDetailPage() {
 
   return (
     <>
-    <PageContainer className="min-w-0 max-w-full overflow-x-hidden">
+    <PageContainer className="min-w-0 w-full overflow-hidden">
       {/* Back — hidden for direct students */}
       {!isDirectStudent && (
         <button
@@ -156,7 +156,7 @@ export default function ApplicationDetailPage() {
       )}
 
       {/* ── Beautiful gradient top card ── */}
-      <div className="relative rounded-xl overflow-hidden mb-6 shadow-lg">
+      <div className="relative rounded-xl overflow-hidden mb-6 shadow-lg w-full">
         <div className="absolute inset-0 bg-gradient-to-br from-red-800 via-red-700 to-red-900" />
         <div className="absolute inset-0 opacity-10"
           style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)", backgroundSize: "60px 60px" }}
@@ -221,7 +221,7 @@ export default function ApplicationDetailPage() {
                 )}
               </div>
             </div>
-            <div className="flex flex-col gap-2 sm:text-right flex-shrink-0">
+            <div className="flex flex-col gap-2 sm:text-right min-w-0">
               {deal.campus && (
                 <div className="bg-white/10 backdrop-blur border border-white/20 rounded-lg px-4 py-2">
                   <p className="text-red-200 text-xs uppercase tracking-wider">Campus</p>
@@ -239,7 +239,7 @@ export default function ApplicationDetailPage() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-12 gap-6 min-w-0">
+      <div className="grid lg:grid-cols-12 gap-6 min-w-0 max-w-full overflow-hidden">
         {/* Main Left */}
         <div className="lg:col-span-8 space-y-6">
           {/* Tabs */}
@@ -320,7 +320,7 @@ export default function ApplicationDetailPage() {
               {activeTab === "chatter" && (
                 <div className="flex flex-col h-[500px]">
                   {/* Response time notice */}
-                  <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 flex-shrink-0">
+                  <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 w-full">
                     <span className="text-amber-500 mt-0.5 flex-shrink-0">⏱</span>
                     <p className="text-xs text-amber-800 leading-relaxed">
                       <span className="font-semibold">Response time: 24–48 hours</span> for standard cases.
