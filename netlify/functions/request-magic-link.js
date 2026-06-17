@@ -124,7 +124,7 @@ exports.handler = async (event) => {
                   <!-- Logo -->
                   <tr>
                     <td style="padding:32px 40px 0 40px;" align="right">
-                      <img src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
+                      <img src="https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/EDM%20Headers%20(1).png"
                            alt="Holmes Institute" height="56" style="height:56px; width:auto;" />
                     </td>
                   </tr>
