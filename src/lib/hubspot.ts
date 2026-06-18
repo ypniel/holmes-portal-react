@@ -50,6 +50,15 @@ async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = f
   return res.json()
 }
 
+// ── Proxy CDN file URL through Netlify function (adds auth) ──────────────────
+function proxyCdnUrl(url: string): string {
+  if (!url) return url
+  if (IS_DEV) return url  // In dev, HubSpot token is in browser so direct works
+  if (url.includes("hubspotusercontent")) {
+    return `/.netlify/functions/hubspot?cdnUrl=${encodeURIComponent(url)}`
+  }
+  return url
+}
 // ── Deal Properties ───────────────────────────────────────────────────────────
 export const DEAL_PROPS = [
   "dealname","dealstage","pipeline","response_status",
