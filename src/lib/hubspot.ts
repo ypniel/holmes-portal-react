@@ -411,11 +411,10 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
     const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
     const files: FileItem[] = []
-
     for (const eng of data.results || []) {
       const body = eng.metadata?.body || ""
 
-      // Method 1 — parse CDN URL from metadata body
+      // Method 1 — extract file IDs from HTML links (skip raw CDN URLs, they 403)
       const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
       for (const match of linkMatches) {
         const hrefUrl = match[1]
@@ -423,32 +422,18 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         name = name.replace(/^[a-f0-9]{13}-/, "")
         name = name.replace(/_/g, " ")
         if (!name) continue
-
-        if (hrefUrl.includes("hubspotusercontent")) {
-          if (!files.find(f => f.name === name)) {
-            files.push({ name, id: hrefUrl, url: proxyCdnUrl(hrefUrl), createdAt: eng.engagement?.createdAt })
-          }
-          continue
-        }
-
+        // Skip CDN URLs — they require HubSpot session cookies, not API tokens
+        // Method 2 (attachments) handles these correctly via signed URLs
+        if (hrefUrl.includes("hubspotusercontent")) continue
         const fileIdMatch = hrefUrl.match(/\/files\/(\d+)\//)
         if (fileIdMatch) {
           const fileId = fileIdMatch[1]
           if (files.find(f => f.id === fileId)) continue
-          try {
-            const fileData = await hsFetch(`/filemanager/api/v3/files/${fileId}`)
-            const rawUrl = fileData.default_hosting_url || fileData.s3_url || fileData.url || ""
-            const publicUrl = rawUrl.includes("hubspotusercontent")
-              ? rawUrl
-              : `/.netlify/functions/hubspot?download=true&fileId=${fileId}`
-            files.push({ name, id: fileId, url: publicUrl, createdAt: eng.engagement?.createdAt })
-          } catch {
-            files.push({ name, id: fileId, url: `/.netlify/functions/hubspot?download=true&fileId=${fileId}`, createdAt: eng.engagement?.createdAt })
-          }
+          files.push({ name, id: fileId, url: `/.netlify/functions/hubspot?download=true&fileId=${fileId}`, createdAt: eng.engagement?.createdAt })
         }
       }
 
-      // Method 2 — attachment fallback
+      // Method 2 — attachment IDs → signed URL proxy (reliable for all uploaded files)
       for (const att of eng.attachments || []) {
         if (!att.id || att.id === 0) continue
         const attId = String(att.id)
@@ -459,18 +444,14 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
           name = name.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/, "")
           name = name.replace(/^file_upload_\d+-/, "")
           name = name.replace(/-[a-f0-9]{6}$/, "")
+          name = name.replace(/^[a-f0-9]{13}-/, "")
           name = name.replace(/_/g, " ")
-          const rawUrl = fileData.default_hosting_url || fileData.s3_url || fileData.url || ""
-          const url = rawUrl.includes("hubspotusercontent")
-            ? proxyCdnUrl(rawUrl)
-            : `/.netlify/functions/hubspot?download=true&fileId=${attId}`
-          files.push({ name, id: attId, url, createdAt: eng.engagement?.createdAt })
+          files.push({ name, id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt })
         } catch {
           files.push({ name: "Document", id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt })
         }
       }
     }
-
     const seen = new Set<string>()
     return files
       .filter(f => { const key = f.url || f.name; if (seen.has(key)) return false; seen.add(key); return true })
