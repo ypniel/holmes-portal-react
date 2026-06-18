@@ -111,7 +111,13 @@ exports.handler = async (event) => {
       }
 
       if (fileResult.status !== 200) {
-        return { statusCode: fileResult.status, headers: corsHeaders, body: "Could not fetch file" }
+        return { statusCode: fileResult.status, headers: corsHeaders, body: JSON.stringify({
+          error: "Could not fetch file",
+          status: fileResult.status,
+          fileUrl: fileUrl,
+          location: fileResult.location || null,
+          responsePreview: fileResult.body.toString().slice(0, 200)
+        })}
       }
 
       // Stream file bytes back to browser
