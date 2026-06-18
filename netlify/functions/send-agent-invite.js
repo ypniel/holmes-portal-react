@@ -1,15 +1,12 @@
 const jwt = require("jsonwebtoken")
-const { Resend } = require("resend")
 const https = require("https")
 
 const JWT_SECRET = process.env.JWT_SECRET
-const RESEND_API_KEY = process.env.RESEND_API_KEY
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
 const ADMIN_SECRET = process.env.ADMIN_SECRET
 const BASE_URL = process.env.MAGIC_LINK_BASE_URL || "https://holmes-admissions-portal-v2.netlify.app"
-const FROM_EMAIL = process.env.MAGIC_LINK_FROM || "Holmes Admissions <noreply@holmesportaltest.au>"
+const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "Holmes Admissions <noreply@holmeseducation.group>"
 
-const resend = new Resend(RESEND_API_KEY)
 
 function hubspotRequest(path, method, body) {
   return new Promise((resolve, reject) => {
@@ -36,6 +33,37 @@ function hubspotRequest(path, method, body) {
   })
 }
 
+
+async function sendEmail({ to, from: fromEmail, subject, html }) {
+  const https = require("https")
+  const body = JSON.stringify({
+    personalizations: [{ to: [{ email: to }] }],
+    from: { email: fromEmail.match(/<(.+)>/) ? fromEmail.match(/<(.+)>/)[1] : fromEmail,
+            name: fromEmail.match(/^(.+)</) ? fromEmail.match(/^(.+)</)[1].trim() : "Holmes Admissions" },
+    subject,
+    content: [{ type: "text/html", value: html }],
+  })
+  return new Promise((resolve, reject) => {
+    const req = require("https").request({
+      hostname: "api.sendgrid.com",
+      path: "/v3/mail/send",
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.SENDGRID_API_KEY}`,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body),
+      }
+    }, res => {
+      const chunks = []
+      res.on("data", c => chunks.push(c))
+      res.on("end", () => resolve({ statusCode: res.statusCode, body: Buffer.concat(chunks).toString() }))
+    })
+    req.on("error", reject)
+    req.write(body)
+    req.end()
+  })
+}
+
 exports.handler = async (event) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -46,7 +74,7 @@ exports.handler = async (event) => {
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method not allowed" }) }
-  if (!JWT_SECRET || !RESEND_API_KEY || !ADMIN_SECRET) {
+  if (!JWT_SECRET || !ADMIN_SECRET) {
     return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "Server not configured" }) }
   }
 
@@ -95,7 +123,7 @@ exports.handler = async (event) => {
     const lastName = contact.properties?.lastname || ""
     const fullName = `${firstName} ${lastName}`.trim() || cleanEmail
 
-    await resend.emails.send({
+    await sendEmail({
       from: FROM_EMAIL,
       to: cleanEmail,
       subject: "Set up your Holmes Agent Portal access",
