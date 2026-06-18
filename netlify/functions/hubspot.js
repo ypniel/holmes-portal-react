@@ -27,120 +27,40 @@ exports.handler = async (event) => {
   const path = event.queryStringParameters?.path || ""
   const isDownload = event.queryStringParameters?.download === "true"
   const fileId = event.queryStringParameters?.fileId || ""
-  const cdnUrl = event.queryStringParameters?.cdnUrl || ""
 
-  // ── CDN URL proxy (authenticated pass-through) ────────────────────────────
-  if (cdnUrl) {
-    try {
-      const decoded = decodeURIComponent(cdnUrl)
-      // Only allow hubspotusercontent CDN URLs for security
-      if (!decoded.includes("hubspotusercontent")) {
-        return { statusCode: 403, headers: corsHeaders, body: "Not allowed" }
-      }
-      const url = new URL(decoded)
-      const result = await makeRequest({
-        hostname: url.hostname,
-        path: url.pathname + url.search,
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${TOKEN}`,
-        },
-      })
-      // Determine content type from URL
-      const ext = url.pathname.split(".").pop()?.toLowerCase() || ""
-      const contentTypes = {
-        pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg",
-        png: "image/png", gif: "image/gif", webp: "image/webp",
-        doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }
-      const contentType = contentTypes[ext] || "application/octet-stream"
-      // If HubSpot returns a redirect, follow it
-      if (result.status === 302 && result.location) {
-        return { statusCode: 302, headers: { ...corsHeaders, "Location": result.location }, body: "" }
-      }
-      return {
-        statusCode: result.status,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": contentType,
-          "Content-Disposition": `inline; filename="${url.pathname.split("/").pop()}"`,
-        },
-        body: result.body.toString("base64"),
-        isBase64Encoded: true,
-      }
-    } catch (err) {
-      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
-    }
-  }
 
-  // ── File download by ID — proxy bytes directly (avoids signed URL permission issues) ──
+  // ── File download by ID ─────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
-      // Get file metadata to find CDN URL and filename
       const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
         path: `/filemanager/api/v3/files/${fileId}`,
         method: "GET",
         headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
       })
-      if (metaResult.status !== 200) {
-        return { statusCode: 404, headers: corsHeaders, body: "File not found" }
-      }
       const meta = JSON.parse(metaResult.body.toString())
-      const fileUrl = meta.default_hosting_url || meta.s3_url || meta.url || ""
-      const fileName = meta.name || "document"
-      if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
-
-      // Fetch file bytes with our API token
-      const parsedUrl = new (require("url").URL)(fileUrl)
-      const fileResult = await makeRequest({
-        hostname: parsedUrl.hostname,
-        path: parsedUrl.pathname + parsedUrl.search,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${TOKEN}` },
-      })
-
-      // If HubSpot redirects to login page, token lacks files scope
-      if (fileResult.status === 302 && fileResult.location) {
-        const loc = fileResult.location
-        if (loc.includes("login") || loc.includes("app.hubspot.com")) {
-          return { statusCode: 403, headers: corsHeaders, body: "File access denied" }
+      const isPrivate = meta.meta?.allows_anonymous_access === false || meta.meta?.sensitive === true
+      if (isPrivate) {
+        const signedResult = await makeRequest({
+          hostname: "api.hubspot.com",
+          path: `/filemanager/api/v2/files/${fileId}/signed-url-redirect?portalId=39917994`,
+          method: "GET",
+          headers: { "Authorization": `Bearer ${TOKEN}` },
+        })
+        if (signedResult.status === 302 && signedResult.location) {
+          return { statusCode: 302, headers: { ...corsHeaders, "Location": signedResult.location }, body: "" }
         }
-        return { statusCode: 302, headers: { ...corsHeaders, "Location": loc }, body: "" }
+        const signedBody = signedResult.body.toString()
+        try {
+          const signedData = JSON.parse(signedBody)
+          const signedUrl = signedData.url || signedData.signed_url || ""
+          if (signedUrl) return { statusCode: 302, headers: { ...corsHeaders, "Location": signedUrl }, body: "" }
+        } catch {}
+        return { statusCode: 500, headers: corsHeaders, body: "Could not get signed URL" }
       }
-
-      if (fileResult.status !== 200) {
-        return { statusCode: fileResult.status, headers: corsHeaders, body: JSON.stringify({
-          error: "Could not fetch file",
-          status: fileResult.status,
-          fileUrl: fileUrl,
-          location: fileResult.location || null,
-          responsePreview: fileResult.body.toString().slice(0, 200)
-        })}
-      }
-
-      // Stream file bytes back to browser
-      const ext = (fileName.split(".").pop() || "").toLowerCase()
-      const contentTypes = {
-        pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg",
-        png: "image/png", gif: "image/gif", webp: "image/webp",
-        doc: "application/msword",
-        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        xls: "application/vnd.ms-excel",
-        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }
-      const contentType = contentTypes[ext] || "application/octet-stream"
-      return {
-        statusCode: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": contentType,
-          "Content-Disposition": `inline; filename="${fileName}"`,
-        },
-        body: fileResult.body.toString("base64"),
-        isBase64Encoded: true,
-      }
+      const fileUrl = meta.default_hosting_url || meta.s3_url || ""
+      if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File not found" }
+      return { statusCode: 302, headers: { ...corsHeaders, "Location": fileUrl }, body: "" }
     } catch (err) {
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
     }
