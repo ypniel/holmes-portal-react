@@ -50,6 +50,17 @@ async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = f
   return res.json()
 }
 
+
+// ── Proxy CDN file URL through Netlify function (adds auth) ──────────────────
+function proxyCdnUrl(url: string): string {
+  if (!url) return url
+  if (IS_DEV) return url  // In dev, HubSpot token is in browser so direct works
+  if (url.includes("hubspotusercontent")) {
+    return `/.netlify/functions/hubspot?cdnUrl=${encodeURIComponent(url)}`
+  }
+  return url
+}
+
 // ── Deal Properties ───────────────────────────────────────────────────────────
 export const DEAL_PROPS = [
   "dealname","dealstage","pipeline","response_status",
@@ -58,9 +69,9 @@ export const DEAL_PROPS = [
   "intake_australia_","intake_australia","intake",
   "where_applying_from_","where_applying_from",
   "advanced_standing","oshc","eap_required",
-  "name_of_english_proficiency_test_australia","what_are_the_results_of_your_english_proficiency_test_","what_date_did_you_take_your_english_proficiency_test_",
+  "english_test_type","english_test_score",
   "course_start_date","course_end_date",
-  "tution_fees","scholarship_fee","total_cost",
+  "tuition_fees","scholarship","total_cost",
   "hubspot_owner_id","createdate","hs_lastmodifieddate",
   "nationality_","nationality","country",
   "residency_status_","residency_status",
@@ -126,7 +137,10 @@ export const STAGE_COLORS: Record<string, string> = {
   "1363564957": "red",
 }
 
-// ── Fetch Deals (full pagination — all Australia pipeline deals) ──────────────
+// ── Fetch Deals (with page limit to avoid Netlify timeout) ────────────────────
+// Fix #8: cap at 5 pages (500 deals) to avoid hitting Netlify's 10s function timeout
+const MAX_PAGES = 5
+
 export async function fetchDeals(): Promise<Deal[]> {
   const payload: any = {
     filterGroups: PIPELINE_ID ? [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }] : [],
@@ -136,11 +150,13 @@ export async function fetchDeals(): Promise<Deal[]> {
   }
   const all: Deal[] = []
   let after: string | undefined
-  while (true) {
+  let pages = 0
+  while (pages < MAX_PAGES) {
     if (after) payload.after = after
     const data = await hsFetch("/crm/v3/objects/deals/search", { method: "POST", body: JSON.stringify(payload) })
     all.push(...data.results.map(mapDeal))
     after = data.paging?.next?.after
+    pages++
     if (!after) break
   }
   return all
@@ -219,11 +235,7 @@ export async function createNote(dealId: string, body: string, authorName?: stri
     await hsFetch("/engagements/v1/engagements", { method: "POST", body: engBody })
     await hsFetch(`/crm/v3/objects/deals/${dealId}`, {
       method: "PATCH",
-      body: JSON.stringify({
-        properties: {
-          response_status: "Holmes_Received",
-        }
-      }),
+      body: JSON.stringify({ properties: { response_status: "Holmes_Received" } }),
     })
     return true
   } catch { return false }
@@ -374,6 +386,29 @@ export async function fetchDealsByCompanyId(companyId: string): Promise<Deal[]> 
 }
 
 // ── Fetch Deal by Agent Email ─────────────────────────────────────────────────
+export async function fetchDealByAgentEmail(email: string): Promise<Deal | null> {
+  try {
+    const data = await hsFetch(`/crm/v3/objects/deals/search`, {
+      method: "POST",
+      body: JSON.stringify({
+        filterGroups: [{
+          filters: [
+            { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID },
+            { propertyName: "agent_email", operator: "EQ", value: email },
+          ]
+        }],
+        properties: DEAL_PROPS,
+        sorts: [{ propertyName: "hs_lastmodifieddate", direction: "DESCENDING" }],
+        limit: 1,
+      })
+    })
+    const raw = data.results?.[0]
+    if (!raw) return null
+    return mapDeal(raw)
+  } catch { return null }
+}
+
+// ── Fetch Files ───────────────────────────────────────────────────────────────
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
     const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
@@ -393,7 +428,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
 
         if (hrefUrl.includes("hubspotusercontent")) {
           if (!files.find(f => f.name === name)) {
-            files.push({ name, id: hrefUrl, url: hrefUrl, createdAt: eng.engagement?.createdAt })
+            files.push({ name, id: hrefUrl, url: proxyCdnUrl(hrefUrl), createdAt: eng.engagement?.createdAt })
           }
           continue
         }
@@ -406,7 +441,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
             const fileData = await hsFetch(`/filemanager/api/v3/files/${fileId}`)
             const rawUrl = fileData.default_hosting_url || fileData.s3_url || fileData.url || ""
             const publicUrl = rawUrl.includes("hubspotusercontent")
-              ? rawUrl
+              ? proxyCdnUrl(rawUrl)
               : `/.netlify/functions/hubspot?download=true&fileId=${fileId}`
             files.push({ name, id: fileId, url: publicUrl, createdAt: eng.engagement?.createdAt })
           } catch {
@@ -446,6 +481,27 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
 }
 
 // ── Lookup Contact ────────────────────────────────────────────────────────────
+export async function lookupContact(email: string): Promise<{ id: string; name: string; email: string } | null> {
+  try {
+    const data = await hsFetch("/crm/v3/objects/contacts/search", {
+      method: "POST",
+      body: JSON.stringify({
+        filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: email }] }],
+        properties: ["email", "firstname", "lastname"],
+        limit: 1,
+      }),
+    })
+    if (!data.results?.length) return null
+    const c = data.results[0]
+    return {
+      id: c.id,
+      name: `${c.properties.firstname || ""} ${c.properties.lastname || ""}`.trim() || email,
+      email: c.properties.email,
+    }
+  } catch { return null }
+}
+
+// ── Map raw deal ──────────────────────────────────────────────────────────────
 function mapDeal(raw: any): Deal {
   const p = raw.properties || {}
   const stageId = p.dealstage || ""
@@ -474,13 +530,12 @@ function mapDeal(raw: any): Deal {
     advancedStanding: g("advanced_standing"),
     oshc: g("oshc"),
     eap: g("eap_required"),
-    englishTestType: g("name_of_english_proficiency_test_australia"),
-    englishScore: g("what_are_the_results_of_your_english_proficiency_test_"),
-    englishTestDate: g("what_date_did_you_take_your_english_proficiency_test_"),
+    englishTestType: g("english_test_type"),
+    englishScore: g("english_test_score"),
     courseStart: g("course_start_date"),
     courseEnd: g("course_end_date"),
-    tuitionFees: g("tution_fees"),
-    scholarship: g("scholarship_fee"),
+    tuitionFees: g("tuition_fees"),
+    scholarship: g("scholarship"),
     totalCost: g("total_cost"),
     ownerId: g("hubspot_owner_id"),
     createdAt: g("createdate"),
@@ -504,7 +559,7 @@ function mapDeal(raw: any): Deal {
 export interface Deal {
   id: string; studentName: string; dealstage: string; pipeline: string; stageLabel: string; stageColor: string
   responseStatus: string; courseName: string; campus: string; intake: string; applyingFrom: string
-  advancedStanding: string; oshc: string; eap: string; englishTestType: string; englishScore: string; englishTestDate: string
+  advancedStanding: string; oshc: string; eap: string; englishTestType: string; englishScore: string
   courseStart: string; courseEnd: string; tuitionFees: string; scholarship: string; totalCost: string
   ownerId: string; createdAt: string; lastModified: string; nationality: string; residencyStatus: string
   dob: string; passport: string; agentCompany: string; agentEmail: string
