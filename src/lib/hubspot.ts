@@ -136,8 +136,6 @@ export const STAGE_COLORS: Record<string, string> = {
 }
 
 // ── Fetch Deals (with page limit to avoid Netlify timeout) ────────────────────
-// Fix #8: cap at 5 pages (500 deals) to avoid hitting Netlify's 10s function timeout
-const MAX_PAGES = 5
 
 export async function fetchDeals(): Promise<Deal[]> {
   const payload: any = {
@@ -148,13 +146,11 @@ export async function fetchDeals(): Promise<Deal[]> {
   }
   const all: Deal[] = []
   let after: string | undefined
-  let pages = 0
-  while (pages < MAX_PAGES) {
+  while (true) {
     if (after) payload.after = after
     const data = await hsFetch("/crm/v3/objects/deals/search", { method: "POST", body: JSON.stringify(payload) })
     all.push(...data.results.map(mapDeal))
     after = data.paging?.next?.after
-    pages++
     if (!after) break
   }
   return all
