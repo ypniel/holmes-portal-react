@@ -50,17 +50,6 @@ async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = f
   return res.json()
 }
 
-
-// ── Proxy CDN file URL through Netlify function (adds auth) ──────────────────
-function proxyCdnUrl(url: string): string {
-  if (!url) return url
-  if (IS_DEV) return url  // In dev, HubSpot token is in browser so direct works
-  if (url.includes("hubspotusercontent")) {
-    return `/.netlify/functions/hubspot?cdnUrl=${encodeURIComponent(url)}`
-  }
-  return url
-}
-
 // ── Deal Properties ───────────────────────────────────────────────────────────
 export const DEAL_PROPS = [
   "dealname","dealstage","pipeline","response_status",
@@ -69,9 +58,9 @@ export const DEAL_PROPS = [
   "intake_australia_","intake_australia","intake",
   "where_applying_from_","where_applying_from",
   "advanced_standing","oshc","eap_required",
-  "english_test_type","english_test_score",
+  "name_of_english_proficiency_test_australia","what_are_the_results_of_your_english_proficiency_test_","what_date_did_you_take_your_english_proficiency_test_",
   "course_start_date","course_end_date",
-  "tuition_fees","scholarship","total_cost",
+  "tution_fees","scholarship_fee","total_cost",
   "hubspot_owner_id","createdate","hs_lastmodifieddate",
   "nationality_","nationality","country",
   "residency_status_","residency_status",
@@ -441,7 +430,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
             const fileData = await hsFetch(`/filemanager/api/v3/files/${fileId}`)
             const rawUrl = fileData.default_hosting_url || fileData.s3_url || fileData.url || ""
             const publicUrl = rawUrl.includes("hubspotusercontent")
-              ? proxyCdnUrl(rawUrl)
+              ? rawUrl
               : `/.netlify/functions/hubspot?download=true&fileId=${fileId}`
             files.push({ name, id: fileId, url: publicUrl, createdAt: eng.engagement?.createdAt })
           } catch {
@@ -464,7 +453,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
           name = name.replace(/_/g, " ")
           const rawUrl = fileData.default_hosting_url || fileData.s3_url || fileData.url || ""
           const url = rawUrl.includes("hubspotusercontent")
-            ? rawUrl
+            ? proxyCdnUrl(rawUrl)
             : `/.netlify/functions/hubspot?download=true&fileId=${attId}`
           files.push({ name, id: attId, url, createdAt: eng.engagement?.createdAt })
         } catch {
@@ -530,12 +519,13 @@ function mapDeal(raw: any): Deal {
     advancedStanding: g("advanced_standing"),
     oshc: g("oshc"),
     eap: g("eap_required"),
-    englishTestType: g("english_test_type"),
-    englishScore: g("english_test_score"),
+    englishTestType: g("name_of_english_proficiency_test_australia"),
+    englishScore: g("what_are_the_results_of_your_english_proficiency_test_"),
+    englishTestDate: g("what_date_did_you_take_your_english_proficiency_test_"),
     courseStart: g("course_start_date"),
     courseEnd: g("course_end_date"),
-    tuitionFees: g("tuition_fees"),
-    scholarship: g("scholarship"),
+    tuitionFees: g("tution_fees"),
+    scholarship: g("scholarship_fee"),
     totalCost: g("total_cost"),
     ownerId: g("hubspot_owner_id"),
     createdAt: g("createdate"),
@@ -559,7 +549,7 @@ function mapDeal(raw: any): Deal {
 export interface Deal {
   id: string; studentName: string; dealstage: string; pipeline: string; stageLabel: string; stageColor: string
   responseStatus: string; courseName: string; campus: string; intake: string; applyingFrom: string
-  advancedStanding: string; oshc: string; eap: string; englishTestType: string; englishScore: string
+  advancedStanding: string; oshc: string; eap: string; englishTestType: string; englishScore: string; englishTestDate: string
   courseStart: string; courseEnd: string; tuitionFees: string; scholarship: string; totalCost: string
   ownerId: string; createdAt: string; lastModified: string; nationality: string; residencyStatus: string
   dob: string; passport: string; agentCompany: string; agentEmail: string
