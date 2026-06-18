@@ -399,7 +399,7 @@ export default function ApplicationDetailPage() {
                   {/* Upload area */}
                   <DocumentUploader dealId={deal.id} onUploaded={() => {
                     fetchFiles(deal.id).then(setFiles)
-                  }} onOptimisticFile={(f) => setFiles(prev => [f, ...prev])} />
+                  }} />
 
                   <div className="mt-4">
                     {files.length === 0 ? (
@@ -633,10 +633,9 @@ function RotatingProTip() {
   )
 }
 
-function DocumentUploader({ dealId, onUploaded, onOptimisticFile }: { 
+function DocumentUploader({ dealId, onUploaded }: { 
   dealId: string
   onUploaded: () => void
-  onOptimisticFile: (file: FileItem) => void
 }) {
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -659,9 +658,8 @@ function DocumentUploader({ dealId, onUploaded, onOptimisticFile }: {
           body: file,
         })
         if (!res.ok) throw new Error("Upload failed")
-        // Optimistically add file to list immediately
-        const cdnUrl = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${dealId}/${encodeURIComponent(file.name)}`
-        onOptimisticFile({ name: file.name, id: cdnUrl, url: cdnUrl, createdAt: Date.now() })
+        // No optimistic URL — HubSpot adds a hash prefix we can't predict
+        // File list will refresh via onUploaded() below
       }
       setUploadMsg(`✅ ${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully`)
       onUploaded()
