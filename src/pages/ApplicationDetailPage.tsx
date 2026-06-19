@@ -396,6 +396,14 @@ export default function ApplicationDetailPage() {
               {/* ── Documents ── */}
               {activeTab === "documents" && (
                 <div>
+                  {/* Format warning */}
+                  <div className="flex gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+                    <span className="text-amber-500 flex-shrink-0 mt-0.5">⚠️</span>
+                    <div className="text-xs text-amber-800 leading-relaxed">
+                      <p className="font-semibold mb-0.5">For the best viewing experience, please upload documents in PDF, JPG, JPEG, or PNG format.</p>
+                      <p>Files such as HEIC, DOCX, XLSX, PPTX, and ZIP may not be previewable within the portal.</p>
+                    </div>
+                  </div>
                   {/* Upload area */}
                   <DocumentUploader dealId={deal.id} onUploaded={() => {
                     fetchFiles(deal.id).then(setFiles)
