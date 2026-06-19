@@ -21,7 +21,7 @@ export const BADGE_CLASSES: Record<string, string> = {
 }
 
 // ── Core fetch wrapper ────────────────────────────────────────────────────────
-async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = false): Promise<any> {
+async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = false, useWriteToken = false): Promise<any> {
   const token = useCompanyToken ? COMPANY_TOKEN : TOKEN
   let url: string
   let fetchInit: RequestInit
@@ -37,7 +37,7 @@ async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = f
       },
     }
   } else {
-    const extra = useCompanyToken ? "&useCompanyToken=true" : ""
+    const extra = (useCompanyToken ? "&useCompanyToken=true" : "") + (useWriteToken ? "&useWriteToken=true" : "")
     url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}${extra}`
     fetchInit = {
       ...init,
@@ -449,7 +449,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
           properties: ["file_upload_1","file_upload_2","file_upload_3","file_upload_4","file_upload_5",
             "file_upload_6","file_upload_7","file_upload_8","file_upload_9","file_upload_10","passport_upload"]
         })
-      })
+      }, false, true)
       // batch/read returns { results: [...] }, reshape to match expected format
       const dealResult = { properties: dealData.results?.[0]?.properties || {} }
       const dealDataReshaped = dealResult
