@@ -32,19 +32,67 @@ exports.handler = async (event) => {
   // ── File download by ID ─────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
-      const metaResult = await makeRequest({
+      // HubSpot CRM file-upload properties can return HIDDEN_SENSITIVE files.
+      // Those files should be streamed through this Netlify function instead of
+      // redirecting the browser to a HubSpot API/proxy URL that requires auth.
+      let metaResult = await makeRequest({
         hostname: "api.hubapi.com",
-        path: `/filemanager/api/v3/files/${fileId}`,
+        path: `/files/v3/files/${fileId}`,
         method: "GET",
         headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
       })
+
+      // Fallback for older File Manager API responses.
+      if (metaResult.status !== 200) {
+        metaResult = await makeRequest({
+          hostname: "api.hubapi.com",
+          path: `/filemanager/api/v3/files/${fileId}`,
+          method: "GET",
+          headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+        })
+      }
+
       if (metaResult.status !== 200) {
         return { statusCode: 404, headers: corsHeaders, body: "File not found" }
       }
+
       const meta = JSON.parse(metaResult.body.toString())
-      const fileUrl = meta.default_hosting_url || meta.s3_url || meta.url || ""
+      const fileUrl = meta.url || meta.defaultHostingUrl || meta.default_hosting_url || meta.s3Url || meta.s3_url || ""
       if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
-      return { statusCode: 302, headers: { ...corsHeaders, "Location": fileUrl }, body: "" }
+
+      const parsedUrl = new URL(fileUrl)
+      const shouldAuthorize = parsedUrl.hostname.includes("hubspot.com") || parsedUrl.hostname.includes("hubapi.com")
+      const fileResult = await makeRequest({
+        hostname: parsedUrl.hostname,
+        path: `${parsedUrl.pathname}${parsedUrl.search}`,
+        method: "GET",
+        headers: {
+          ...(shouldAuthorize ? { "Authorization": `Bearer ${TOKEN}` } : {}),
+        },
+      })
+
+      if (fileResult.status >= 300 && fileResult.status < 400 && fileResult.headers.location) {
+        return { statusCode: 302, headers: { ...corsHeaders, "Location": fileResult.headers.location }, body: "" }
+      }
+
+      if (fileResult.status < 200 || fileResult.status >= 300) {
+        return { statusCode: fileResult.status, headers: corsHeaders, body: "Unable to download file" }
+      }
+
+      const contentType = fileResult.headers["content-type"] || meta.mimeType || meta.encoding && `image/${meta.encoding}` || "application/octet-stream"
+      const dispositionName = `${meta.name || "document"}${meta.extension && !(meta.name || "").toLowerCase().endsWith(`.${String(meta.extension).toLowerCase()}`) ? `.${meta.extension}` : ""}`
+
+      return {
+        statusCode: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": contentType,
+          "Content-Disposition": `inline; filename="${String(dispositionName).replace(/"/g, "")}"`,
+          "Cache-Control": "private, max-age=300",
+        },
+        body: fileResult.body.toString("base64"),
+        isBase64Encoded: true,
+      }
     } catch (err) {
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
     }
