@@ -33,12 +33,12 @@ exports.handler = async (event) => {
   // ── File download by ID ─────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
-      // Get file metadata — use WRITE_TOKEN which has files.ui_hidden scope for sensitive CRM files
+      // Get file metadata — TOKEN has files + files.ui_hidden scope
       const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
         path: `/filemanager/api/v3/files/${fileId}`,
         method: "GET",
-        headers: { "Authorization": `Bearer ${WRITE_TOKEN}`, "Content-Type": "application/json" },
+        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
       })
       if (metaResult.status !== 200) {
         return { statusCode: 404, headers: corsHeaders, body: "File not found" }
