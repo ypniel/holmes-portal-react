@@ -412,7 +412,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         // Skip CDN URLs — they require HubSpot session cookies, not API tokens
         // Method 2 (attachments) handles these correctly via signed URLs
         if (hrefUrl.includes("hubspotusercontent")) continue
-        const fileIdMatch = hrefUrl.match(/\/files\/(\d+)\//)
+        const fileIdMatch = hrefUrl.match(/\/files\/(\d+)\//) || hrefUrl.match(/fileId=(\d+)/)
         if (fileIdMatch) {
           const fileId = fileIdMatch[1]
           if (files.find(f => f.id === fileId)) continue
