@@ -1,6 +1,9 @@
 const https = require("https")
 
-const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+const TOKEN =
+  process.env.HUBSPOT_TOKEN_WRITE ||
+  process.env.HUBSPOT_TOKEN ||
+  process.env.VITE_HUBSPOT_TOKEN
 
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
