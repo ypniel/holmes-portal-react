@@ -442,30 +442,62 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         }
       }
     }
-    // Method 3 — file_upload_1 through file_upload_10 deal properties
+    // Method 3 — file_upload_1 through file_upload_10 and passport_upload deal properties
+    // HubSpot stores either a file preview URL (https://app.hubspot.com/file-preview/.../file/ID/)
+    // or a CDN URL or a raw file ID — we extract the ID and use the download proxy
     try {
       const dealData = await hsFetch(`/crm/v3/objects/deals/${dealId}?properties=file_upload_1,file_upload_2,file_upload_3,file_upload_4,file_upload_5,file_upload_6,file_upload_7,file_upload_8,file_upload_9,file_upload_10,passport_upload`)
       const p = dealData.properties || {}
-      const propFiles = [
+      const propList = [
         "passport_upload","file_upload_1","file_upload_2","file_upload_3","file_upload_4",
         "file_upload_5","file_upload_6","file_upload_7","file_upload_8","file_upload_9","file_upload_10"
       ]
-      for (const prop of propFiles) {
+      for (const prop of propList) {
         const val = p[prop]
-        if (!val || val === "null") continue
-        // HubSpot file properties store a URL or file ID
-        // Try to parse as JSON array first (HubSpot sometimes stores as array)
-        let entries: string[] = []
-        try { entries = JSON.parse(val) } catch { entries = [val] }
-        for (const entry of entries) {
-          if (!entry || files.find(f => f.url === entry || f.id === entry)) continue
-          let name = entry.split("/").pop() || prop
-          name = name.replace(/^[a-f0-9]{13}-/, "").replace(/_/g, " ")
-          const url = entry.startsWith("http")
-            ? `/.netlify/functions/hubspot?download=true&fileId=${entry.split("/").filter(Boolean).pop()}`
-            : `/.netlify/functions/hubspot?download=true&fileId=${entry}`
-          const cleanUrl = entry.startsWith("http") ? entry : url
-          files.push({ name, id: entry, url: cleanUrl, createdAt: undefined })
+        if (!val || val === "null" || val === "") continue
+
+        // Extract file ID from various HubSpot formats:
+        // 1. https://app.hubspot.com/file-preview/39917994/file/215381941316/
+        // 2. https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/...
+        // 3. Raw numeric ID: "215381941316"
+        let fileId: string | null = null
+        let displayName = prop.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase())
+
+        const previewMatch = val.match(/\/file\/(\d+)\/?$/)
+        if (previewMatch) {
+          fileId = previewMatch[1]
+        } else if (/^\d+$/.test(val.trim())) {
+          fileId = val.trim()
+        } else if (val.includes("hubspotusercontent")) {
+          // CDN URL — extract filename for display, use CDN directly
+          const urlName = val.split("/").pop() || displayName
+          displayName = urlName.replace(/^[a-f0-9]{13}-/, "").replace(/_/g, " ")
+          if (!files.find(f => f.id === val)) {
+            files.push({ name: displayName, id: val, url: val, createdAt: undefined })
+          }
+          continue
+        }
+
+        if (fileId && !files.find(f => f.id === fileId)) {
+          // Try to get filename from file metadata
+          try {
+            const fileMeta = await hsFetch(`/filemanager/api/v3/files/${fileId}`)
+            let name = fileMeta.name || displayName
+            name = name.replace(/^[a-f0-9]{13}-/, "").replace(/_/g, " ")
+            files.push({
+              name,
+              id: fileId,
+              url: `/.netlify/functions/hubspot?download=true&fileId=${fileId}`,
+              createdAt: undefined
+            })
+          } catch {
+            files.push({
+              name: displayName,
+              id: fileId,
+              url: `/.netlify/functions/hubspot?download=true&fileId=${fileId}`,
+              createdAt: undefined
+            })
+          }
         }
       }
     } catch {}
