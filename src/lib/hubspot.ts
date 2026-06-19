@@ -487,7 +487,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         if (fileId && !files.find(f => f.id === fileId)) {
           // Try to get filename from file metadata
           try {
-            const fileMeta = await hsFetch(`/filemanager/api/v3/files/${fileId}`, {}, false, true)
+            const fileMeta = await hsFetch(`/filemanager/api/v3/files/${fileId}`)
             let name = fileMeta.name || displayName
             name = name.replace(/^[a-f0-9]{13}-/, "").replace(/_/g, " ")
             // Append extension if the name doesn't already include one
