@@ -19,6 +19,9 @@ export default function AgentLoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [showResetForm, setShowResetForm] = useState(false)
+  const [showMagicForm, setShowMagicForm] = useState(false)
+  const [magicEmail, setMagicEmail] = useState("")
+  const [magicStatus, setMagicStatus] = useState<"idle" | "loading" | "sent">("idle")
   const [resetEmail, setResetEmail] = useState("")
   const [resetStatus, setResetStatus] = useState<"idle" | "loading" | "sent">("idle")
 
@@ -44,6 +47,21 @@ export default function AgentLoginPage() {
       })
     } catch {}
     setResetStatus("sent")
+  }
+
+  const handleMagicLink = async () => {
+    if (!magicEmail.trim()) return
+    setMagicStatus("loading")
+    try {
+      await fetch("/.netlify/functions/agent-magic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: magicEmail.trim().toLowerCase() }),
+      })
+      setMagicStatus("sent")
+    } catch {
+      setMagicStatus("idle")
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -214,6 +232,56 @@ export default function AgentLoginPage() {
                     )}
                   </button>
                 </form>
+
+                {/* ── Magic Link option ── */}
+                <div className="flex items-center gap-3 mt-4 mb-2">
+                  <div className="flex-1 h-px bg-stone-200" />
+                  <span className="text-xs text-stone-400 uppercase tracking-wider">or</span>
+                  <div className="flex-1 h-px bg-stone-200" />
+                </div>
+
+                {!showMagicForm ? (
+                  <button
+                    onClick={() => { setShowMagicForm(true); setShowResetForm(false) }}
+                    className="w-full py-2.5 border border-stone-200 hover:border-red-300 hover:bg-red-50 text-stone-600 hover:text-red-700 rounded-xl text-sm font-medium transition-colors"
+                  >
+                    📧 Send me a login link instead
+                  </button>
+                ) : magicStatus === "sent" ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                    <p className="text-sm font-semibold text-emerald-700">Check your email!</p>
+                    <p className="text-xs text-emerald-600 mt-1">We sent a login link to <strong>{magicEmail}</strong>. It expires in 15 minutes.</p>
+                    <button onClick={() => { setShowMagicForm(false); setMagicStatus("idle"); setMagicEmail("") }} className="mt-3 text-xs text-emerald-600 underline">Back to login</button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 text-center">Enter your email and we'll send you a one-click login link</p>
+                    <input
+                      type="email"
+                      value={magicEmail}
+                      onChange={e => setMagicEmail(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleMagicLink()}
+                      placeholder="your@email.com"
+                      className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all bg-white"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setShowMagicForm(false); setMagicEmail("") }}
+                        className="flex-1 py-2.5 border border-stone-200 text-stone-500 rounded-xl text-sm font-medium hover:bg-stone-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleMagicLink}
+                        disabled={!magicEmail.trim() || magicStatus === "loading"}
+                        className="flex-1 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
+                      >
+                        {magicStatus === "loading" ? "Sending…" : "Send Link"}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <p className="mt-4 text-center text-xs text-gray-400">
                   Need portal access?{" "}
