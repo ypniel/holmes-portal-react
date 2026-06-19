@@ -69,9 +69,6 @@ export const DEAL_PROPS = [
   "agent_email","agent_company_name","agent_mobile_number","agent_contact_name",
   "contact_person_name","name",
   "student_id","jupiter_id","hs_object_id",
-  "file_upload_1","file_upload_2","file_upload_3","file_upload_4","file_upload_5",
-  "file_upload_6","file_upload_7","file_upload_8","file_upload_9","file_upload_10",
-  "passport_upload",
 ]
 
 // ── Pipeline Stage Map ────────────────────────────────────────────────────────
