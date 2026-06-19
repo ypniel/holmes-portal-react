@@ -19,9 +19,12 @@ export default function AgentLoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [showResetForm, setShowResetForm] = useState(false)
-  const [showMagicForm, setShowMagicForm] = useState(false)
-  const [magicEmail, setMagicEmail] = useState("")
-  const [magicStatus, setMagicStatus] = useState<"idle" | "loading" | "sent">("idle")
+  const [showOtp, setShowOtp] = useState(false)
+  const [otpEmail, setOtpEmail] = useState("")
+  const [otpCode, setOtpCode] = useState("")
+  const [otpToken, setOtpToken] = useState("")
+  const [otpStatus, setOtpStatus] = useState<"idle" | "sending" | "sent" | "verifying" | "error">("idle")
+  const [otpError, setOtpError] = useState("")
   const [resetEmail, setResetEmail] = useState("")
   const [resetStatus, setResetStatus] = useState<"idle" | "loading" | "sent">("idle")
 
@@ -49,18 +52,57 @@ export default function AgentLoginPage() {
     setResetStatus("sent")
   }
 
-  const handleMagicLink = async () => {
-    if (!magicEmail.trim()) return
-    setMagicStatus("loading")
+  const handleSendOtp = async () => {
+    if (!otpEmail.trim()) return
+    setOtpStatus("sending")
+    setOtpError("")
     try {
-      await fetch("/.netlify/functions/agent-magic-link", {
+      const res = await fetch("/.netlify/functions/agent-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: magicEmail.trim().toLowerCase() }),
+        body: JSON.stringify({ action: "send", email: otpEmail.trim().toLowerCase() }),
       })
-      setMagicStatus("sent")
+      const data = await res.json()
+      if (data.otpToken) setOtpToken(data.otpToken)
+      setOtpStatus("sent")
     } catch {
-      setMagicStatus("idle")
+      setOtpStatus("idle")
+      setOtpError("Failed to send code. Please try again.")
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode.trim()) return
+    setOtpStatus("verifying")
+    setOtpError("")
+    try {
+      const res = await fetch("/.netlify/functions/agent-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", email: otpEmail.trim().toLowerCase(), code: otpCode.trim(), otpToken }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setOtpStatus("error")
+        setOtpError(data.error || "Incorrect code. Please try again.")
+        return
+      }
+      // Log in
+      sessionStorage.setItem("holmes_tab_v3", "1")
+      sessionStorage.setItem("holmes_session_token", data.sessionToken)
+      if (data.user.companyId) sessionStorage.setItem("holmes_company_id", data.user.companyId)
+      login({
+        id: data.user.contactId || "agent",
+        name: data.user.fullName?.split(" ")[0] || data.user.email.split("@")[0],
+        fullName: data.user.fullName,
+        email: data.user.email,
+        companyName: data.user.companyName || "",
+        companyId: data.user.companyId ? String(data.user.companyId) : undefined,
+      })
+      navigate("/applications")
+    } catch {
+      setOtpStatus("error")
+      setOtpError("Something went wrong. Please try again.")
     }
   }
 
@@ -233,51 +275,83 @@ export default function AgentLoginPage() {
                   </button>
                 </form>
 
-                {/* ── Magic Link option ── */}
+                {/* ── OTP option ── */}
                 <div className="flex items-center gap-3 mt-4 mb-2">
                   <div className="flex-1 h-px bg-stone-200" />
                   <span className="text-xs text-stone-400 uppercase tracking-wider">or</span>
                   <div className="flex-1 h-px bg-stone-200" />
                 </div>
 
-                {!showMagicForm ? (
+                {!showOtp ? (
                   <button
-                    onClick={() => { setShowMagicForm(true); setShowResetForm(false) }}
+                    onClick={() => { setShowOtp(true); setShowResetForm(false); setOtpEmail(email) }}
                     className="w-full py-2.5 border border-stone-200 hover:border-red-300 hover:bg-red-50 text-stone-600 hover:text-red-700 rounded-xl text-sm font-medium transition-colors"
                   >
-                    📧 Send me a login link instead
+                    📧 Send me a 6-digit code instead
                   </button>
-                ) : magicStatus === "sent" ? (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-                    <p className="text-sm font-semibold text-emerald-700">Check your email!</p>
-                    <p className="text-xs text-emerald-600 mt-1">We sent a login link to <strong>{magicEmail}</strong>. It expires in 15 minutes.</p>
-                    <button onClick={() => { setShowMagicForm(false); setMagicStatus("idle"); setMagicEmail("") }} className="mt-3 text-xs text-emerald-600 underline">Back to login</button>
-                  </div>
-                ) : (
+                ) : otpStatus === "sent" || otpStatus === "verifying" || otpStatus === "error" ? (
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500 text-center">Enter your email and we'll send you a one-click login link</p>
+                    <p className="text-xs text-gray-500 text-center">Enter the 6-digit code sent to <strong>{otpEmail}</strong></p>
                     <input
-                      type="email"
-                      value={magicEmail}
-                      onChange={e => setMagicEmail(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && handleMagicLink()}
-                      placeholder="your@email.com"
-                      className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all bg-white"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={e => { setOtpCode(e.target.value.replace(/\D/g, "")); setOtpError("") }}
+                      onKeyDown={e => e.key === "Enter" && otpCode.length === 6 && handleVerifyOtp()}
+                      placeholder="000000"
+                      className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none text-center text-2xl font-bold tracking-widest transition-all bg-white"
                       autoFocus
                     />
+                    {otpError && <p className="text-xs text-red-600 text-center">{otpError}</p>}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => { setShowMagicForm(false); setMagicEmail("") }}
+                        onClick={() => { setShowOtp(false); setOtpStatus("idle"); setOtpCode(""); setOtpError("") }}
                         className="flex-1 py-2.5 border border-stone-200 text-stone-500 rounded-xl text-sm font-medium hover:bg-stone-50 transition-colors"
                       >
                         Cancel
                       </button>
                       <button
-                        onClick={handleMagicLink}
-                        disabled={!magicEmail.trim() || magicStatus === "loading"}
+                        onClick={handleVerifyOtp}
+                        disabled={otpCode.length !== 6 || otpStatus === "verifying"}
                         className="flex-1 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
                       >
-                        {magicStatus === "loading" ? "Sending…" : "Send Link"}
+                        {otpStatus === "verifying" ? "Verifying…" : "Verify Code"}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => { setOtpStatus("idle"); setOtpCode(""); setOtpError("") }}
+                      className="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      Didn't receive it? Send again
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500 text-center">Enter your email and we'll send you a 6-digit login code</p>
+                    <input
+                      type="email"
+                      value={otpEmail}
+                      onChange={e => setOtpEmail(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleSendOtp()}
+                      placeholder="your@email.com"
+                      className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all bg-white"
+                      autoFocus
+                    />
+                    {otpError && <p className="text-xs text-red-600 text-center">{otpError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setShowOtp(false); setOtpEmail(""); setOtpError("") }}
+                        className="flex-1 py-2.5 border border-stone-200 text-stone-500 rounded-xl text-sm font-medium hover:bg-stone-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSendOtp}
+                        disabled={!otpEmail.trim() || otpStatus === "sending"}
+                        className="flex-1 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
+                      >
+                        {otpStatus === "sending" ? "Sending…" : "Send Code"}
                       </button>
                     </div>
                   </div>
