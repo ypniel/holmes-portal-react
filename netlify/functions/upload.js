@@ -85,7 +85,7 @@ exports.handler = async (event) => {
       engagement: { active: true, type: "NOTE", timestamp: Date.now() },
       associations: { dealIds: [parseInt(dealId)] },
       attachments: [{ id: parseInt(fileId) }],
-      metadata: { body: `📎 File uploaded via portal: <a href="/.netlify/functions/hubspot?download=true&fileId=${fileId}">${fileName}</a>` }
+      metadata: { body: `📎 File uploaded via portal: <a href="/.netlify/functions/download-file?fileId=${fileId}">${fileName}</a>` }
     })
 
     await makeRequest({
