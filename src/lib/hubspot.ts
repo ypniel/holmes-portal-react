@@ -410,7 +410,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         if (fileIdMatch) {
           const fileId = fileIdMatch[1]
           if (files.find(f => f.id === fileId)) continue
-          files.push({ name, id: fileId, url: `/.netlify/functions/hubspot?download=true&fileId=${fileId}`, createdAt: eng.engagement?.createdAt })
+          files.push({ name, id: fileId, url: `/.netlify/functions/download-file?fileId=${fileId}`, createdAt: eng.engagement?.createdAt })
         }
       }
 
@@ -432,9 +432,9 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
               if (fileData.extension && !name.toLowerCase().endsWith("."+fileData.extension.toLowerCase())) {
                 name = name + "." + fileData.extension
               }
-              return { name, id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt }
+              return { name, id: attId, url: `/.netlify/functions/download-file?fileId=${attId}`, createdAt: eng.engagement?.createdAt }
             })
-            .catch(() => ({ name: "Document", id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt }))
+            .catch(() => ({ name: "Document", id: attId, url: `/.netlify/functions/download-file?fileId=${attId}`, createdAt: eng.engagement?.createdAt }))
         )
       )
       files.push(...metaResults)
