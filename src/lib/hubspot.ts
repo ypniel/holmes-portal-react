@@ -487,14 +487,19 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         if (fileId && !files.find(f => f.id === fileId)) {
           // Try to get filename from file metadata
           try {
-            const fileMeta = await hsFetch(`/filemanager/api/v3/files/${fileId}`)
+            const fileMeta = await hsFetch(`/filemanager/api/v3/files/${fileId}`, {}, false, true)
             let name = fileMeta.name || displayName
             name = name.replace(/^[a-f0-9]{13}-/, "").replace(/_/g, " ")
+            // Append extension if the name doesn't already include one
+            const ext = fileMeta.extension || ""
+            if (ext && !name.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) {
+              name = `${name}.${ext}`
+            }
             files.push({
               name,
               id: fileId,
               url: `/.netlify/functions/hubspot?download=true&fileId=${fileId}`,
-              createdAt: undefined
+              createdAt: fileMeta.created || undefined
             })
           } catch {
             files.push({
