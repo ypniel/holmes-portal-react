@@ -63,8 +63,9 @@ exports.handler = async (event) => {
       hostname: "api.hubapi.com",
       path: `/files/v3/files/${fileId}`,
       method: "GET",
-      headers: { Authorization: `Bearer ${TOKEN}` },
-    })
+      headers: {
+  Authorization: `Bearer ${FILE_TOKEN}`,
+}
 
     if (metaResult.status < 200 || metaResult.status >= 300) {
       console.error("HubSpot file metadata failed", {
@@ -94,8 +95,8 @@ exports.handler = async (event) => {
       path: `${parsedUrl.pathname}${parsedUrl.search}`,
       method: "GET",
       headers: {
-        Authorization: `Bearer ${TOKEN}`,
-      },
+  Authorization: `Bearer ${SENSITIVE_TOKEN}`,
+}
     })
 
     // Some HubSpot file URLs redirect to a CDN URL. Follow it inside Netlify.
