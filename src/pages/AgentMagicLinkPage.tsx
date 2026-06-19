@@ -33,6 +33,8 @@ export default function AgentMagicLinkPage() {
           return
         }
 
+        // Set tab-alive flag FIRST so auth.tsx doesn't clear the session on redirect
+        sessionStorage.setItem("holmes_tab_v3", "1")
         // Log in using the same flow as password login
         sessionStorage.setItem("holmes_session_token", data.sessionToken)
         if (data.user.companyId) {
