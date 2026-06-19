@@ -440,11 +440,13 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
       }
     }
 
-    const seen = new Set<string>()
-    return files
+const seen = new Set<string>()
+    const result = files
       .filter(f => { const key = f.url || f.name; if (seen.has(key)) return false; seen.add(key); return true })
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-  } catch { return [] }
+    console.log("fetchFiles result:", result)
+    return result
+  } catch (e) { console.log("fetchFiles error:", e); return [] }
 }
 
 // ── Lookup Contact ────────────────────────────────────────────────────────────
