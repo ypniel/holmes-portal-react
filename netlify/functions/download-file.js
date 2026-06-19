@@ -13,9 +13,9 @@ function makeRequest(options) {
     const req = https.request(options, (res) => {
       const chunks = []
 
-      res.on("data", (chunk) =>
+      res.on("data", (chunk) => {
         chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-      )
+      })
 
       res.on("end", () => {
         resolve({
@@ -34,14 +34,16 @@ function makeRequest(options) {
 function getContentType(meta, fileResult) {
   const ext = String(meta.extension || "").toLowerCase()
 
+  if (ext === "pdf") return "application/pdf"
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg"
+  if (ext === "png") return "image/png"
+  if (ext === "gif") return "image/gif"
+  if (ext === "webp") return "image/webp"
+  if (ext === "svg") return "image/svg+xml"
+
   return (
-    fileResult.headers["content-type"] ||
     meta.mimeType ||
-    (ext === "pdf" ? "application/pdf" : null) ||
-    (ext === "jpg" || ext === "jpeg" ? "image/jpeg" : null) ||
-    (ext === "png" ? "image/png" : null) ||
-    (ext === "gif" ? "image/gif" : null) ||
-    (ext === "webp" ? "image/webp" : null) ||
+    fileResult.headers["content-type"] ||
     "application/octet-stream"
   )
 }
@@ -127,6 +129,7 @@ exports.handler = async (event) => {
 
     const extension = String(meta.extension || "").toLowerCase()
     const baseName = meta.name ? String(meta.name) : "document"
+
     const fileName =
       extension && !baseName.toLowerCase().endsWith(`.${extension}`)
         ? `${baseName}.${extension}`
