@@ -1,9 +1,12 @@
 const https = require("https")
 
-const TOKEN =
-  process.env.HUBSPOT_TOKEN_WRITE ||
+const FILE_TOKEN =
   process.env.HUBSPOT_TOKEN ||
   process.env.VITE_HUBSPOT_TOKEN
+
+const SENSITIVE_TOKEN =
+  process.env.HUBSPOT_TOKEN_WRITE ||
+  FILE_TOKEN
 
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
