@@ -106,6 +106,39 @@ exports.handler = async (event) => {
       },
     }, attachBody)
 
+    // Step 4 — Write file URL into next available file_upload_X property on the deal
+    try {
+      const FILE_PROPS = [
+        "file_upload_1","file_upload_2","file_upload_3","file_upload_4","file_upload_5",
+        "file_upload_6","file_upload_7","file_upload_8","file_upload_9","file_upload_10"
+      ]
+      const dealRes = await makeRequest({
+        hostname: "api.hubapi.com",
+        path: `/crm/v3/objects/deals/${dealId}?properties=${FILE_PROPS.join(",")}`,
+        method: "GET",
+        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+      })
+      const dealData = JSON.parse(dealRes.body.toString())
+      const props = dealData.properties || {}
+      const emptyProp = FILE_PROPS.find(p => !props[p] || props[p] === "null" || props[p] === "")
+      if (emptyProp) {
+        const patchBody = JSON.stringify({ properties: { [emptyProp]: cdnUrl } })
+        await makeRequest({
+          hostname: "api.hubapi.com",
+          path: `/crm/v3/objects/deals/${dealId}`,
+          method: "PATCH",
+          headers: {
+            "Authorization": `Bearer ${CRM_TOKEN}`,
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(patchBody),
+          },
+        }, patchBody)
+      }
+    } catch (e) {
+      // Non-fatal — file still uploaded and engagement created
+      console.error("File property write failed:", e.message)
+    }
+
     return {
       statusCode: 200,
       headers: corsHeaders,
