@@ -47,20 +47,8 @@ exports.handler = async (event) => {
       const fileName = meta.name || "document"
       const ext = meta.extension || fileName.split(".").pop() || ""
 
-      // The proxy URL requires auth header — fetch bytes server-side and stream back
-      // proxy URL format: https://api-na1.hubspot.com/filemanager/api/v3/files/{id}/proxy?portalId=39917994
-      const proxyUrl = `https://api-na1.hubspot.com/filemanager/api/v3/files/${fileId}/proxy?portalId=39917994`
-      const fileResult = await makeRequest({
-        hostname: "api-na1.hubspot.com",
-        path: `/filemanager/api/v3/files/${fileId}/proxy?portalId=39917994`,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${TOKEN}` },
-      })
-
-      if (fileResult.status !== 200) {
-        return { statusCode: fileResult.status, headers: corsHeaders, body: `File fetch failed: ${fileResult.status}` }
-      }
-
+      // Try multiple approaches to fetch the file bytes with auth
+      const displayName = ext && !fileName.endsWith(`.${ext}`) ? `${fileName}.${ext}` : fileName
       const contentTypes = {
         pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg",
         png: "image/png", gif: "image/gif", webp: "image/webp", heic: "image/heic",
@@ -70,18 +58,72 @@ exports.handler = async (event) => {
         xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       }
       const contentType = contentTypes[ext.toLowerCase()] || "application/octet-stream"
-      const displayName = ext && !fileName.endsWith(`.${ext}`) ? `${fileName}.${ext}` : fileName
 
-      return {
-        statusCode: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": contentType,
-          "Content-Disposition": `inline; filename="${displayName}"`,
-        },
-        body: fileResult.body.toString("base64"),
-        isBase64Encoded: true,
+      // Try v2 API (designed for form-uploaded files, uses forms-uploaded-files scope)
+      const v2Result = await makeRequest({
+        hostname: "api.hubapi.com",
+        path: `/filemanager/api/v2/files/${fileId}`,
+        method: "GET",
+        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+      })
+      if (v2Result.status === 200) {
+        try {
+          const v2Data = JSON.parse(v2Result.body.toString())
+          const v2Url = v2Data.default_hosting_url || v2Data.s3_url || ""
+          // Try to fetch v2 CDN URL with token
+          if (v2Url) {
+            const parsedV2 = new (require("url").URL)(v2Url)
+            const v2FileResult = await makeRequest({
+              hostname: parsedV2.hostname,
+              path: parsedV2.pathname + parsedV2.search,
+              method: "GET",
+              headers: { "Authorization": `Bearer ${TOKEN}` },
+            })
+            if (v2FileResult.status === 200) {
+              return {
+                statusCode: 200,
+                headers: { ...corsHeaders, "Content-Type": contentType, "Content-Disposition": `inline; filename="${displayName}"` },
+                body: v2FileResult.body.toString("base64"),
+                isBase64Encoded: true,
+              }
+            }
+          }
+        } catch {}
       }
+
+      // Try v3 proxy with TOKEN
+      const v3Result = await makeRequest({
+        hostname: "api-na1.hubspot.com",
+        path: `/filemanager/api/v3/files/${fileId}/proxy?portalId=39917994`,
+        method: "GET",
+        headers: { "Authorization": `Bearer ${TOKEN}` },
+      })
+      if (v3Result.status === 200) {
+        return {
+          statusCode: 200,
+          headers: { ...corsHeaders, "Content-Type": contentType, "Content-Disposition": `inline; filename="${displayName}"` },
+          body: v3Result.body.toString("base64"),
+          isBase64Encoded: true,
+        }
+      }
+
+      // Try v3 proxy with WRITE_TOKEN
+      const v3WriteResult = await makeRequest({
+        hostname: "api-na1.hubspot.com",
+        path: `/filemanager/api/v3/files/${fileId}/proxy?portalId=39917994`,
+        method: "GET",
+        headers: { "Authorization": `Bearer ${WRITE_TOKEN}` },
+      })
+      if (v3WriteResult.status === 200) {
+        return {
+          statusCode: 200,
+          headers: { ...corsHeaders, "Content-Type": contentType, "Content-Disposition": `inline; filename="${displayName}"` },
+          body: v3WriteResult.body.toString("base64"),
+          isBase64Encoded: true,
+        }
+      }
+
+      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Could not access file", v2: v2Result?.status, v3Token: v3Result?.status, v3Write: v3WriteResult?.status }) }
     } catch (err) {
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
     }
