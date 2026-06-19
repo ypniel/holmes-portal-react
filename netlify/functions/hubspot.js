@@ -70,23 +70,9 @@ exports.handler = async (event) => {
         try {
           const v2Data = JSON.parse(v2Result.body.toString())
           const v2Url = v2Data.default_hosting_url || v2Data.s3_url || ""
-          // Try to fetch v2 CDN URL with token
           if (v2Url) {
-            const parsedV2 = new (require("url").URL)(v2Url)
-            const v2FileResult = await makeRequest({
-              hostname: parsedV2.hostname,
-              path: parsedV2.pathname + parsedV2.search,
-              method: "GET",
-              headers: { "Authorization": `Bearer ${TOKEN}` },
-            })
-            if (v2FileResult.status === 200) {
-              return {
-                statusCode: 200,
-                headers: { ...corsHeaders, "Content-Type": contentType, "Content-Disposition": `inline; filename="${displayName}"` },
-                body: v2FileResult.body.toString("base64"),
-                isBase64Encoded: true,
-              }
-            }
+            // Redirect directly — v2 CDN URLs for form-uploads work without extra auth
+            return { statusCode: 302, headers: { ...corsHeaders, "Location": v2Url }, body: "" }
           }
         } catch {}
       }
