@@ -69,6 +69,9 @@ export const DEAL_PROPS = [
   "agent_email","agent_company_name","agent_mobile_number","agent_contact_name",
   "contact_person_name","name",
   "student_id","jupiter_id","hs_object_id",
+  "file_upload_1","file_upload_2","file_upload_3","file_upload_4","file_upload_5",
+  "file_upload_6","file_upload_7","file_upload_8","file_upload_9","file_upload_10",
+  "passport_upload",
 ]
 
 // ── Pipeline Stage Map ────────────────────────────────────────────────────────
@@ -439,6 +442,34 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         }
       }
     }
+    // Method 3 — file_upload_1 through file_upload_10 deal properties
+    try {
+      const dealData = await hsFetch(`/crm/v3/objects/deals/${dealId}?properties=file_upload_1,file_upload_2,file_upload_3,file_upload_4,file_upload_5,file_upload_6,file_upload_7,file_upload_8,file_upload_9,file_upload_10,passport_upload`)
+      const p = dealData.properties || {}
+      const propFiles = [
+        "passport_upload","file_upload_1","file_upload_2","file_upload_3","file_upload_4",
+        "file_upload_5","file_upload_6","file_upload_7","file_upload_8","file_upload_9","file_upload_10"
+      ]
+      for (const prop of propFiles) {
+        const val = p[prop]
+        if (!val || val === "null") continue
+        // HubSpot file properties store a URL or file ID
+        // Try to parse as JSON array first (HubSpot sometimes stores as array)
+        let entries: string[] = []
+        try { entries = JSON.parse(val) } catch { entries = [val] }
+        for (const entry of entries) {
+          if (!entry || files.find(f => f.url === entry || f.id === entry)) continue
+          let name = entry.split("/").pop() || prop
+          name = name.replace(/^[a-f0-9]{13}-/, "").replace(/_/g, " ")
+          const url = entry.startsWith("http")
+            ? `/.netlify/functions/hubspot?download=true&fileId=${entry.split("/").filter(Boolean).pop()}`
+            : `/.netlify/functions/hubspot?download=true&fileId=${entry}`
+          const cleanUrl = entry.startsWith("http") ? entry : url
+          files.push({ name, id: entry, url: cleanUrl, createdAt: undefined })
+        }
+      }
+    } catch {}
+
     const seen = new Set<string>()
     return files
       .filter(f => { const key = f.url || f.name; if (seen.has(key)) return false; seen.add(key); return true })
