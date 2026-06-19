@@ -440,11 +440,20 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
       }
     }
     // Method 3 — file_upload_1 through file_upload_10 and passport_upload deal properties
-    // HubSpot stores either a file preview URL (https://app.hubspot.com/file-preview/.../file/ID/)
-    // or a CDN URL or a raw file ID — we extract the ID and use the download proxy
+    // Uses batch/read POST to avoid Netlify 404 issue with encoded ? in GET path
     try {
-      const dealData = await hsFetch(`/crm/v3/objects/deals/${dealId}?properties=file_upload_1,file_upload_2,file_upload_3,file_upload_4,file_upload_5,file_upload_6,file_upload_7,file_upload_8,file_upload_9,file_upload_10,passport_upload`)
-      const p = dealData.properties || {}
+      const dealData = await hsFetch(`/crm/v3/objects/deals/batch/read`, {
+        method: "POST",
+        body: JSON.stringify({
+          inputs: [{ id: dealId }],
+          properties: ["file_upload_1","file_upload_2","file_upload_3","file_upload_4","file_upload_5",
+            "file_upload_6","file_upload_7","file_upload_8","file_upload_9","file_upload_10","passport_upload"]
+        })
+      })
+      // batch/read returns { results: [...] }, reshape to match expected format
+      const dealResult = { properties: dealData.results?.[0]?.properties || {} }
+      const dealDataReshaped = dealResult
+      const p = dealDataReshaped.properties || {}
       const propList = [
         "passport_upload","file_upload_1","file_upload_2","file_upload_3","file_upload_4",
         "file_upload_5","file_upload_6","file_upload_7","file_upload_8","file_upload_9","file_upload_10"
