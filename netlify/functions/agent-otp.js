@@ -144,10 +144,10 @@ exports.handler = async (event) => {
 </table>
 </body></html>`
 
-    await sendEmail({ to: email, subject: `${otp} — Your Holmes Portal Login Code`, html })
+    const emailResult = await sendEmail({ to: email, subject: `${otp} — Your Holmes Portal Login Code`, html })
 
     // Return the OTP token to the frontend (it holds the code server-side in JWT)
-    return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: true, otpToken }) }
+    return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: true, otpToken, emailStatus: emailResult.statusCode }) }
   }
 
   // ── VERIFY OTP ────────────────────────────────────────────────────────────
