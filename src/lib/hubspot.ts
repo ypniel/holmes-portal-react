@@ -126,8 +126,7 @@ export const STAGE_COLORS: Record<string, string> = {
   "1363564957": "red",
 }
 
-// ── Fetch Deals (with page limit to avoid Netlify timeout) ────────────────────
-
+// ── Fetch Deals ────────────────────────────────────────────────────────────────
 export async function fetchDeals(): Promise<Deal[]> {
   const payload: any = {
     filterGroups: PIPELINE_ID ? [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }] : [],
@@ -171,7 +170,7 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
         .replace(/<img[^>]*>/gi, "")
         .replace(/<br\s*\/?>/gi, "\n")
         .replace(/<\/p>/gi, "\n")
-        .replace(/<[^>]*>/g, "")
+        .replace(/<[^>]+>/g, "")
         .replace(/&amp;/g, "&")
         .replace(/&nbsp;/g, " ")
         .replace(/\n{3,}/g, "\n\n")
@@ -355,16 +354,12 @@ export async function fetchAgentByEmail(email: string): Promise<{
   } catch { return null }
 }
 
-// ── Fetch Deals by Company ID (pipeline-filtered) ─────────────────────────────
-// Fix #7: filter by pipeline so agents only see Australia Admissions deals
+// ── Fetch Deals by Company ID ─────────────────────────────────────────────────
 export async function fetchDealsByCompanyId(companyId: string): Promise<Deal[]> {
   try {
     const assocRes = await hsFetch(`/crm/v4/objects/companies/${companyId}/associations/deals`)
     const dealIds = (assocRes.results || []).map((r: any) => String(r.toObjectId))
     if (!dealIds.length) return []
-
-    // Fetch all deals then filter by pipeline client-side
-    // (batch/read doesn't support pipeline filter directly)
     const all = await fetchDealsByIds(dealIds)
     return PIPELINE_ID ? all.filter(d => d.pipeline === PIPELINE_ID) : all
   } catch { return [] }
@@ -398,10 +393,11 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
     const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
     const files: FileItem[] = []
+
     for (const eng of data.results || []) {
       const body = eng.metadata?.body || ""
 
-      // Method 1 — extract file IDs from HTML links (skip raw CDN URLs, they 403)
+      // Method 1 — extract file IDs from HTML links
       const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
       for (const match of linkMatches) {
         const hrefUrl = match[1]
@@ -409,8 +405,6 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         name = name.replace(/^[a-f0-9]{13}-/, "")
         name = name.replace(/_/g, " ")
         if (!name) continue
-        // Skip CDN URLs — they require HubSpot session cookies, not API tokens
-        // Method 2 (attachments) handles these correctly via signed URLs
         if (hrefUrl.includes("hubspotusercontent")) continue
         const fileIdMatch = hrefUrl.match(/\/files\/(\d+)\//) || hrefUrl.match(/fileId=(\d+)/)
         if (fileIdMatch) {
@@ -420,33 +414,34 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         }
       }
 
-      // Method 2 — attachment IDs → signed URL proxy (reliable for all uploaded files)
-      for (const att of eng.attachments || []) {
-        if (!att.id || att.id === 0) continue
-        const attId = String(att.id)
-        if (files.find(f => f.id === attId)) continue
-        try {
-          const fileData = await hsFetch(`/filemanager/api/v3/files/${attId}`)
-          let name = fileData.name || "Document"
-          name = name.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/, "")
-          name = name.replace(/^file_upload_\d+-/, "")
-          name = name.replace(/-[a-f0-9]{6}$/, "")
-          name = name.replace(/^[a-f0-9]{13}-/, "")
-          name = name.replace(/_/g, " ")
-          files.push({ name, id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt })
-        } catch {
-          files.push({ name: "Document", id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt })
-        }
-      }
+      // Method 2 — attachment IDs → fetch metadata in parallel
+      const newAtts = (eng.attachments || [])
+        .filter((att: any) => att.id && att.id !== 0 && !files.find(f => f.id === String(att.id)))
+        .map((att: any) => String(att.id))
+
+      const metaResults = await Promise.all(
+        newAtts.map((attId: string) =>
+          hsFetch(`/filemanager/api/v3/files/${attId}`)
+            .then((fileData: any) => {
+              let name = fileData.name || "Document"
+              name = name.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/, "")
+              name = name.replace(/^file_upload_\d+-/, "")
+              name = name.replace(/-[a-f0-9]{6}$/, "")
+              name = name.replace(/^[a-f0-9]{13}-/, "")
+              name = name.replace(/_/g, " ")
+              return { name, id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt }
+            })
+            .catch(() => ({ name: "Document", id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt }))
+        )
+      )
+      files.push(...metaResults)
     }
 
-const seen = new Set<string>()
-    const result = files
+    const seen = new Set<string>()
+    return files
       .filter(f => { const key = f.url || f.name; if (seen.has(key)) return false; seen.add(key); return true })
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-    console.log("fetchFiles result:", result)
-    return result
-  } catch (e) { console.log("fetchFiles error:", e); return [] }
+  } catch { return [] }
 }
 
 // ── Lookup Contact ────────────────────────────────────────────────────────────
