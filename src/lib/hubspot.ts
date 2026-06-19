@@ -429,6 +429,9 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
               name = name.replace(/-[a-f0-9]{6}$/, "")
               name = name.replace(/^[a-f0-9]{13}-/, "")
               name = name.replace(/_/g, " ")
+              if (fileData.extension && !name.toLowerCase().endsWith("."+fileData.extension.toLowerCase())) {
+                name = name + "." + fileData.extension
+              }
               return { name, id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt }
             })
             .catch(() => ({ name: "Document", id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt }))
