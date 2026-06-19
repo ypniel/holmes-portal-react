@@ -1,6 +1,5 @@
 const https = require("https")
 const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
-const WRITE_TOKEN = process.env.HUBSPOT_TOKEN_WRITE || TOKEN
 const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
@@ -33,7 +32,6 @@ exports.handler = async (event) => {
   // ── File download by ID ─────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
-      // Get file metadata — TOKEN has files + files.ui_hidden scope
       const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
         path: `/filemanager/api/v3/files/${fileId}`,
@@ -44,72 +42,9 @@ exports.handler = async (event) => {
         return { statusCode: 404, headers: corsHeaders, body: "File not found" }
       }
       const meta = JSON.parse(metaResult.body.toString())
-      const fileName = meta.name || "document"
-      const ext = meta.extension || fileName.split(".").pop() || ""
-
-      // Try multiple approaches to fetch the file bytes with auth
-      const displayName = ext && !fileName.endsWith(`.${ext}`) ? `${fileName}.${ext}` : fileName
-      const contentTypes = {
-        pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg",
-        png: "image/png", gif: "image/gif", webp: "image/webp", heic: "image/heic",
-        doc: "application/msword",
-        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        xls: "application/vnd.ms-excel",
-        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }
-      const contentType = contentTypes[ext.toLowerCase()] || "application/octet-stream"
-
-      // Try v2 API (designed for form-uploaded files, uses forms-uploaded-files scope)
-      const v2Result = await makeRequest({
-        hostname: "api.hubapi.com",
-        path: `/filemanager/api/v2/files/${fileId}`,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-      })
-      if (v2Result.status === 200) {
-        try {
-          const v2Data = JSON.parse(v2Result.body.toString())
-          const v2Url = v2Data.default_hosting_url || v2Data.s3_url || ""
-          if (v2Url) {
-            // Redirect directly — v2 CDN URLs for form-uploads work without extra auth
-            return { statusCode: 302, headers: { ...corsHeaders, "Location": v2Url }, body: "" }
-          }
-        } catch {}
-      }
-
-      // Try v3 proxy with TOKEN
-      const v3Result = await makeRequest({
-        hostname: "api-na1.hubspot.com",
-        path: `/filemanager/api/v3/files/${fileId}/proxy?portalId=39917994`,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${TOKEN}` },
-      })
-      if (v3Result.status === 200) {
-        return {
-          statusCode: 200,
-          headers: { ...corsHeaders, "Content-Type": contentType, "Content-Disposition": `inline; filename="${displayName}"` },
-          body: v3Result.body.toString("base64"),
-          isBase64Encoded: true,
-        }
-      }
-
-      // Try v3 proxy with WRITE_TOKEN
-      const v3WriteResult = await makeRequest({
-        hostname: "api-na1.hubspot.com",
-        path: `/filemanager/api/v3/files/${fileId}/proxy?portalId=39917994`,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${WRITE_TOKEN}` },
-      })
-      if (v3WriteResult.status === 200) {
-        return {
-          statusCode: 200,
-          headers: { ...corsHeaders, "Content-Type": contentType, "Content-Disposition": `inline; filename="${displayName}"` },
-          body: v3WriteResult.body.toString("base64"),
-          isBase64Encoded: true,
-        }
-      }
-
-      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Could not access file", v2: v2Result?.status, v3Token: v3Result?.status, v3Write: v3WriteResult?.status }) }
+      const fileUrl = meta.default_hosting_url || meta.s3_url || meta.url || ""
+      if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
+      return { statusCode: 302, headers: { ...corsHeaders, "Location": fileUrl }, body: "" }
     } catch (err) {
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
     }
@@ -117,8 +52,7 @@ exports.handler = async (event) => {
 
   // ── Standard API proxy ────────────────────────────────────────────────────
   if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
-  const useWriteToken = event.queryStringParameters?.useWriteToken === "true"
-  const token = useWriteToken ? WRITE_TOKEN : TOKEN
+  const token = TOKEN
   try {
     const isPost = event.httpMethod === "POST"
     const isPatch = event.httpMethod === "PATCH"
