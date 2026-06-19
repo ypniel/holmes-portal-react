@@ -32,34 +32,21 @@ exports.handler = async (event) => {
   // ── File download by ID ─────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
+      // Get file metadata — works for all file types including crm-properties-file-values
       const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
         path: `/filemanager/api/v3/files/${fileId}`,
         method: "GET",
         headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
       })
-      const meta = JSON.parse(metaResult.body.toString())
-      const isPrivate = meta.meta?.allows_anonymous_access === false || meta.meta?.sensitive === true
-      if (isPrivate) {
-        const signedResult = await makeRequest({
-          hostname: "api.hubspot.com",
-          path: `/filemanager/api/v2/files/${fileId}/signed-url-redirect?portalId=39917994`,
-          method: "GET",
-          headers: { "Authorization": `Bearer ${TOKEN}` },
-        })
-        if (signedResult.status === 302 && signedResult.location) {
-          return { statusCode: 302, headers: { ...corsHeaders, "Location": signedResult.location }, body: "" }
-        }
-        const signedBody = signedResult.body.toString()
-        try {
-          const signedData = JSON.parse(signedBody)
-          const signedUrl = signedData.url || signedData.signed_url || ""
-          if (signedUrl) return { statusCode: 302, headers: { ...corsHeaders, "Location": signedUrl }, body: "" }
-        } catch {}
-        return { statusCode: 500, headers: corsHeaders, body: "Could not get signed URL" }
+      if (metaResult.status !== 200) {
+        return { statusCode: 404, headers: corsHeaders, body: "File not found" }
       }
-      const fileUrl = meta.default_hosting_url || meta.s3_url || ""
-      if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File not found" }
+      const meta = JSON.parse(metaResult.body.toString())
+      // default_hosting_url for private/sensitive files is a proxy URL that works with our token
+      // e.g. https://api-na1.hubspot.com/filemanager/api/v3/files/{id}/proxy?portalId=39917994
+      const fileUrl = meta.default_hosting_url || meta.s3_url || meta.url || ""
+      if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
       return { statusCode: 302, headers: { ...corsHeaders, "Location": fileUrl }, body: "" }
     } catch (err) {
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
