@@ -1,8 +1,6 @@
 // ─── HubSpot API Client ───────────────────────────────────────────────────────
-const TOKEN = (import.meta as any).env.VITE_HUBSPOT_TOKEN
-const COMPANY_TOKEN = (import.meta as any).env.VITE_HUBSPOT_PERSONAL_ACCESS_KEY || TOKEN
+// All HubSpot API calls go through the Netlify function proxy — no tokens in the frontend
 const PIPELINE_ID = (import.meta as any).env.VITE_PIPELINE_ID || ""
-const IS_DEV = (import.meta as any).env.DEV
 
 export const BADGE_CLASSES: Record<string, string> = {
   blue:    "bg-blue-100 text-blue-700 border-blue-200",
@@ -20,31 +18,13 @@ export const BADGE_CLASSES: Record<string, string> = {
   stone:   "bg-stone-100 text-stone-700 border-stone-200",
 }
 
-// ── Core fetch wrapper ────────────────────────────────────────────────────────
-async function hsFetch(path: string, init: RequestInit = {}, useCompanyToken = false): Promise<any> {
-  const token = useCompanyToken ? COMPANY_TOKEN : TOKEN
-  let url: string
-  let fetchInit: RequestInit
-
-  if (IS_DEV) {
-    url = `https://api.hubapi.com${path}`
-    fetchInit = {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        ...(init.headers || {}),
-      },
-    }
-  } else {
-    const extra = useCompanyToken ? "&useCompanyToken=true" : ""
-    url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}${extra}`
-    fetchInit = {
-      ...init,
-      headers: { "Content-Type": "application/json", ...(init.headers || {}) },
-    }
+// ── Core fetch wrapper — always proxied through Netlify function ──────────────
+async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
+  const url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}`
+  const fetchInit: RequestInit = {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init.headers || {}) },
   }
-
   const res = await fetch(url, fetchInit)
   if (!res.ok) throw new Error(`HubSpot API error: ${res.status}`)
   return res.json()
