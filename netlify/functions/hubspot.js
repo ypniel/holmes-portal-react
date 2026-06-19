@@ -1,5 +1,6 @@
 const https = require("https")
 const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+const WRITE_TOKEN = process.env.HUBSPOT_TOKEN_WRITE || TOKEN
 const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
@@ -32,12 +33,12 @@ exports.handler = async (event) => {
   // ── File download by ID ─────────────────────────────────────────────────────
   if (isDownload && fileId) {
     try {
-      // Get file metadata — works for all file types including crm-properties-file-values
+      // Get file metadata — use WRITE_TOKEN which has files.ui_hidden scope for sensitive CRM files
       const metaResult = await makeRequest({
         hostname: "api.hubapi.com",
         path: `/filemanager/api/v3/files/${fileId}`,
         method: "GET",
-        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+        headers: { "Authorization": `Bearer ${WRITE_TOKEN}`, "Content-Type": "application/json" },
       })
       if (metaResult.status !== 200) {
         return { statusCode: 404, headers: corsHeaders, body: "File not found" }
@@ -55,7 +56,8 @@ exports.handler = async (event) => {
 
   // ── Standard API proxy ────────────────────────────────────────────────────
   if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
-  const token = TOKEN
+  const useWriteToken = event.queryStringParameters?.useWriteToken === "true"
+  const token = useWriteToken ? WRITE_TOKEN : TOKEN
   try {
     const isPost = event.httpMethod === "POST"
     const isPatch = event.httpMethod === "PATCH"
