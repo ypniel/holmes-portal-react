@@ -2,7 +2,7 @@ const https = require("https")
 
 const TOKEN = process.env.HUBSPOT_TOKEN
 const WRITE_TOKEN = process.env.HUBSPOT_TOKEN_WRITE
-const FILE_PROPS = ["file_upload_1","file_upload_2","file_upload_3","file_upload_4","file_upload_5"]
+const FILE_PROPS = ["file_upload_1","file_upload_2","file_upload_3","file_upload_4","file_upload_5","file_upload_6","file_upload_7","file_upload_8","file_upload_9","file_upload_10"]
 
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
