@@ -231,7 +231,7 @@ export async function fetchMainAgentEmail(subAgentEmail: string): Promise<string
     const assoc = await hsFetch(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)
     const companyId = assoc.results?.[0]?.toObjectId
     if (!companyId) return null
-    const company = await hsFetch(`/crm/v3/objects/companies/${companyId}?properties=agent_email,name`, {}, true)
+    const company = await hsFetch(`/crm/v3/objects/companies/${companyId}?properties=agent_email,name`)
     return company.properties?.agent_email || null
   } catch { return null }
 }
