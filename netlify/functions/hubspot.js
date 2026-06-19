@@ -44,12 +44,44 @@ exports.handler = async (event) => {
         return { statusCode: 404, headers: corsHeaders, body: "File not found" }
       }
       const meta = JSON.parse(metaResult.body.toString())
-      // friendly_url is the authenticated proxy URL — works for all file types including form-uploads
-      // e.g. https://api-na1.hubspot.com/filemanager/api/v3/files/{id}/proxy?portalId=39917994
-      // Fall back to default_hosting_url, then s3_url
-      const fileUrl = meta.friendly_url || meta.default_hosting_url || meta.s3_url || meta.url || ""
-      if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
-      return { statusCode: 302, headers: { ...corsHeaders, "Location": fileUrl }, body: "" }
+      const fileName = meta.name || "document"
+      const ext = meta.extension || fileName.split(".").pop() || ""
+
+      // The proxy URL requires auth header — fetch bytes server-side and stream back
+      // proxy URL format: https://api-na1.hubspot.com/filemanager/api/v3/files/{id}/proxy?portalId=39917994
+      const proxyUrl = `https://api-na1.hubspot.com/filemanager/api/v3/files/${fileId}/proxy?portalId=39917994`
+      const fileResult = await makeRequest({
+        hostname: "api-na1.hubspot.com",
+        path: `/filemanager/api/v3/files/${fileId}/proxy?portalId=39917994`,
+        method: "GET",
+        headers: { "Authorization": `Bearer ${TOKEN}` },
+      })
+
+      if (fileResult.status !== 200) {
+        return { statusCode: fileResult.status, headers: corsHeaders, body: `File fetch failed: ${fileResult.status}` }
+      }
+
+      const contentTypes = {
+        pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg",
+        png: "image/png", gif: "image/gif", webp: "image/webp", heic: "image/heic",
+        doc: "application/msword",
+        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        xls: "application/vnd.ms-excel",
+        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }
+      const contentType = contentTypes[ext.toLowerCase()] || "application/octet-stream"
+      const displayName = ext && !fileName.endsWith(`.${ext}`) ? `${fileName}.${ext}` : fileName
+
+      return {
+        statusCode: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": contentType,
+          "Content-Disposition": `inline; filename="${displayName}"`,
+        },
+        body: fileResult.body.toString("base64"),
+        isBase64Encoded: true,
+      }
     } catch (err) {
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
     }
