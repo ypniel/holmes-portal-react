@@ -36,9 +36,10 @@ exports.handler = async (event) => {
     if (!dealId) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No dealId" }) }
 
     // Decode base64 file — Netlify sends binary as base64
-    const fileBuffer = event.isBase64Encoded 
+    const fileBuffer = event.isBase64Encoded
       ? Buffer.from(event.body, "base64")
       : Buffer.from(event.body || "", "utf8")
+
     const boundary = `----FormBoundary${Date.now()}`
     const CRLF = "\r\n"
 
@@ -50,7 +51,7 @@ exports.handler = async (event) => {
     const epilogue = Buffer.from(`${CRLF}--${boundary}--${CRLF}`)
     const body = Buffer.concat([preamble, fileBuffer, epilogue])
 
-    // Step 1 — Upload file to HubSpot
+    // Step 1 — Upload file to HubSpot Files
     const uploadResult = await makeRequest({
       hostname: "api.hubapi.com",
       path: "/filemanager/api/v3/files/upload",
@@ -62,7 +63,6 @@ exports.handler = async (event) => {
       },
     }, body)
 
-
     if (uploadResult.status !== 200 && uploadResult.status !== 201) {
       return { statusCode: uploadResult.status, headers: corsHeaders, body: uploadResult.body.toString() }
     }
@@ -70,10 +70,9 @@ exports.handler = async (event) => {
     const fileData = JSON.parse(uploadResult.body.toString())
     const fileObj = fileData.objects?.[0] || fileData
     const fileId = fileObj.id
-    // Build public CDN URL directly
     const cdnUrl = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${dealId}/${encodeURIComponent(fileName)}`
 
-    // Step 2 — Create engagement note with CDN link AND attachment ID
+    // Step 2 — Create engagement note with CDN link and attachment ID
     const engagementBody = JSON.stringify({
       engagement: { active: true, type: "NOTE", timestamp: Date.now() },
       associations: { dealIds: [parseInt(dealId)] },
@@ -81,7 +80,7 @@ exports.handler = async (event) => {
       metadata: { body: `📎 File uploaded via portal: <a href="${cdnUrl}">${fileName}</a>` }
     })
 
-    const engResult = await makeRequest({
+    await makeRequest({
       hostname: "api.hubapi.com",
       path: "/engagements/v1/engagements",
       method: "POST",
@@ -91,7 +90,6 @@ exports.handler = async (event) => {
         "Content-Length": Buffer.byteLength(engagementBody),
       },
     }, engagementBody)
-
 
     // Step 3 — Attach file directly to deal record via CRM v3
     const attachBody = JSON.stringify({ id: String(fileId) })
@@ -106,43 +104,10 @@ exports.handler = async (event) => {
       },
     }, attachBody)
 
-    // Step 4 — Write file URL into next available file_upload_X property on the deal
-    try {
-      const FILE_PROPS = [
-        "file_upload_1","file_upload_2","file_upload_3","file_upload_4","file_upload_5",
-        "file_upload_6","file_upload_7","file_upload_8","file_upload_9","file_upload_10"
-      ]
-      const dealRes = await makeRequest({
-        hostname: "api.hubapi.com",
-        path: `/crm/v3/objects/deals/${dealId}?properties=${FILE_PROPS.join(",")}`,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-      })
-      const dealData = JSON.parse(dealRes.body.toString())
-      const props = dealData.properties || {}
-      const emptyProp = FILE_PROPS.find(p => !props[p] || props[p] === "null" || props[p] === "")
-      if (emptyProp) {
-        const patchBody = JSON.stringify({ properties: { [emptyProp]: cdnUrl } })
-        await makeRequest({
-          hostname: "api.hubapi.com",
-          path: `/crm/v3/objects/deals/${dealId}`,
-          method: "PATCH",
-          headers: {
-            "Authorization": `Bearer ${CRM_TOKEN}`,
-            "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(patchBody),
-          },
-        }, patchBody)
-      }
-    } catch (e) {
-      // Non-fatal — file still uploaded and engagement created
-      console.error("File property write failed:", e.message)
-    }
-
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ success: true, fileId, fileName })
+      body: JSON.stringify({ success: true, fileId, fileName, cdnUrl })
     }
   } catch (err) {
     console.error("Upload error:", err.message)
