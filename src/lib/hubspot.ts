@@ -414,27 +414,17 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         }
       }
 
-      // Method 2 — attachment IDs → fetch metadata in parallel
-      const newAtts = (eng.attachments || [])
-        .filter((att: any) => att.id && att.id !== 0 && !files.find(f => f.id === String(att.id)))
-        .map((att: any) => String(att.id))
-
-      const metaResults = await Promise.all(
-        newAtts.map((attId: string) =>
-          hsFetch(`/filemanager/api/v3/files/${attId}`)
-            .then((fileData: any) => {
-              let name = fileData.name || "Document"
-              name = name.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/, "")
-              name = name.replace(/^file_upload_\d+-/, "")
-              name = name.replace(/-[a-f0-9]{6}$/, "")
-              name = name.replace(/^[a-f0-9]{13}-/, "")
-              name = name.replace(/_/g, " ")
-              return { name, id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt }
-            })
-            .catch(() => ({ name: "Document", id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt }))
-        )
-      )
-      files.push(...metaResults)
+      // Method 2 — attachment IDs → no metadata fetch, read name from note body
+      for (const att of eng.attachments || []) {
+        if (!att.id || att.id === 0) continue
+        const attId = String(att.id)
+        if (files.find(f => f.id === attId)) continue
+        const nameMatch = body.match(new RegExp(`href="[^"]*fileId=${attId}[^"]*">([^<]+)<`))
+        let name = nameMatch ? nameMatch[1].trim() : "Document"
+        name = name.replace(/^[a-f0-9]{13}-/, "")
+        name = name.replace(/_/g, " ")
+        files.push({ name, id: attId, url: `/.netlify/functions/hubspot?download=true&fileId=${attId}`, createdAt: eng.engagement?.createdAt })
+      }
     }
 
     const seen = new Set<string>()
