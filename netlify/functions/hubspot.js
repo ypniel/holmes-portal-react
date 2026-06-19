@@ -44,9 +44,10 @@ exports.handler = async (event) => {
         return { statusCode: 404, headers: corsHeaders, body: "File not found" }
       }
       const meta = JSON.parse(metaResult.body.toString())
-      // default_hosting_url for private/sensitive files is a proxy URL that works with our token
+      // friendly_url is the authenticated proxy URL — works for all file types including form-uploads
       // e.g. https://api-na1.hubspot.com/filemanager/api/v3/files/{id}/proxy?portalId=39917994
-      const fileUrl = meta.default_hosting_url || meta.s3_url || meta.url || ""
+      // Fall back to default_hosting_url, then s3_url
+      const fileUrl = meta.friendly_url || meta.default_hosting_url || meta.s3_url || meta.url || ""
       if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
       return { statusCode: 302, headers: { ...corsHeaders, "Location": fileUrl }, body: "" }
     } catch (err) {
