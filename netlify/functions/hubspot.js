@@ -1,5 +1,5 @@
 const https = require("https")
-const TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+const TOKEN = process.env.HUBSPOT_TOKEN
 const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
