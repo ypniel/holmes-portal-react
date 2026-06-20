@@ -14,6 +14,7 @@ import StudentVerifyPage from "./pages/StudentVerifyPage"
 import StudentApplyPage from "./pages/StudentApplyPage"
 import { NavigationProgress } from "./components/NavigationProgress"
 import AgentLoginPage from "./pages/AgentLoginPage"
+import StaffLoginPage from "./pages/StaffLoginPage"
 import SetPasswordPage from "./pages/SetPasswordPage"
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -37,6 +38,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/agent/set-password" element={<SetPasswordPage />} />
       <Route path="/agent-login" element={user ? <Navigate to="/" replace /> : <AgentLoginPage />} />
+      <Route path="/staff-login" element={user ? <Navigate to="/" replace /> : <StaffLoginPage />} />
       <Route path="/student" element={<StudentLoginPage />} />
       <Route path="/student/verify" element={<StudentVerifyPage />} />
       <Route path="/student/apply" element={<StudentApplyPage />} />
