@@ -4,8 +4,6 @@ const https = require("https")
 
 const JWT_SECRET = process.env.JWT_SECRET
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN
-// Standard password for all Holmes staff (@holmes.edu.au contacts in HubSpot)
-const HOLMES_STAFF_PASSWORD = process.env.HOLMES_STAFF_PASSWORD || "Holmes2026!"
 
 const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
 
@@ -84,9 +82,11 @@ exports.handler = async (event) => {
     let valid = false
 
     if (staff) {
-      // ── Holmes staff: check against the shared standard password ───────────
-      // The contact must exist in HubSpot AND know the staff password.
-      valid = (password === HOLMES_STAFF_PASSWORD)
+      return {
+        statusCode: 403,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: "Holmes staff sign in using the 6-digit email code. Please use the 'Holmes Staff' option on the login page." }),
+      }
     } else {
       // ── External agents: check their individual bcrypt hash ─────────────────
       const hash = contact.properties?.portal_password_hash
