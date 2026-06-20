@@ -31,7 +31,12 @@ export default function StaffLoginPage() {
         body: JSON.stringify({ action: "send", email: cleanEmail }),
       })
       const data = await res.json()
-      if (data.otpToken) setOtpToken(data.otpToken)
+      if (!data.otpToken) {
+        setStatus("idle")
+        setError("No Holmes staff account found for this email address.")
+        return
+      }
+      setOtpToken(data.otpToken)
       setStatus("sent")
     } catch {
       setStatus("idle")
