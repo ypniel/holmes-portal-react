@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken")
 
 const JWT_SECRET = process.env.JWT_SECRET
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY
+const HOLMES_COMPANY_ID = "54761935237"
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN
 const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "Holmes Admissions <noreply@holmeseducation.group>"
 
@@ -103,7 +104,10 @@ exports.handler = async (event) => {
     const assocRes = await hubspotGet(`/crm/v4/objects/contacts/${contact.id}/associations/companies`)
     const companyId = assocRes.results?.[0]?.toObjectId
     let companyName = ""
-    if (companyId) {
+    const staff = String(companyId) === HOLMES_COMPANY_ID
+    if (staff) {
+      companyName = "Holmes Institute Australia"
+    } else if (companyId) {
       const companyData = await hubspotGet(`/crm/v3/objects/companies/${companyId}?properties=name`)
       companyName = companyData.properties?.name || ""
     }
