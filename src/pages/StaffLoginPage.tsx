@@ -12,9 +12,16 @@ export default function StaffLoginPage() {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "verifying" | "success" | "error">("idle")
   const [error, setError] = useState("")
 
+  const STAFF_DOMAINS = ["holmes.edu.au", "holmeseducation.group", "holmescolleges.com"]
+
   const handleSendCode = async () => {
     const cleanEmail = email.trim().toLowerCase()
     if (!cleanEmail) return
+    const domain = cleanEmail.split("@")[1] || ""
+    if (!STAFF_DOMAINS.includes(domain)) {
+      setError("Please use your Holmes staff email address (e.g. you@holmes.edu.au).")
+      return
+    }
     setStatus("sending")
     setError("")
     try {
