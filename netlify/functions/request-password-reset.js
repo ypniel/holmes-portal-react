@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken")
 const https = require("https")
 
 const JWT_SECRET = process.env.JWT_SECRET
-const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN
 const BASE_URL = process.env.MAGIC_LINK_BASE_URL || "https://holmes-admissions-portal-v2.netlify.app"
 const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "Holmes Admissions <noreply@holmeseducation.group>"
 
