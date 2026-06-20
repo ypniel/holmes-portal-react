@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowRight, X, Building2, GraduationCap, Settings } from "lucide-react"
+import { ArrowRight, X, Building2, GraduationCap, Settings, ShieldCheck } from "lucide-react"
 import { useAuth } from "../lib/auth"
 
 const MARKETERS = [
@@ -72,6 +72,20 @@ export default function LoginPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-800 group-hover:text-red-700 transition-colors">Direct Student</p>
                   <p className="text-xs text-gray-500 mt-0.5">Track or submit your student application</p>
+                </div>
+                <ArrowRight className="h-5 w-5 text-stone-300 group-hover:text-red-500 transition-colors flex-shrink-0" />
+              </button>
+
+              <button
+                onClick={() => navigate("/staff-login")}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-stone-200 hover:border-red-300 hover:bg-red-50 transition-colors group text-left"
+              >
+                <div className="w-12 h-12 rounded-xl bg-red-900 flex items-center justify-center flex-shrink-0 group-hover:bg-red-950 transition-colors">
+                  <ShieldCheck className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-800 group-hover:text-red-700 transition-colors">Holmes Staff</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Sign in with your Holmes email</p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-stone-300 group-hover:text-red-500 transition-colors flex-shrink-0" />
               </button>
