@@ -1,8 +1,6 @@
 const https = require("https")
 
-const FILE_TOKEN =
-  process.env.HUBSPOT_TOKEN ||
-  process.env.VITE_HUBSPOT_TOKEN
+const FILE_TOKEN = process.env.HUBSPOT_TOKEN
 
 const SENSITIVE_TOKEN =
   process.env.HUBSPOT_TOKEN_WRITE ||
