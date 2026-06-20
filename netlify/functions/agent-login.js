@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs")
 const https = require("https")
 
 const JWT_SECRET = process.env.JWT_SECRET
-const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || process.env.VITE_HUBSPOT_TOKEN
+const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN
 // Standard password for all Holmes staff (@holmes.edu.au contacts in HubSpot)
 const HOLMES_STAFF_PASSWORD = process.env.HOLMES_STAFF_PASSWORD || "Holmes2026!"
 
