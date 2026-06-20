@@ -401,7 +401,7 @@ export default function ApplicationDetailPage() {
                     <span className="text-amber-500 flex-shrink-0 mt-0.5">⚠️</span>
                     <div className="text-xs text-amber-800 leading-relaxed">
                       <p className="font-semibold mb-0.5">For the best viewing experience, please upload documents in PDF, JPG, JPEG, or PNG format.</p>
-                      <p>Files such as HEIC, DOCX, XLSX, PPTX, and ZIP may not be previewable within the portal.</p>
+                      <p>Files such as HEIC, DOCX, XLSX, PPTX, and ZIP may not be previewable within the portal. Please also avoid uploading too many files — a maximum of 10 is recommended.</p>
                     </div>
                   </div>
                   {/* Upload area */}
