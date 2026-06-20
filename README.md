@@ -24,7 +24,6 @@ npm install
 cp .env.example .env
 ```
 Edit `.env` and add:
-- `VITE_HUBSPOT_TOKEN` — your HubSpot Private App token
 - `VITE_PIPELINE_ID` — your Australia Admissions Pipeline ID
 
 ### 3. Run locally
