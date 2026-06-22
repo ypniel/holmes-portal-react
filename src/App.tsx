@@ -7,6 +7,7 @@ import LoginPage from "./pages/LoginPage"
 import HomePage from "./pages/HomePage"
 import ApplicationsPage from "./pages/ApplicationsPage"
 import ApplicationDetailPage from "./pages/ApplicationDetailPage"
+import NewApplicationPage from "./pages/NewApplicationPage"
 import { SettingsPage, NotFoundPage } from "./pages/OtherPages"
 import StudentLoginPage from "./pages/StudentLoginPage"
 import StudentApplicationPage from "./pages/StudentApplicationPage"
@@ -43,6 +44,7 @@ function AppRoutes() {
       <Route path="/student/application/:id" element={<StudentApplicationPage />} />
       <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       <Route path="/applications" element={<ProtectedRoute><ApplicationsPage /></ProtectedRoute>} />
+      <Route path="/applications/new" element={<ProtectedRoute><NewApplicationPage /></ProtectedRoute>} />
       <Route path="/applications/:id" element={<ProtectedRoute><ApplicationDetailPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="*" element={<ProtectedRoute><NotFoundPage /></ProtectedRoute>} />
