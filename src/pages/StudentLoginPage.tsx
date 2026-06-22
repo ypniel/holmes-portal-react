@@ -52,7 +52,8 @@ export default function StudentLoginPage() {
         return
       }
 
-      const { email: verifiedEmail, fullName, sessionToken, contactId } = data.user
+      const { email: verifiedEmail, fullName, contactId } = data.user
+      const sessionToken = data.sessionToken
 
       // Look up student's deal via contact associations
       let dealId = null
