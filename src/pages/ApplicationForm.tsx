@@ -39,21 +39,14 @@ const COURSES = [
   "Master of Business Administration Professional - Project management (2 Years)",
 ]
 
-const CAMPUSES = ["Melbourne", "Sydney", "Brisbane", "Launceston", "Gold Coast"]
+const CAMPUSES = ["Melbourne", "Sydney", "Brisbane", "Gold Coast"]
 
 const INTAKES = [
-  { value: "November_2025_10_11_2025", label: "November 2025 10/11/2025" },
-  { value: "March_2026_23_03_2026", label: "March 2026 23/03/2026" },
-  { value: "July_2026_20_07_2026", label: "July 2026 20/07/2026" },
-  { value: "November_2026_09_11_2026", label: "November 2026 09/11/2026" },
-  { value: "March_2027_22_03_2027", label: "March 2027 22/03/2027" },
-  { value: "July_2027_26_07_2027", label: "July 2027 26/07/2027" },
-  { value: "November_2027_08_11_2027", label: "November 2027 08/11/2027" },
-  { value: "March_2028_20_03_2028", label: "March 2028 20/03/2028" },
-  { value: "July_2028_24_07_2028", label: "July 2028 24/07/2028" },
-  { value: "November_2028_06_11_2028", label: "November 2028 06/11/2028" },
+  { value: "March_2026_23_03_2026", label: "March 2026 (23/03/2026)" },
   { value: "May 2026", label: "May 2026" },
+  { value: "July_2026_20_07_2026", label: "July 2026 (20/07/2026)" },
   { value: "September 2026", label: "September 2026" },
+  { value: "November_2026_09_11_2026", label: "November 2026 (09/11/2026)" },
 ]
 
 const ENGLISH_TESTS = [
@@ -64,6 +57,16 @@ const ENGLISH_TESTS = [
   { value: "Australian_Studies_High_School_Diploma_Above", label: "Australian High School / Diploma or Higher" },
   { value: "Holmes_Pass_Rate_50", label: "Holmes 50% Pass Rate (Recent Semester)" },
   { value: "English_Placement_Test_Request", label: "Request English Placement Test" },
+]
+
+const RESIDENCY_STATUSES = [
+  { value: "currently have an international student visa", label: "Currently have an international student visa" },
+  { value: "none - currently residing outside australia", label: "None - currently residing outside Australia" },
+  { value: "currently have a non-student temporary visa", label: "Currently have a non-student temporary visa" },
+  { value: "australian citizen", label: "Australian citizen" },
+  { value: "humanitarian visa", label: "Humanitarian visa" },
+  { value: "new zealand citizen", label: "New Zealand citizen" },
+  { value: "permanent visa", label: "Permanent visa" },
 ]
 
 const NATIONALITIES = [
@@ -301,9 +304,9 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
 
         {/* ── Identity ── */}
         <Section title="Identity" />
-        <Inp label="USI Number" name="usi_number" value={f.usi_number} onChange={set("usi_number")} placeholder="USI number" />
+        <Inp label="USI Number" name="usi_number" value={f.usi_number} onChange={set("usi_number")} placeholder="10-character alphanumeric (e.g. AB12CD34EF)" />
         <Inp label="Passport Number" name="passport_number" value={f.passport_number} onChange={set("passport_number")} placeholder="Passport number" />
-        <Inp label="Residency Status" name="residency_status" value={f.residency_status} onChange={set("residency_status")} placeholder="e.g. International Student" />
+        <Sel label="Residency Status" name="residency_status" value={f.residency_status} onChange={set("residency_status")} options={RESIDENCY_STATUSES} />
         <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[{ value: "Onshore", label: "Onshore" }, { value: "Offshore", label: "Offshore" }, { value: "Non Visa Required", label: "Non Visa Required" }]} />
         <Sel label="Do you have a disability or long-term medical condition?" name="disability" value={f.disability} onChange={set("disability")} options={YES_NO} />
 
@@ -314,8 +317,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         </div>
         <Sel label="Campus (Australia)" name="campus_australia" value={f.campus_australia} onChange={set("campus_australia")} options={CAMPUSES} required />
         <Sel label="Intake (Australia)" name="intake_australia" value={f.intake_australia} onChange={set("intake_australia")} options={INTAKES} required />
-        <Inp label="Course Start Date" name="course_start_date" value={f.course_start_date} onChange={set("course_start_date")} type="date" />
-        <Inp label="Course End Date" name="course_end_date" value={f.course_end_date} onChange={set("course_end_date")} type="date" />
+
         <Sel label="Advanced Standing" name="advanced_standing" value={f.advanced_standing} onChange={set("advanced_standing")} options={YES_NO} />
         <Sel label="OSHC" name="oshc" value={f.oshc} onChange={set("oshc")} options={YES_NO} />
         <Sel label="OHC English" name="ohc_english" value={f.ohc_english} onChange={set("ohc_english")} options={YES_NO} />
@@ -330,7 +332,6 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         {/* ── English Proficiency ── */}
         <Section title="English Proficiency" />
         <Sel label="English Proficiency Test" name="name_of_english_proficiency_test_australia" value={f.name_of_english_proficiency_test_australia} onChange={set("name_of_english_proficiency_test_australia")} options={ENGLISH_TESTS} />
-        <Inp label="Score" name="score" value={f.score} onChange={set("score")} type="number" placeholder="e.g. 6.5" />
         <Inp label="What are the results of your English Proficiency Test?" name="what_are_the_results_of_your_english_proficiency_test_" value={f.what_are_the_results_of_your_english_proficiency_test_} onChange={set("what_are_the_results_of_your_english_proficiency_test_")} placeholder="e.g. Overall 6.5, Writing 6.0" />
         <Inp label="Date you took the test" name="what_date_did_you_take_your_english_proficiency_test_" value={f.what_date_did_you_take_your_english_proficiency_test_} onChange={set("what_date_did_you_take_your_english_proficiency_test_")} type="date" />
         <Sel label="EAP Required" name="eap_required" value={f.eap_required} onChange={set("eap_required")} options={YES_NO} />
