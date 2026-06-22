@@ -230,11 +230,12 @@ export default function ApplicationsPage() {
             >
               <Download className="h-4 w-4" />Export CSV
             </button>
-            <a href={formUrl} target="_blank" rel="noopener noreferrer"
+            <button
+              onClick={() => navigate("/applications/new")}
               className="flex items-center gap-2 px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-medium transition-colors"
             >
               <GraduationCap className="h-4 w-4" />New Application
-            </a>
+            </button>
           </div>
         </div>
       </div>
