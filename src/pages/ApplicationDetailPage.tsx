@@ -275,7 +275,12 @@ export default function ApplicationDetailPage() {
 
               {/* ── Course ── */}
               {activeTab === "course" && (
-                <div className="grid md:grid-cols-2 gap-x-8">
+                <div>
+                  <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-800 leading-relaxed">
+                    <p className="font-semibold mb-0.5">ℹ️ Please note</p>
+                    <p>Course start date, end date, tuition fees, scholarship and total cost will be updated once the case has been assessed. Please allow 24–72 hours.</p>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-x-8">
                   <DetailRow label="Course Name"       value={deal.courseName} />
                   <DetailRow label="Campus"            value={deal.campus} />
                   <DetailRow label="Intake"            value={formatIntake(deal.intake)} />
@@ -291,6 +296,7 @@ export default function ApplicationDetailPage() {
                   <DetailRow label="Scholarship"       value={deal.scholarship} />
                   <DetailRow label="Total Cost"        value={deal.totalCost} />
                   <DetailRow label="Last Modified"     value={formatDateTime(deal.lastModified)} />
+                  </div>
                 </div>
               )}
 
