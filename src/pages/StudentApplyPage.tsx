@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { GraduationCap, FileText, LogOut, RefreshCw } from "lucide-react"
 
-const APPLICATION_FORM_URL = "https://share.hsforms.com/2nrqky_hbSQu2wZj0XxTnVgnrkx6"
+const APPLICATION_FORM_URL = "https://share.hsforms.com/295xCp21qRwiF7dm8byV6SQnrkx6"
 
 export default function StudentApplyPage() {
   const navigate = useNavigate()
