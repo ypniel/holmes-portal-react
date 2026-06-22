@@ -94,8 +94,7 @@ exports.handler = async (event) => {
     })
     const contact = contactRes.results?.[0]
 
-    // No contact found — don't reveal this, return ok but no token
-    if (!contact) return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: true }) }
+    if (!contact) return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: true, notFound: true }) }
 
     const firstName = contact.properties?.firstname || ""
     const otp = String(Math.floor(100000 + Math.random() * 900000))
