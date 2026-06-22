@@ -59,8 +59,6 @@ const TEAMS = [
   { name: "Early Childhood Placement", email: "ecplacement@holmes.edu.au",     description: "Work placement for GDEC / Master of Teaching students enquiries" },
 ]
 
-const BASE_APP_URL = "https://share.hsforms.com/2SycknjhmRRasYVCAV33Vkwnrkx6"
-
 const AGENT_FORMS = [
   { name: "Academic Calendar 2026–2030",        url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Academic%20Calendar%202026-2030.pdf" },
   { name: "Manual Enrolment Form",              url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Manual%20Enrolment%20form.pdf" },
@@ -84,15 +82,9 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [formsOpen, setFormsOpen] = useState(false)
-  const [formUrl, setFormUrl] = useState(BASE_APP_URL)
   const tip = useRotatingTip()
   const tipIdx = PRO_TIPS.indexOf(tip)
   const isLive = useLiveStatus()
-
-  useEffect(() => {
-    if (!user?.email || isHolmesStaff(user.email)) return
-    setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
-  }, [user])
 
   function exportCSV() {
     const rows = [
@@ -174,15 +166,15 @@ export default function HomePage() {
           <div className="bg-gradient-to-br from-red-700 to-red-800 rounded-xl p-6 text-white shadow-lg">
             <h2 className="text-lg font-semibold mb-5">Quick Actions</h2>
             <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <a href={formUrl} target="_blank" rel="noopener noreferrer"
-                className="bg-white rounded-lg p-4 flex items-start gap-3 hover:bg-red-50 transition-colors"
+              <button onClick={() => navigate("/applications/new")}
+                className="bg-white rounded-lg p-4 flex items-start gap-3 hover:bg-red-50 transition-colors text-left"
               >
                 <div className="w-8 h-8 bg-red-50 rounded-full flex items-center justify-center text-red-700 flex-shrink-0">➕</div>
                 <div>
                   <div className="font-semibold text-sm text-red-700">New Application</div>
-                  <div className="text-xs text-red-400 mt-1 font-medium">Higher education courses only</div>
+                  <div className="text-xs text-red-400 mt-1 font-medium">Australia pipeline</div>
                 </div>
-              </a>
+              </button>
               <button onClick={() => navigate("/applications")}
                 className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
               >
