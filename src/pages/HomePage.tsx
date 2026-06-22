@@ -1,395 +1,361 @@
-import React, { useEffect, useState, useMemo } from "react"
+import React, { useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { Users, FileText, CheckCircle, Clock, ArrowRight, GraduationCap, MapPin, FileDown } from "lucide-react"
-import { PageContainer } from "../components/Layout"
-import { useAuth, isHolmesStaff } from "../lib/auth"
-import { fetchDeals, fetchDealsByCompanyId, Deal } from "../lib/hubspot"
-import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
-import { StatCardSkeleton, ActivityRowSkeleton } from "../components/Skeleton"
+import { Loader2, Paperclip, ChevronDown, CheckCircle2, AlertCircle } from "lucide-react"
 
-const PRO_TIPS = [
-  "Keep student documents up to date to ensure faster processing times for offer letter and COE applications.",
-  "Submit Australian academic transcript or English test results early — verification delays are the most common cause of offer letter and COE hold-ups.",
-  "Ensure the student's name on all documents exactly matches the passport. Discrepancies cause significant delays.",
-  "Advanced Standing applications take longer to assess — submit these cases as early as possible before intake.",
-  "For onshore students, make sure their current visa allows them to study before submitting an application.",
-  "Always remember to submit passport, English test, offshore and onshore transcript, OSHC and WWCC/Blue Card (for Teaching related courses).",
-]
-
-function useRotatingTip() {
-  const [idx, setIdx] = useState(0)
-  useEffect(() => {
-    const t = setInterval(() => setIdx(i => (i + 1) % PRO_TIPS.length), 8000)
-    return () => clearInterval(t)
-  }, [])
-  return PRO_TIPS[idx]
+// ── Types ──────────────────────────────────────────────────────────────────────
+interface Props {
+  mode: "agent" | "student"
+  sessionToken: string
+  prefillEmail: string       // agent email (agent mode) OR student email (student mode)
+  prefillName?: string       // student's full name for pre-fill
+  onSuccess?: (dealId: string) => void
 }
 
-function useLiveStatus() {
-  const [isLive, setIsLive] = useState(false)
-  useEffect(() => {
-    const check = () => {
-      const melbStr = new Date().toLocaleString("en-AU", { timeZone: "Australia/Melbourne", hour12: false })
-      const parts = melbStr.split(", ")
-      if (parts.length < 2) return
-      const h = parseInt(parts[1].split(":")[0])
-      const dateSegments = parts[0].split("/")
-      const day = new Date(parseInt(dateSegments[2]), parseInt(dateSegments[1]) - 1, parseInt(dateSegments[0])).getDay()
-      setIsLive(day >= 1 && day <= 5 && h >= 9 && h < 17)
-    }
-    check()
-    const interval = setInterval(check, 30000)
-    return () => clearInterval(interval)
-  }, [])
-  return isLive
-}
-
-const MARKETERS = [
-  { name: "Indra Adhikari",  title: "Victoria Representative",       email: "iadhikari@holmes.edu.au" },
-  { name: "Dinesh Chetwani", title: "Queensland Representative",      email: "dchetwani@holmes.edu.au" },
-  { name: "Don Kauffman",    title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
+// ── Options ────────────────────────────────────────────────────────────────────
+const COURSES = [
+  "Bachelor of Aviation (Flight)",
+  "Bachelor of Aviation (Management)",
+  "Bachelor of Business (3 Years)",
+  "Bachelor of Business – Hospitality Management Specialisation (3 Years)",
+  "Bachelor of Fashion and Business (2 Years)",
+  "Bachelor of Information Systems (3 Years)",
+  "Bachelor of Professional Accounting (3 Years)",
+  "Diploma of Business Management with Bachelor of Business (3 Years)",
+  "Single Unit Study – Undergraduate",
+  "Undergraduate Certificate of Fashion Business",
+  "Graduate Diploma in Business with MBA with MPA (2 Years)",
+  "Graduate Diploma of Early Childhood",
+  "Graduate Diploma of Early Childhood with Master of Teaching",
+  "Master of Business Administration (1.5 Years)",
+  "Master of Business Administration Professional (2 Years)",
+  "Master of Business Administration with Master of Professional Accounting (2 Years)",
+  "Master of Cyber Security",
+  "Master of Information Systems (2 Years)",
+  "Master of Professional Accounting (1.5 Years)",
+  "Master of Professional Accounting with Master of Business Administration (2 Years)",
+  "Master of Teaching (Early Childhood)",
+  "Single Unit Study – Postgraduate",
+  "Master of Business Administration Professional - Health Care Management (2 Years)",
+  "Master of Business Administration Professional - Project management (2 Years)",
 ]
 
-const TEAMS = [
-  { name: "Agent Finance",             email: "agentfinance@holmes.edu.au",   description: "Commissions enquiries" },
-  { name: "Hello",                     email: "hello@holmes.edu.au",           description: "General enquiries" },
-  { name: "Deposit",                   email: "deposits@holmes.edu.au",        description: "Payment enquiries" },
-  { name: "Student Services",          email: "studentservices@holmes.edu.au", description: "Deferment, suspension, cancellation and appeal enquiries" },
-  { name: "Credit Assessment Team",    email: "CAT@holmes.edu.au",             description: "Transfer credit assessment / enquiries" },
-  { name: "Early Childhood Placement", email: "ecplacement@holmes.edu.au",     description: "Work placement for GDEC / Master of Teaching students enquiries" },
+const CAMPUSES = ["Melbourne", "Sydney", "Brisbane", "Gold Coast"]
+
+const INTAKES = [
+  { value: "March_2026_23_03_2026", label: "March 2026 (23/03/2026)" },
+  { value: "May 2026", label: "May 2026" },
+  { value: "July_2026_20_07_2026", label: "July 2026 (20/07/2026)" },
+  { value: "September 2026", label: "September 2026" },
+  { value: "November_2026_09_11_2026", label: "November 2026 (09/11/2026)" },
 ]
 
-const AGENT_FORMS = [
-  { name: "Academic Calendar 2026–2030",        url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Academic%20Calendar%202026-2030.pdf" },
-  { name: "Manual Enrolment Form",              url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Manual%20Enrolment%20form.pdf" },
-  { name: "Subject Variation Request Form",     url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Subject%20variation%20request%20form.pdf" },
-  { name: "Special Consideration Application",  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Special%20Consideration%20Application%20Form.pdf" },
-  { name: "Study Overload Application Form",    url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Study%20Overload%20Application%20Form.pdf" },
-  { name: "Request for Reduced Study Load",     url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20Reduced%20Study%20Load.pdf" },
-  { name: "Concurrent Enrolment Form",          url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Concurrent%20enrolment%20form.pdf" },
-  { name: "Request for Documents",              url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20Documents.pdf" },
-  { name: "Appeals Form",                       url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Appeals%20Form.pdf" },
-  { name: "Request for Academic Documents",     url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20Academic%20Documents%20Form.pdf" },
-  { name: "Change of Campus or Course",         url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Change%20of%20Campus%20or%20Course.pdf" },
-  { name: "Defer, Cancel and Suspend Request",  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Defer%20Cancel%20and%20Suspend%20Request.pdf" },
-  { name: "Request for Course Extension",       url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20course%20extension%20form.pdf" },
+const ENGLISH_TESTS = [
+  { value: "IELTS", label: "IELTS" },
+  { value: "PTE", label: "PTE (Pearson Test of English)" },
+  { value: "TOEFL", label: "TOEFL" },
+  { value: "Cambridge_English_qualification", label: "Cambridge English Qualification" },
+  { value: "Australian_Studies_High_School_Diploma_Above", label: "Australian High School / Diploma or Higher" },
+  { value: "Holmes_Pass_Rate_50", label: "Holmes 50% Pass Rate (Recent Semester)" },
+  { value: "English_Placement_Test_Request", label: "Request English Placement Test" },
 ]
 
-export default function HomePage() {
-  const navigate = useNavigate()
-  const { user } = useAuth()
-  const [deals, setDeals] = useState<Deal[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [formsOpen, setFormsOpen] = useState(false)
-  const tip = useRotatingTip()
-  const tipIdx = PRO_TIPS.indexOf(tip)
-  const isLive = useLiveStatus()
+const RESIDENCY_STATUSES = [
+  { value: "currently have an international student visa", label: "Currently have an international student visa" },
+  { value: "none - currently residing outside australia", label: "None - currently residing outside Australia" },
+  { value: "currently have a non-student temporary visa", label: "Currently have a non-student temporary visa" },
+  { value: "australian citizen", label: "Australian citizen" },
+  { value: "humanitarian visa", label: "Humanitarian visa" },
+  { value: "new zealand citizen", label: "New Zealand citizen" },
+  { value: "permanent visa", label: "Permanent visa" },
+]
 
-  function exportCSV() {
-    const rows = [
-      ["Student Name","Nationality","Residency","Course","Intake","Campus","Response Status","Case Status","Last Modified"],
-      ...deals.map(d => [d.studentName, d.nationality, d.residencyStatus, d.courseName, d.intake, d.campus, d.responseStatus, d.stageLabel, d.lastModified])
-    ]
-    // Add UTF-8 BOM for Excel compatibility
-    const bom = "\uFEFF"
-    const csv = bom + rows.map(r => r.map(c => `"${String(c ?? "").replace(/"/g,'""')}"`).join(",")).join("\n")
-    const a = document.createElement("a")
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }))
-    a.download = "Holmes_Applications.csv"
-    a.click()
-  }
+const NATIONALITIES = [
+  "Afghan","Albanian","Algerian","American","Argentine","Armenian","Australian","Austrian",
+  "Azerbaijani","Bahamian","Bahraini","Bangladeshi","Belgian","Bolivian","Bosnian","Brazilian",
+  "British","Bruneian","Bulgarian","Cambodian","Cameroonian","Canadian","Chilean","Chinese",
+  "Chinese (HK)","Colombian","Croatian","Cuban","Czech","Danish","Egyptian","Eritrean",
+  "Ethiopian","Filipino","Finnish","French","German","Ghanaian","Greek","Guatemalan",
+  "Honduran","Hong Kong","Hungarian","Indian","Indonesian","Iranian","Iraqi","Irish",
+  "Israeli","Italian","Jamaican","Japanese","Jordanian","Kenyan","Korean","Kuwaiti","Laotian",
+  "Latvian","Lebanese","Libyan","Lithuanian","Malaysian","Maldivian","Maltese","Mauritian",
+  "Mexican","Moldovan","Mongolian","Moroccan","Mozambican","Namibian","Nepalese",
+  "New Zealander","Nigerian","Norwegian","Omani","Pakistani","Peruvian","Polish","Portuguese",
+  "Qatari","Romanian","Russian","Saudi","Senegalese","Serbian","Singaporean","South African",
+  "Spanish","Sri Lankan","Sudanese","Swedish","Swiss","Syrian","Taiwanese","Tanzanian",
+  "Thai","Trinidadian","Tunisian","Turkish","Ukrainian","Uruguayan","Venezuelan","Vietnamese",
+  "Yemeni","Zambian","Zimbabwean","Other"
+]
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        // Fix #4: use isHolmesStaff() instead of manual domain check with precedence bug
-        if (user?.email && !isHolmesStaff(user.email)) {
-          // Agent — fetch deals by company association
-          const companyId = sessionStorage.getItem("holmes_company_id")
-          if (companyId) {
-            const d = await fetchDealsByCompanyId(companyId)
-            setDeals(d)
-          } else {
-            setDeals([])
-          }
-        } else {
-          // Holmes staff — fetch all deals
-          const d = await fetchDeals()
-          setDeals(d)
-        }
-      } catch {}
-      finally { setLoading(false) }
-    }
-    load()
-  }, [user])
+const YES_NO = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]
 
-  const stats = useMemo(() => ({
-    total:   deals.length,
-    offers:  deals.filter(d => d.stageLabel.includes("Offer")).length,
-    coes:    deals.filter(d => d.stageLabel === "Application Completed" || d.stageLabel === "Enrolled").length,
-    waiting: deals.filter(d => d.responseStatus.toLowerCase().includes("waiting")).length,
-  }), [deals])
-
-  const recent = [...deals]
-    .sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime())
-    .slice(0, 5)
-
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const Sel = ({ label, name, value, onChange, options, required = false, placeholder = "Select…" }: {
+  label: string; name: string; value: string; onChange: (v: string) => void
+  options: { value: string; label: string }[] | string[]; required?: boolean; placeholder?: string
+}) => {
+  const opts = (options as any[]).map(o => typeof o === "string" ? { value: o, label: o } : o)
   return (
-    <PageContainer>
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-gray-800">
-          Welcome back, {user?.companyName || user?.fullName?.split(" ")[0] || "Agent"}!
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {user?.email && isHolmesStaff(user.email)
-            ? "You are viewing all applications across the Australia Admissions Pipeline."
-            : "Here's what's happening with your student applications today."
-          }
-        </p>
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
+      <div className="relative">
+        <select
+          name={name} value={value} onChange={e => onChange(e.target.value)} required={required}
+          className="w-full appearance-none px-3 py-2.5 pr-8 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+        >
+          <option value="">{placeholder}</option>
+          {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
       </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {loading ? [1,2,3,4].map(i => <StatCardSkeleton key={i} />) : (
-          <>
-            <StatCard icon={<Users className="h-5 w-5 text-red-700" />}          bg="bg-red-50"     label="Total"         value={stats.total}   desc="Applications" />
-            <StatCard icon={<FileText className="h-5 w-5 text-amber-600" />}      bg="bg-amber-50"   label="Active"        value={stats.offers}  desc="Offers Issued" />
-            <StatCard icon={<CheckCircle className="h-5 w-5 text-emerald-600" />} bg="bg-emerald-50" label="Success"       value={stats.coes}    desc="COEs Completed" />
-            <StatCard icon={<Clock className="h-5 w-5 text-rose-600" />}          bg="bg-rose-50"    label="Action Required" value={stats.waiting} desc="Action Required" />
-          </>
-        )}
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-
-          <div className="bg-gradient-to-br from-red-700 to-red-800 rounded-xl p-6 text-white shadow-lg">
-            <h2 className="text-lg font-semibold mb-5">Quick Actions</h2>
-            <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <button onClick={() => navigate("/applications/new")}
-                className="bg-white rounded-lg p-4 flex items-start gap-3 hover:bg-red-50 transition-colors text-left"
-              >
-                <div className="w-8 h-8 bg-red-50 rounded-full flex items-center justify-center text-red-700 flex-shrink-0">➕</div>
-                <div>
-                  <div className="font-semibold text-sm text-red-700">New Application</div>
-                  <div className="text-xs text-red-400 mt-1 font-medium">Australia pipeline</div>
-                </div>
-              </button>
-              <button onClick={() => navigate("/applications")}
-                className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
-              >
-                <div className="w-8 h-8 bg-white/15 rounded-full flex items-center justify-center flex-shrink-0">⏳</div>
-                <div>
-                  <div className="font-semibold text-sm text-white">Action Required</div>
-                  <div className="text-xs text-white/60 mt-0.5">{stats.waiting} items require action</div>
-                </div>
-              </button>
-              <button onClick={() => setShowModal(true)}
-                className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
-              >
-                <div className="w-8 h-8 bg-white/15 rounded-full flex items-center justify-center flex-shrink-0">✉️</div>
-                <div>
-                  <div className="font-semibold text-sm text-white">Send a Message</div>
-                  <div className="text-xs text-white/60 mt-0.5">Contact our Holmes Teams</div>
-                </div>
-              </button>
-              <button onClick={exportCSV}
-                className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
-              >
-                <div className="w-8 h-8 bg-white/15 rounded-full flex items-center justify-center flex-shrink-0">📤</div>
-                <div>
-                  <div className="font-semibold text-sm text-white">Export to CSV</div>
-                  <div className="text-xs text-white/60 mt-0.5">Download student list</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
-              <h2 className="font-semibold text-gray-800">Recent Activity</h2>
-              <button onClick={() => navigate("/applications")}
-                className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium"
-              >
-                View All <ArrowRight className="h-4 w-4 ml-1" />
-              </button>
-            </div>
-            <div className="divide-y divide-stone-100">
-              {loading && [1,2,3,4,5].map(i => <ActivityRowSkeleton key={i} />)}
-              {!loading && recent.length === 0 && <p className="p-8 text-center text-gray-400 text-sm">No applications yet.</p>}
-              {recent.map(deal => (
-                <div key={deal.id} onClick={() => navigate(`/applications/${deal.id}`)}
-                  className="p-4 hover:bg-red-50 transition-colors cursor-pointer group"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center text-red-700 text-xs font-medium flex-shrink-0">
-                      {initials(deal.studentName)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <div>
-                          <p className="font-medium text-gray-800 group-hover:text-red-600 transition-colors">{deal.studentName}</p>
-                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
-                            {deal.courseName && <span className="flex items-center gap-1"><GraduationCap className="h-3 w-3" />{deal.courseName}</span>}
-                            {deal.campus && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{deal.campus}</span>}
-                          </div>
-                        </div>
-                        <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border flex-shrink-0 ${BC[deal.stageColor] || BC.stone}`}>
-                          {deal.stageLabel}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-stone-400">{deal.nationality}</span>
-                        <span className="text-xs text-stone-400">{formatRelativeTime(deal.lastModified)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-5">
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
-            <div className="text-center mb-4">
-              <div className="h-16 w-16 mx-auto mb-3 rounded-full bg-red-50 border-2 border-red-100 flex items-center justify-center text-red-700 text-2xl font-semibold">
-                {initials(user?.companyName || user?.fullName)}
-              </div>
-              <h3 className="font-semibold text-gray-800">{user?.companyName || user?.fullName || "Agent"}</h3>
-              <p className="text-sm text-gray-500">{user?.email}</p>
-            </div>
-
-          </div>
-
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-800">Need Assistance?</h3>
-              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${
-                isLive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-stone-100 text-stone-500 border-stone-200"
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isLive ? "bg-emerald-500 animate-pulse" : "bg-stone-400"}`} />
-                {isLive ? "Live Now" : "Closed"}
-              </div>
-            </div>
-            <div className="space-y-2 text-sm mb-3">
-              <div><p className="text-gray-500 text-xs">Phone</p><p className="font-medium text-gray-900">+61 3 9564 1444</p></div>
-              <div><p className="text-gray-500 text-gray-900">Email</p><p className="font-medium text-gray-900">admissions@holmes.edu.au</p></div>
-            </div>
-            <div className="pt-3 border-t border-stone-100">
-              <p className="text-xs text-gray-500">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
-              <button onClick={() => setShowModal(true)}
-                className="mt-3 w-full py-2 text-xs font-medium text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                Contact our Holmes Teams →
-              </button>
-            </div>
-          </div>
-
-
-          {/* Forms & Documents */}
-          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-            <button
-              onClick={() => setFormsOpen(o => !o)}
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-stone-50 transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <FileDown className="h-4 w-4 text-red-700" />
-                <span className="text-sm font-semibold text-gray-800">Forms &amp; Documents</span>
-              </div>
-              <span className="text-xs text-gray-400">{formsOpen ? "▲" : "▼"}</span>
-            </button>
-            {formsOpen && (
-              <div className="border-t border-stone-100 divide-y divide-stone-50">
-                {AGENT_FORMS.map(form => (
-                  <a
-                    key={form.url}
-                    href={form.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between px-5 py-3 hover:bg-red-50 transition-colors group"
-                  >
-                    <span className="text-xs text-gray-700 group-hover:text-red-700 transition-colors">{form.name}</span>
-                    <FileDown className="h-3.5 w-3.5 text-gray-300 group-hover:text-red-500 flex-shrink-0 ml-2 transition-colors" />
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="bg-red-50 rounded-xl border border-red-100 p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
-              <h3 className="font-semibold text-gray-800 text-sm">Pro Tip</h3>
-            </div>
-            <p key={tip} className="text-sm text-gray-600 leading-relaxed">{tip}</p>
-            <div className="flex gap-1 mt-3">
-              {PRO_TIPS.map((_, i) => (
-                <div key={i} className={`h-1 rounded-full transition-all duration-500 ${i === tipIdx ? "bg-red-400 w-4" : "bg-red-200 w-1"}`} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-5 border-b border-stone-100">
-              <h2 className="text-lg font-bold text-gray-800">Need Help?</h2>
-              <p className="text-sm text-gray-500 mt-1">You can reach out to other teams at:</p>
-            </div>
-            <div className="p-4 space-y-2">
-              {MARKETERS.map(m => (
-                <a key={m.email} href={`mailto:${m.email}`}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
-                >
-                  <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs flex-shrink-0">
-                    {m.name.split(" ").map(n => n[0]).join("").slice(0,2)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
-                    <p className="text-xs text-gray-500">{m.title}</p>
-                    <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
-                  </div>
-                </a>
-              ))}
-              <div className="border-t border-stone-100 my-2" />
-              {TEAMS.map(t => (
-                <a key={t.email} href={`mailto:${t.email}`}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
-                >
-                  <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 font-bold text-xs flex-shrink-0">
-                    {t.name.split(" ").map(n => n[0]).join("").slice(0,2)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-gray-800 group-hover:text-red-700 transition-colors">{t.name}</p>
-                    <p className="text-xs text-gray-500">{t.description}</p>
-                    <p className="text-xs text-red-600 mt-0.5">{t.email}</p>
-                  </div>
-                </a>
-              ))}
-            </div>
-            <div className="px-6 py-4 border-t border-stone-100">
-              <button onClick={() => setShowModal(false)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </PageContainer>
+    </div>
   )
 }
 
-function StatCard({ icon, bg, label, value, desc }: {
-  icon: React.ReactNode; bg: string; label: string; value: number; desc: string
-}) {
+const Inp = ({ label, name, value, onChange, type = "text", required = false, readOnly = false, placeholder = "" }: {
+  label: string; name: string; value: string; onChange?: (v: string) => void
+  type?: string; required?: boolean; readOnly?: boolean; placeholder?: string
+}) => (
+  <div>
+    <label className="block text-xs font-medium text-gray-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
+    <input
+      type={type} name={name} value={value} placeholder={placeholder}
+      onChange={e => onChange?.(e.target.value)} required={required} readOnly={readOnly}
+      className={`w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 ${readOnly ? "bg-stone-50 text-gray-500" : "bg-white"}`}
+    />
+  </div>
+)
+
+const Section = ({ title }: { title: string }) => (
+  <div className="col-span-full mt-2">
+    <h3 className="text-sm font-semibold text-red-800 border-b border-red-100 pb-1">{title}</h3>
+  </div>
+)
+
+// ── Uploader (post-submission) ─────────────────────────────────────────────────
+function FileUploader({ dealId }: { dealId: string }) {
+  const [uploading, setUploading] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const ref = useRef<HTMLInputElement>(null)
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploading(true); setMsg(null)
+    try {
+      for (const file of Array.from(files)) {
+        const res = await fetch(`/.netlify/functions/upload?dealId=${dealId}`, {
+          method: "POST",
+          headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-Deal-Id": dealId },
+          body: file,
+        })
+        if (!res.ok) throw new Error("Upload failed")
+      }
+      setMsg(`✅ ${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully`)
+    } catch { setMsg("❌ Upload failed. Please try again.") }
+    finally { setUploading(false) }
+  }
+
   return (
-    <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`w-10 h-10 rounded-lg ${bg} flex items-center justify-center`}>{icon}</div>
+    <div>
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
+        onClick={() => ref.current?.click()}
+        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}
+      >
+        <input ref={ref} type="file" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
+        <Paperclip className={`h-8 w-8 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
+        {uploading ? <p className="text-sm text-gray-500 animate-pulse">Uploading…</p> : (
+          <>
+            <p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
+            <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, JPG, PNG recommended · max 10 files</p>
+          </>
+        )}
       </div>
-      <p className="text-2xl font-semibold text-gray-800">{value}</p>
-      <p className="text-sm text-gray-500">{desc}</p>
+      {msg && <p className={`text-xs mt-2 text-center ${msg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>{msg}</p>}
     </div>
+  )
+}
+
+// ── Main Form ──────────────────────────────────────────────────────────────────
+export default function ApplicationForm({ mode, sessionToken, prefillEmail, prefillName, onSuccess }: Props) {
+  const navigate = useNavigate()
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const [dealId, setDealId] = useState<string | null>(null)
+
+  const nameParts = (prefillName || "").split(" ")
+  const [f, setF] = useState({
+    // Personal
+    firstname: mode === "student" ? nameParts[0] || "" : "",
+    lastname: mode === "student" ? nameParts.slice(1).join(" ") : "",
+    student_email: mode === "student" ? prefillEmail : "",
+    mobile_phone_number: "",
+    date_of_birth: "",
+    street_name: "",
+    state: "",
+    post_code: "",
+    country: "",
+    nationality: "",
+    usi_number: "",
+    passport_number: "",
+    residency_status: "",
+    where_are_you_applying_from: "",
+    disability: "",
+    // Course
+    course_name_australia: "",
+    campus_australia: "",
+    intake_australia: "",
+    advanced_standing: "",
+    oshc: "",
+    wwcc_blue_card_number: "",
+    // Prior education
+    name_of_qualification: "",
+    name_of_institution_attended: "",
+    // English
+    name_of_english_proficiency_test_australia: "",
+    score: "",
+    what_are_the_results_of_your_english_proficiency_test_: "",
+    what_date_did_you_take_your_english_proficiency_test_: "",
+    eap_required: "",
+    // Additional
+    do_you_intend_to_apply_for_fee_help_: "",
+    course_start_date: "",
+    course_end_date: "",
+    ohc_english: "",
+    ohcweeks: "",
+  })
+
+  const set = (k: string) => (v: string) => setF(prev => ({ ...prev, [k]: v }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true); setError("")
+    try {
+      const res = await fetch("/.netlify/functions/submit-application", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken, ...f }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setError(data.error || "Submission failed. Please try again.")
+        setSubmitting(false)
+        return
+      }
+      setDealId(data.dealId)
+      onSuccess?.(data.dealId)
+    } catch {
+      setError("Something went wrong. Please try again.")
+      setSubmitting(false)
+    }
+  }
+
+  // ── Success state ─────────────────────────────────────────────────────────
+  if (dealId) {
+    return (
+      <div className="text-center py-8 px-4">
+        <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-gray-800 mb-2">Application Submitted!</h2>
+        <p className="text-sm text-gray-500 mb-6">Your application has been received. You can now upload supporting documents below.</p>
+        <div className="text-left max-w-lg mx-auto mb-6">
+          <p className="text-xs font-semibold text-gray-600 mb-2">Upload Supporting Documents</p>
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+            For best results upload PDF, JPG, JPEG or PNG. Avoid uploading more than 10 files.
+          </div>
+          <FileUploader dealId={dealId} />
+        </div>
+        <button
+          onClick={() => mode === "agent" ? navigate(`/applications/${dealId}`) : navigate(`/student/application/${dealId}`)}
+          className="px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          View Application →
+        </button>
+      </div>
+    )
+  }
+
+  // ── Form ──────────────────────────────────────────────────────────────────
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        {/* ── Personal Details ── */}
+        <Section title="Personal Details" />
+        <Inp label="First Name" name="firstname" value={f.firstname} onChange={set("firstname")} required placeholder="Given name" />
+        <Inp label="Last Name" name="lastname" value={f.lastname} onChange={set("lastname")} required placeholder="Family name" />
+        <Inp label="Student Email" name="student_email" value={f.student_email} onChange={mode === "student" ? undefined : set("student_email")} readOnly={mode === "student"} required type="email" placeholder="student@email.com" />
+        {mode === "agent" && (
+          <Inp label="Agent Email" name="agent_email" value={prefillEmail} readOnly type="email" />
+        )}
+        <Inp label="Mobile Phone Number" name="mobile_phone_number" value={f.mobile_phone_number} onChange={set("mobile_phone_number")} placeholder="+61 4XX XXX XXX" />
+        <Inp label="Date of Birth" name="date_of_birth" value={f.date_of_birth} onChange={set("date_of_birth")} type="date" />
+
+        {/* ── Address ── */}
+        <Section title="Address" />
+        <div className="col-span-full">
+          <Inp label="Street Name" name="street_name" value={f.street_name} onChange={set("street_name")} placeholder="123 Example St" />
+        </div>
+        <Inp label="State" name="state" value={f.state} onChange={set("state")} placeholder="VIC" />
+        <Inp label="Postcode" name="post_code" value={f.post_code} onChange={set("post_code")} placeholder="3000" />
+        <Inp label="Country" name="country" value={f.country} onChange={set("country")} placeholder="Australia" />
+        <Sel label="Nationality" name="nationality" value={f.nationality} onChange={set("nationality")} options={NATIONALITIES} />
+
+        {/* ── Identity ── */}
+        <Section title="Identity" />
+        <Inp label="USI Number" name="usi_number" value={f.usi_number} onChange={set("usi_number")} placeholder="10-character alphanumeric (e.g. AB12CD34EF)" />
+        <Inp label="Passport Number" name="passport_number" value={f.passport_number} onChange={set("passport_number")} placeholder="Passport number" />
+        <Sel label="Residency Status" name="residency_status" value={f.residency_status} onChange={set("residency_status")} options={RESIDENCY_STATUSES} />
+        <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[{ value: "Onshore", label: "Onshore" }, { value: "Offshore", label: "Offshore" }, { value: "Non Visa Required", label: "Non Visa Required" }]} />
+        <Sel label="Do you have a disability or long-term medical condition?" name="disability" value={f.disability} onChange={set("disability")} options={YES_NO} />
+
+        {/* ── Course ── */}
+        <Section title="Course Details" />
+        <div className="col-span-full">
+          <Sel label="Course Name (Australia)" name="course_name_australia" value={f.course_name_australia} onChange={set("course_name_australia")} options={COURSES} required />
+        </div>
+        <Sel label="Campus (Australia)" name="campus_australia" value={f.campus_australia} onChange={set("campus_australia")} options={CAMPUSES} required />
+        <Sel label="Intake (Australia)" name="intake_australia" value={f.intake_australia} onChange={set("intake_australia")} options={INTAKES} required />
+
+        <Sel label="Advanced Standing" name="advanced_standing" value={f.advanced_standing} onChange={set("advanced_standing")} options={YES_NO} />
+        <Sel label="OSHC" name="oshc" value={f.oshc} onChange={set("oshc")} options={YES_NO} />
+        <Sel label="OHC English" name="ohc_english" value={f.ohc_english} onChange={set("ohc_english")} options={YES_NO} />
+        <Inp label="OHC Weeks" name="ohcweeks" value={f.ohcweeks} onChange={set("ohcweeks")} placeholder="e.g. 10" />
+        <Inp label="WWCC / Blue Card Number" name="wwcc_blue_card_number" value={f.wwcc_blue_card_number} onChange={set("wwcc_blue_card_number")} placeholder="Card number" />
+
+        {/* ── Prior Education ── */}
+        <Section title="Prior Education" />
+        <Inp label="Name of Qualification" name="name_of_qualification" value={f.name_of_qualification} onChange={set("name_of_qualification")} placeholder="e.g. Bachelor of Science" />
+        <Inp label="Name of Institution Attended" name="name_of_institution_attended" value={f.name_of_institution_attended} onChange={set("name_of_institution_attended")} placeholder="e.g. University of Melbourne" />
+
+        {/* ── English Proficiency ── */}
+        <Section title="English Proficiency" />
+        <Sel label="English Proficiency Test" name="name_of_english_proficiency_test_australia" value={f.name_of_english_proficiency_test_australia} onChange={set("name_of_english_proficiency_test_australia")} options={ENGLISH_TESTS} />
+        <Inp label="What are the results of your English Proficiency Test?" name="what_are_the_results_of_your_english_proficiency_test_" value={f.what_are_the_results_of_your_english_proficiency_test_} onChange={set("what_are_the_results_of_your_english_proficiency_test_")} placeholder="e.g. Overall 6.5, Writing 6.0" />
+        <Inp label="Date you took the test" name="what_date_did_you_take_your_english_proficiency_test_" value={f.what_date_did_you_take_your_english_proficiency_test_} onChange={set("what_date_did_you_take_your_english_proficiency_test_")} type="date" />
+        <Sel label="EAP Required" name="eap_required" value={f.eap_required} onChange={set("eap_required")} options={YES_NO} />
+
+        {/* ── Additional ── */}
+        <Section title="Additional Information" />
+        <Sel label="Do you intend to apply for FEE HELP?" name="do_you_intend_to_apply_for_fee_help_" value={f.do_you_intend_to_apply_for_fee_help_} onChange={set("do_you_intend_to_apply_for_fee_help_")} options={YES_NO} />
+
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="w-full py-3 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+      >
+        {submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Submitting…</> : "Submit Application"}
+      </button>
+    </form>
   )
 }
