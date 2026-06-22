@@ -303,7 +303,6 @@ export default function ApplicationDetailPage() {
                   <DetailRow label="Date of Birth"    value={formatDate(deal.dob)} />
                   <DetailRow label="Passport Number"  value={deal.passport} />
                   <DetailRow label="Student ID"       value={deal.studentId} />
-                  <DetailRow label="Jupiter ID"       value={deal.jupiterId} />
                   <DetailRow label="Deal ID"          value={deal.dealId} />
                 </div>
               )}
