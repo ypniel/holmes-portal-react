@@ -45,8 +45,6 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body || "{}")
     const { sessionToken, ...formData } = body
     form = formData
-
-    // Verify session — accept both agent and student tokens
     try {
       payload = jwt.verify(sessionToken, JWT_SECRET)
     } catch {
@@ -57,32 +55,25 @@ exports.handler = async (event) => {
   }
 
   const isStudent = payload.type === "student" || payload.companyName === "Direct Student"
-  const isAgent = !isStudent
+  const contactId = payload.contactId
 
   try {
-    // ── Step 1: Find or verify contact ─────────────────────────────────────
-    let contactId = payload.contactId
-
-    // contactId comes from JWT session — agent's own contact or student's own contact
-    // Student email is stored as a deal property only (not used for contact lookup)
-
-    // ── Step 2: Build deal name ─────────────────────────────────────────────
+    // ── Build deal name ─────────────────────────────────────────────────────
     const dealName = [
       form.firstname || "", form.lastname || "",
       form.course_name_australia || "",
       new Date().getFullYear(),
     ].filter(Boolean).join(" – ")
 
-    // ── Step 3: Build deal properties ──────────────────────────────────────
+    // ── Build deal properties ───────────────────────────────────────────────
     const dealProps = {
       dealname: dealName,
       pipeline: PIPELINE_ID,
       dealstage: STAGE_ID,
       response_status: "Holmes_Received",
-
-      // Personal
-      firstname: form.firstname || "",
-      lastname: form.lastname || "",
+      // Personal — deal-level property names
+      first_name: form.firstname || "",
+      last_name: form.lastname || "",
       mobile_phone_number: form.mobile_phone_number || "",
       date_of_birth: form.date_of_birth || "",
       street_name: form.street_name || "",
@@ -95,7 +86,6 @@ exports.handler = async (event) => {
       residency_status: form.residency_status || "",
       where_are_you_applying_from: form.where_are_you_applying_from || "",
       do_you_have_a_disability_impairment_or_longterm_medical_conditions_which_may_affect_your_studies_2: form.disability || "",
-
       // Course
       course_name_australia: form.course_name_australia || "",
       campus_australia: form.campus_australia || "",
@@ -103,58 +93,54 @@ exports.handler = async (event) => {
       advanced_standing: form.advanced_standing || "",
       oshc: form.oshc || "",
       wwcc_blue_card_number: form.wwcc_blue_card_number || "",
-
+      ohc_english: form.ohc_english || "",
+      ohcweeks: form.ohcweeks || "",
       // Prior education
       name_of_qualification: form.name_of_qualification || "",
       name_of_institution_attended: form.name_of_institution_attended || "",
-
       // English
       name_of_english_proficiency_test_australia: form.name_of_english_proficiency_test_australia || "",
-      score: form.score || "",
       what_are_the_results_of_your_english_proficiency_test_: form.what_are_the_results_of_your_english_proficiency_test_ || "",
       what_date_did_you_take_your_english_proficiency_test_: form.what_date_did_you_take_your_english_proficiency_test_ || "",
       eap_required: form.eap_required || "",
-
       // Additional
       do_you_intend_to_apply_for_fee_help_: form.do_you_intend_to_apply_for_fee_help_ || "",
-      course_start_date: form.course_start_date || "",
-      course_end_date: form.course_end_date || "",
-      ohc_english: form.ohc_english || "",
-      ohcweeks: form.ohcweeks || "",
     }
 
-    // Agent email — from agent session only
-    if (isAgent) {
+    // Agent email — only for agent submissions
+    if (!isStudent) {
       dealProps.agent_email = payload.email || ""
       dealProps.agent_contact_name = payload.fullName || ""
     }
 
-    // Remove empty strings to avoid overwriting existing HubSpot values with blank
+    // Remove empty values to avoid HubSpot validation errors
     Object.keys(dealProps).forEach(k => {
       if (dealProps[k] === "" || dealProps[k] === null || dealProps[k] === undefined) {
         delete dealProps[k]
       }
     })
-    // Always keep these even if empty
+    // Always keep core fields
     dealProps.dealname = dealName
     dealProps.pipeline = PIPELINE_ID
     dealProps.dealstage = STAGE_ID
     dealProps.response_status = "Holmes_Received"
 
-    // ── Step 4: Create deal ─────────────────────────────────────────────────
+    // ── Create deal ─────────────────────────────────────────────────────────
     const dealRes = await hs("/crm/v3/objects/deals", "POST", { properties: dealProps })
     if (dealRes.status !== 201) {
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "Failed to create deal", detail: dealRes.body }) }
     }
     const dealId = dealRes.body.id
 
-    // ── Step 5: Associate deal with contact ─────────────────────────────────
-    await hs(`/crm/v4/objects/deals/${dealId}/associations/contacts/${contactId}`, "PUT", {
-      associationTypes: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 3 }]
-    })
+    // ── Associate deal with contact (agent or student) ──────────────────────
+    if (contactId) {
+      await hs(`/crm/v4/objects/deals/${dealId}/associations/contacts/${contactId}`, "PUT", {
+        associationTypes: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 3 }]
+      })
+    }
 
-    // ── Step 6: If agent, also associate with agent's company ───────────────
-    if (isAgent && payload.companyId) {
+    // ── Associate deal with agent's company ─────────────────────────────────
+    if (!isStudent && payload.companyId) {
       await hs(`/crm/v4/objects/deals/${dealId}/associations/companies/${payload.companyId}`, "PUT", {
         associationTypes: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 5 }]
       })
