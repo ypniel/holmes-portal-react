@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useLocation } from "react-router-dom"
 import { fetchDeal, fetchNotes, fetchFiles, fetchOwners, createNote } from "../lib/hubspot"
 import { FileText, MessageSquare, Paperclip, Send, LogOut, ExternalLink, Download } from "lucide-react"
 import { formatDate, formatDateTime } from "../lib/utils"
@@ -26,7 +26,8 @@ export default function StudentApplicationPage() {
   const [notes, setNotes] = useState<any[]>([])
   const [files, setFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"info" | "messages" | "documents">("info")
+  const urlTab = new URLSearchParams(location.search).get("tab") as "info" | "messages" | "documents" | null
+  const [activeTab, setActiveTab] = useState<"info" | "messages" | "documents">(urlTab || "info")
   const [comment, setComment] = useState("")
   const [sending, setSending] = useState(false)
   const [dragging, setDragging] = useState(false)
