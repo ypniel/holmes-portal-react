@@ -13,7 +13,6 @@ import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
 type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
 type SortDir  = "asc" | "desc"
 
-const BASE_APP_URL = "https://share.hsforms.com/2SycknjhmRRasYVCAV33Vkwnrkx6"
 
 export default function ApplicationsPage() {
   const navigate = useNavigate()
@@ -39,11 +38,9 @@ export default function ApplicationsPage() {
   const PER_PAGE = 10
 
   const { user } = useAuth()
-  const [formUrl, setFormUrl] = useState(BASE_APP_URL)
 
   useEffect(() => {
     if (!user?.email || isHolmesStaff(user.email)) return
-    setFormUrl(`${BASE_APP_URL}?email=${encodeURIComponent(user.email)}`)
   }, [user])
 
   useEffect(() => {
