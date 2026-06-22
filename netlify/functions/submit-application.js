@@ -59,11 +59,7 @@ exports.handler = async (event) => {
 
   try {
     // ── Build deal name ─────────────────────────────────────────────────────
-    const dealName = [
-      form.firstname || "", form.lastname || "",
-      form.course_name_australia || "",
-      new Date().getFullYear(),
-    ].filter(Boolean).join(" – ")
+    const dealName = `${form.firstname || ""} ${form.lastname || ""}`.trim() || "New Application"
 
     // ── Build deal properties ───────────────────────────────────────────────
     const dealProps = {
