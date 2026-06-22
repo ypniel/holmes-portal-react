@@ -22,9 +22,9 @@ export default function StudentLoginPage() {
         body: JSON.stringify({ action: "send", email: cleanEmail }),
       })
       const data = await res.json()
-      if (!data.otpToken) {
+      if (data.notFound || !data.otpToken) {
         setStatus("idle")
-        setError("No student account found for this email. Please check and try again.")
+        setError("No student account found for this email. Please create a contact in HubSpot first.")
         return
       }
       setOtpToken(data.otpToken)
