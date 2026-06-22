@@ -16,7 +16,7 @@ export default function StudentLoginPage() {
     setStatus("sending")
     setError("")
     try {
-      const res = await fetch("/.netlify/functions/agent-otp", {
+      const res = await fetch("/.netlify/functions/student-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "send", email: cleanEmail }),
@@ -40,7 +40,7 @@ export default function StudentLoginPage() {
     setStatus("verifying")
     setError("")
     try {
-      const res = await fetch("/.netlify/functions/agent-otp", {
+      const res = await fetch("/.netlify/functions/student-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "verify", email: email.trim().toLowerCase(), code: otpCode.trim(), otpToken }),
