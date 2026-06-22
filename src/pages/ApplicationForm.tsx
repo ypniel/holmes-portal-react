@@ -244,8 +244,10 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         setSubmitting(false)
         return
       }
-      setDealId(data.dealId)
       onSuccess?.(data.dealId)
+      // Navigate straight to documents tab
+      const path = mode === "agent" ? `/applications/${data.dealId}?tab=documents` : `/student/application/${data.dealId}?tab=documents`
+      window.location.href = path
     } catch {
       setError("Something went wrong. Please try again.")
       setSubmitting(false)
