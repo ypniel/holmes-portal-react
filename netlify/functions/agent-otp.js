@@ -192,6 +192,16 @@ exports.handler = async (event) => {
     const lastName = contact?.properties?.lastname || ""
     const fullName = `${firstName} ${lastName}`.trim() || email.split("@")[0]
 
+    // Block login if not Holmes staff and no company associated
+    const isStaff = payload.companyId === "54761935237" || payload.companyName === "Holmes Institute Australia"
+    if (!isStaff && !payload.companyId) {
+      return {
+        statusCode: 403,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: "No agency is linked to this account. Please contact Holmes admissions." }),
+      }
+    }
+
     // Generate session token
     const sessionToken = jwt.sign(
       { email, contactId: payload.contactId, companyId: payload.companyId, companyName: payload.companyName, fullName },
