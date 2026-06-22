@@ -63,6 +63,11 @@ export default function AgentLoginPage() {
         body: JSON.stringify({ action: "send", email: otpEmail.trim().toLowerCase() }),
       })
       const data = await res.json()
+      if (data.notFound) {
+        setOtpStatus("idle")
+        setOtpError("No account found for this email. Please contact Holmes admissions.")
+        return
+      }
       if (data.otpToken) setOtpToken(data.otpToken)
       setOtpStatus("sent")
     } catch {
