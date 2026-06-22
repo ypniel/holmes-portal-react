@@ -4,9 +4,9 @@ import { ArrowRight, X, Building2, GraduationCap, Settings, ShieldCheck } from "
 import { useAuth } from "../lib/auth"
 
 const MARKETERS = [
-  { name: "Indra Adhikari",   title: "Victoria Representative",        email: "iadhikari@holmes.edu.au" },
-  { name: "Dinesh Chetwani",  title: "Queensland Representative",       email: "dchetwani@holmes.edu.au" },
-  { name: "Don Kauffman",     title: "New South Wales Representative",  email: "dkauffman@holmes.edu.au" },
+  { name: "Indra Adhikari",   title: "Victoria Representative",       email: "iadhikari@holmes.edu.au", phone: "0414 813 163" },
+  { name: "Dinesh Chetwani",  title: "Queensland Representative",      email: "dchetwani@holmes.edu.au", phone: "0449 536 879" },
+  { name: "Don Kauffman",     title: "New South Wales Representative", email: "dkauffman@holmes.edu.au", phone: "0450 224 845" },
 ]
 
 export default function LoginPage() {
@@ -146,6 +146,7 @@ export default function LoginPage() {
                     <p className="font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
                     <p className="text-xs text-gray-500">{m.title}</p>
                     <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
+                    {m.phone && <p className="text-xs text-gray-500 mt-0.5">📞 {m.phone}</p>}
                   </div>
                   <span className="text-lg">✉️</span>
                 </a>
