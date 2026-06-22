@@ -95,8 +95,8 @@ exports.handler = async (event) => {
     })
     const contact = contactRes.results?.[0]
 
-    // Always return success (don't reveal if email exists)
-    if (!contact) return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: true }) }
+    // No contact found — tell them clearly
+    if (!contact) return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ ok: true, notFound: true }) }
 
     const firstName = contact.properties?.firstname || ""
 
