@@ -42,8 +42,10 @@ const COURSES = [
 const CAMPUSES = ["Melbourne", "Sydney", "Brisbane", "Gold Coast"]
 
 const INTAKES = [
+  { value: "March_2026_23_03_2026", label: "March 2026 (23/03/2026)" },
+  { value: "May 2026", label: "May 2026" },
   { value: "July_2026_20_07_2026", label: "July 2026 (20/07/2026)" },
-  { value: "September 2026", label: "September 2026 (07/09/2026)" },
+  { value: "September 2026", label: "September 2026" },
   { value: "November_2026_09_11_2026", label: "November 2026 (09/11/2026)" },
 ]
 
@@ -305,15 +307,11 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         <Inp label="USI Number" name="usi_number" value={f.usi_number} onChange={set("usi_number")} placeholder="10-character alphanumeric (e.g. AB12CD34EF)" />
         <Inp label="Passport Number" name="passport_number" value={f.passport_number} onChange={set("passport_number")} placeholder="Passport number" />
         <Sel label="Residency Status" name="residency_status" value={f.residency_status} onChange={set("residency_status")} options={RESIDENCY_STATUSES} />
-        <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[{ value: "Onshore", label: "Onshore" }, { value: "Offshore", label: "Offshore" }]} />
+        <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[{ value: "Onshore", label: "Onshore" }, { value: "Offshore", label: "Offshore" }, { value: "Non Visa Required", label: "Non Visa Required" }]} />
         <Sel label="Do you have a disability or long-term medical condition?" name="disability" value={f.disability} onChange={set("disability")} options={YES_NO} />
 
         {/* ── Course ── */}
         <Section title="Course Details" />
-        <div className="col-span-full bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-800 leading-relaxed">
-          <p className="font-semibold mb-0.5">ℹ️ Please note</p>
-          <p>Course start date, end date, tuition fees, scholarship and total cost will be updated once the case has been assessed. Please allow 24–72 hours.</p>
-        </div>
         <div className="col-span-full">
           <Sel label="Course Name (Australia)" name="course_name_australia" value={f.course_name_australia} onChange={set("course_name_australia")} options={COURSES} required />
         </div>
@@ -358,6 +356,42 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
       >
         {submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Submitting…</> : "Submit Application"}
       </button>
+
+      {/* ── Document Upload ── */}
+      <div className="mt-2">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex-1 h-px bg-stone-200" />
+          <span className="text-xs text-stone-400 uppercase tracking-wider">Supporting Documents</span>
+          <div className="flex-1 h-px bg-stone-200" />
+        </div>
+        {!dealId ? (
+          <div className="border-2 border-dashed border-stone-200 rounded-xl p-8 text-center bg-stone-50">
+            <div className="w-12 h-12 rounded-full bg-white border border-stone-200 flex items-center justify-center mx-auto mb-3">
+              <Paperclip className="h-5 w-5 text-stone-300" />
+            </div>
+            <p className="text-sm font-medium text-stone-500 mb-1">Upload supporting documents</p>
+            <p className="text-xs text-stone-400 mb-4 leading-relaxed">Passport, transcripts, English test results and more.<br />Available after you submit the application above.</p>
+            <div className="inline-flex items-center gap-1.5 bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs text-stone-400">
+              🔒 Submit application to unlock
+            </div>
+          </div>
+        ) : (
+          <div className="border-2 border-dashed border-red-200 rounded-xl p-8 text-center bg-red-50">
+            <div className="w-12 h-12 rounded-full bg-white border border-red-200 flex items-center justify-center mx-auto mb-3">
+              <Paperclip className="h-5 w-5 text-red-400" />
+            </div>
+            <p className="text-sm font-medium text-red-700 mb-1">Application submitted!</p>
+            <p className="text-xs text-red-500 mb-4 leading-relaxed">Upload passport, transcripts, English test results and more<br />in the Documents tab of your application.</p>
+            <button
+              type="button"
+              onClick={() => { window.location.href = mode === "agent" ? `/applications/${dealId}` : `/student/application/${dealId}` }}
+              className="inline-flex items-center gap-1.5 bg-red-700 hover:bg-red-800 text-white rounded-lg px-4 py-2 text-xs font-medium transition-colors"
+            >
+              Go to Documents tab →
+            </button>
+          </div>
+        )}
+      </div>
     </form>
   )
 }
