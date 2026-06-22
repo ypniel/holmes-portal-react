@@ -130,15 +130,15 @@ exports.handler = async (event) => {
 
     // ── Associate deal with contact (agent or student) ──────────────────────
     if (contactId) {
-      await hs(`/crm/v4/objects/deals/${dealId}/associations/contacts/${contactId}`, "PUT", {
-        associationTypes: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 3 }]
+      await hs("/crm/v3/associations/deals/contacts/batch/create", "POST", {
+        inputs: [{ from: { id: String(dealId) }, to: { id: String(contactId) }, type: "deal_to_contact" }]
       })
     }
 
     // ── Associate deal with agent's company ─────────────────────────────────
     if (!isStudent && payload.companyId) {
-      await hs(`/crm/v4/objects/deals/${dealId}/associations/companies/${payload.companyId}`, "PUT", {
-        associationTypes: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 5 }]
+      await hs("/crm/v3/associations/deals/companies/batch/create", "POST", {
+        inputs: [{ from: { id: String(dealId) }, to: { id: String(payload.companyId) }, type: "deal_to_company" }]
       })
     }
 
