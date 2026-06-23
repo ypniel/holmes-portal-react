@@ -96,6 +96,8 @@ exports.handler = async (event) => {
       last_name: form.lastname || "",
       mobile_phone_number: form.mobile_phone_number || "",
       date_of_birth: form.date_of_birth || "",
+      email: form.student_email || "",
+      city: form.city || "",
       street_name: form.street_name || "",
       state: form.state || "",
       post_code: form.post_code || "",
