@@ -2,22 +2,6 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft, Loader2, ChevronDown } from "lucide-react"
 
-const NATIONALITIES = [
-  "Afghan","Albanian","Algerian","American","Argentine","Armenian","Australian","Austrian",
-  "Azerbaijani","Bahamian","Bahraini","Bangladeshi","Belgian","Bolivian","Bosnian","Brazilian",
-  "British","Bruneian","Bulgarian","Cambodian","Cameroonian","Canadian","Chilean","Chinese",
-  "Chinese (HK)","Colombian","Croatian","Cuban","Czech","Danish","Egyptian","Eritrean",
-  "Ethiopian","Filipino","Finnish","French","German","Ghanaian","Greek","Guatemalan",
-  "Honduran","Hong Kong","Hungarian","Indian","Indonesian","Iranian","Iraqi","Irish",
-  "Israeli","Italian","Jamaican","Japanese","Jordanian","Kenyan","Korean","Kuwaiti","Laotian",
-  "Latvian","Lebanese","Libyan","Lithuanian","Malaysian","Maldivian","Maltese","Mauritian",
-  "Mexican","Moldovan","Mongolian","Moroccan","Mozambican","Namibian","Nepalese",
-  "New Zealander","Nigerian","Norwegian","Omani","Pakistani","Peruvian","Polish","Portuguese",
-  "Qatari","Romanian","Russian","Saudi","Senegalese","Serbian","Singaporean","South African",
-  "Spanish","Sri Lankan","Sudanese","Swedish","Swiss","Syrian","Taiwanese","Tanzanian",
-  "Thai","Trinidadian","Tunisian","Turkish","Ukrainian","Uruguayan","Venezuelan","Vietnamese",
-  "Yemeni","Zambian","Zimbabwean","Other"
-]
 
 export default function StudentRegisterPage() {
   const navigate = useNavigate()
@@ -28,14 +12,15 @@ export default function StudentRegisterPage() {
     lastname: "",
     email: "",
     date_of_birth: "",
-    passport_number: "",
-    nationality: "",
-    phone: "",
+    phone: localStorage.getItem("holmes_reg_phone") || "",
     applying_for: "Australia",
   })
 
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setF(prev => ({ ...prev, [k]: e.target.value }))
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const v = e.target.value
+    if (k === "phone") localStorage.setItem("holmes_reg_phone", v)
+    setF(prev => ({ ...prev, [k]: v }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -118,25 +103,6 @@ export default function StudentRegisterPage() {
               <label className="block text-xs font-medium text-gray-600 mb-1">Date of Birth <span className="text-red-500">*</span></label>
               <input type="date" value={f.date_of_birth} onChange={set("date_of_birth")} required
                 className="w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Passport Number <span className="text-red-500">*</span></label>
-              <input type="text" value={f.passport_number} onChange={set("passport_number")} required
-                placeholder="Passport number"
-                className="w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Nationality <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <select value={f.nationality} onChange={set("nationality")} required
-                  className="w-full appearance-none px-3 py-2.5 pr-8 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500">
-                  <option value="">Select nationality…</option>
-                  {NATIONALITIES.map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-              </div>
             </div>
 
             <div>
