@@ -23,7 +23,6 @@ const COURSES = [
   "Bachelor of Aviation (Management)",
   "Bachelor of Business (3 Years)",
   "Bachelor of Business – Hospitality Management Specialisation (3 Years)",
-  "Bachelor of Fashion and Business (2 Years)",
   "Bachelor of Information Systems (3 Years)",
   "Diploma of Business Management with Bachelor of Business (3 Years)",
   "Single Unit Study – Undergraduate",
