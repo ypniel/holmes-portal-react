@@ -219,7 +219,12 @@ export default function StudentApplicationPage() {
 
           {/* Info tab */}
           {activeTab === "info" && (
-            <div className="grid sm:grid-cols-2 gap-x-8">
+            <div>
+              <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-800 leading-relaxed">
+                <p className="font-semibold mb-0.5">ℹ️ Please note</p>
+                <p>Course start date, end date, tuition fees, scholarship and total cost will be updated once the case has been assessed. Please allow 24–72 hours.</p>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-x-8">
               {[
                 ["Course", deal.courseName],
                 ["Campus", deal.campus],
@@ -239,6 +244,7 @@ export default function StudentApplicationPage() {
                   <p className="text-sm text-gray-800 mt-0.5">{value}</p>
                 </div>
               ) : null)}
+              </div>
             </div>
           )}
 
