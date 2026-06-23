@@ -45,9 +45,9 @@ function useLiveStatus() {
 }
 
 const MARKETERS = [
-  { name: "Indra Adhikari",  title: "Victoria Representative",       email: "iadhikari@holmes.edu.au" },
-  { name: "Dinesh Chetwani", title: "Queensland Representative",      email: "dchetwani@holmes.edu.au" },
-  { name: "Don Kauffman",    title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
+  { name: "Indra Adhikari",  title: "Victoria Representative",       email: "iadhikari@holmes.edu.au", phone: "0414 813 163" },
+  { name: "Dinesh Chetwani", title: "Queensland Representative",      email: "dchetwani@holmes.edu.au", phone: "0449 536 879" },
+  { name: "Don Kauffman",    title: "New South Wales Representative", email: "dkauffman@holmes.edu.au", phone: "0450 224 845" },
 ]
 
 const TEAMS = [
