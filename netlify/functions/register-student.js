@@ -79,11 +79,11 @@ exports.handler = async (event) => {
         email,
         firstname,
         lastname: lastname || "",
-        date_of_birth: form.date_of_birth || "",
-        passport_number: form.passport_number || "",
-        nationality: form.nationality || "",
         phone: form.phone || "",
-        country_the_applicant_is_applying_for: form.applying_for || "",
+        // Custom contact properties
+        ...(form.date_of_birth && { date_of_birth: form.date_of_birth }),
+        ...(form.nationality && { nationality: form.nationality }),
+        ...(form.applying_for && { country_the_applicant_is_applying_for: form.applying_for }),
       }
     })
 
