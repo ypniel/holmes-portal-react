@@ -167,13 +167,10 @@ export default function HomePage() {
             <h2 className="text-lg font-semibold mb-5">Quick Actions</h2>
             <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
               <button onClick={() => navigate("/applications/new")}
-                className="bg-white rounded-lg p-4 flex items-start gap-3 hover:bg-red-50 transition-colors text-left"
+                className="bg-white rounded-lg p-4 flex items-center gap-3 hover:bg-red-50 transition-colors text-left"
               >
-                <div className="w-8 h-8 bg-red-50 rounded-full flex items-center justify-center text-red-700 flex-shrink-0">➕</div>
-                <div>
-                  <div className="font-semibold text-sm text-red-700">New Application</div>
-                  <div className="text-xs text-red-400 mt-1 font-medium">Australia pipeline</div>
-                </div>
+                <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center text-red-700 flex-shrink-0 text-lg">➕</div>
+                <div className="font-bold text-base text-red-700">New Application</div>
               </button>
               <button onClick={() => navigate("/applications")}
                 className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
@@ -351,6 +348,7 @@ export default function HomePage() {
                     <p className="font-semibold text-sm text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
                     <p className="text-xs text-gray-500">{m.title}</p>
                     <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
+                    {m.phone && <p className="text-xs text-gray-500 mt-0.5">📞 {m.phone}</p>}
                   </div>
                 </a>
               ))}
