@@ -24,7 +24,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 overflow-x-hidden">
       <Header />
-      <main className="flex-1 pt-16 pb-12 min-w-0 overflow-x-hidden">{children}</main>
+      <main className="flex-1 pb-12 min-w-0 overflow-x-hidden">{children}</main>
       <Footer />
     </div>
   )
