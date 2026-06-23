@@ -286,9 +286,10 @@ export default function ApplicationDetailPage() {
                   <DetailRow label="Intake"            value={formatIntake(deal.intake)} />
                   <DetailRow label="Start Date"        value={formatDate(deal.courseStart)} />
                   <DetailRow label="End Date"          value={formatDate(deal.courseEnd)} />
-                  <DetailRow label="OSHC"              value={deal.oshc} />
-                  <DetailRow label="EAP"               value={deal.eap} />
+                  <DetailRow label="Do you require OSHC from us?" value={deal.oshc} />
+                  <DetailRow label="English course prior to starting" value={deal.ohcEnglish} />
                   <DetailRow label="Advanced Standing" value={deal.advancedStanding} />
+                  {deal.wwcc && <DetailRow label="WWCC / Blue Card Number" value={deal.wwcc} />}
                   <DetailRow label="English Proficiency Test" value={deal.englishTestType} />
                   <DetailRow label="English Proficiency Results" value={deal.englishScore} />
                   <DetailRow label="English Test Date"   value={deal.englishTestDate} />
@@ -303,13 +304,19 @@ export default function ApplicationDetailPage() {
               {/* ── Student ── */}
               {activeTab === "student" && (
                 <div className="grid md:grid-cols-2 gap-x-8">
-                  <DetailRow label="Student Name"     value={deal.studentName} />
-                  <DetailRow label="Country"          value={deal.nationality} />
-                  <DetailRow label="Residency Status" value={deal.residencyStatus} />
-                  <DetailRow label="Date of Birth"    value={formatDate(deal.dob)} />
-                  <DetailRow label="Passport Number"  value={deal.passport} />
-                  <DetailRow label="Student ID"       value={deal.studentId} />
-                  <DetailRow label="Deal ID"          value={deal.dealId} />
+                  <DetailRow label="Student Name"      value={deal.studentName} />
+                  <DetailRow label="Email"             value={deal.studentEmail} />
+                  <DetailRow label="Phone"             value={deal.studentPhone} />
+                  <DetailRow label="Street"            value={deal.streetName} />
+                  <DetailRow label="City"              value={deal.city} />
+                  <DetailRow label="Postcode"          value={deal.postCode} />
+                  <DetailRow label="Country"           value={deal.nationality} />
+                  <DetailRow label="Residency Status"  value={deal.residencyStatus} />
+                  <DetailRow label="Date of Birth"     value={formatDate(deal.dob)} />
+                  <DetailRow label="Passport Number"   value={deal.passport} />
+                  <DetailRow label="WWCC / Blue Card"  value={deal.wwcc} />
+                  <DetailRow label="Student ID"        value={deal.studentId} />
+                  <DetailRow label="Deal ID"           value={deal.dealId} />
                 </div>
               )}
 
