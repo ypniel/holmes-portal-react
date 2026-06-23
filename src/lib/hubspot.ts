@@ -49,6 +49,7 @@ export const DEAL_PROPS = [
   "agent_email","agent_company_name","agent_mobile_number","agent_contact_name",
   "contact_person_name","name",
   "student_id","jupiter_id","hs_object_id",
+  "ohc_english","wwcc_blue_card_number","email","mobile_phone_number","street_name","city","post_code",
 ]
 
 // ── Pipeline Stage Map ────────────────────────────────────────────────────────
@@ -500,6 +501,13 @@ function mapDeal(raw: any): Deal {
     studentId: g("student_id"),
     jupiterId: g("jupiter_id"),
     dealId: raw.id,
+    ohcEnglish: g("ohc_english"),
+    wwcc: g("wwcc_blue_card_number"),
+    studentEmail: g("email"),
+    studentPhone: g("mobile_phone_number"),
+    streetName: g("street_name"),
+    city: g("city"),
+    postCode: g("post_code"),
   }
 }
 
@@ -513,6 +521,8 @@ export interface Deal {
   dob: string; passport: string; agentCompany: string; agentEmail: string
   agentPhone: string; agentContact: string; branchOffice: string
   studentId: string; jupiterId: string; dealId: string
+  ohcEnglish: string; wwcc: string; studentEmail: string; studentPhone: string
+  streetName: string; city: string; postCode: string
 }
 export interface Note { id: string; body: string; createdAt: string; ownerId: string; author?: string; type?: "note" | "email" }
 export interface FileItem { name: string; id: string; url?: string; createdAt?: number }
