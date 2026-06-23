@@ -1,6 +1,6 @@
 import React from "react"
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import { AuthProvider, useAuth } from "./lib/auth"
+import { AuthProvider, useAuth, isHolmesStaff } from "./lib/auth"
 import { Layout } from "./components/Layout"
 import AdminPage from "./pages/AdminPage"
 import LoginPage from "./pages/LoginPage"
@@ -17,6 +17,13 @@ import { NavigationProgress } from "./components/NavigationProgress"
 import AgentLoginPage from "./pages/AgentLoginPage"
 import StaffLoginPage from "./pages/StaffLoginPage"
 import SetPasswordPage from "./pages/SetPasswordPage"
+
+
+function StaffGuard({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  if (user && isHolmesStaff(user.email)) return <Navigate to="/applications" replace />
+  return <>{children}</>
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
@@ -46,7 +53,7 @@ function AppRoutes() {
       <Route path="/student/application/:id" element={<StudentApplicationPage />} />
       <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       <Route path="/applications" element={<ProtectedRoute><ApplicationsPage /></ProtectedRoute>} />
-      <Route path="/applications/new" element={<ProtectedRoute>{user && isHolmesStaff(user.email) ? <Navigate to="/applications" replace /> : <NewApplicationPage />}</ProtectedRoute>} />
+      <Route path="/applications/new" element={<ProtectedRoute><StaffGuard><NewApplicationPage /></StaffGuard></ProtectedRoute>} />
       <Route path="/applications/:id" element={<ProtectedRoute><ApplicationDetailPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="*" element={<ProtectedRoute><NotFoundPage /></ProtectedRoute>} />
