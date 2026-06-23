@@ -1,6 +1,6 @@
 // ─── HubSpot API Client ───────────────────────────────────────────────────────
 // All HubSpot API calls go through the Netlify function proxy — no tokens in the frontend
-const PIPELINE_ID = (import.meta as any).env.VITE_PIPELINE_ID || ""
+const PIPELINE_ID = "789344406"
 
 export const BADGE_CLASSES: Record<string, string> = {
   blue:    "bg-blue-100 text-blue-700 border-blue-200",
