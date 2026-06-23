@@ -115,6 +115,12 @@ exports.handler = async (event) => {
       do_you_intend_to_apply_for_fee_help_: form.do_you_intend_to_apply_for_fee_help_ || "",
     }
 
+    // File uploads — URLs from pre-submission upload
+    for (let i = 1; i <= 10; i++) {
+      const key = "file_upload_" + i
+      if (form[key]) dealProps[key] = form[key]
+    }
+
     // Agent email — only for agent submissions
     if (!isStudent) {
       dealProps.agent_email = payload.email || ""
@@ -151,6 +157,20 @@ exports.handler = async (event) => {
     if (!isStudent && payload.companyId) {
       await hs("/crm/v3/associations/deals/companies/batch/create", "POST", {
         inputs: [{ from: { id: String(dealId) }, to: { id: String(payload.companyId) }, type: "deal_to_company" }]
+      })
+    }
+
+    // ── Attach pre-uploaded files to deal via engagement notes ─────────────
+    const uploadedFiles = form.uploadedFiles || []
+    if (uploadedFiles.length > 0) {
+      // One engagement note with all file attachments
+      const attachments = uploadedFiles.map(f => ({ id: parseInt(f.fileId) }))
+      const fileNames = uploadedFiles.map(f => f.fileName).join(", ")
+      await hs("/engagements/v1/engagements", "POST", {
+        engagement: { active: true, type: "NOTE", timestamp: Date.now() },
+        associations: { dealIds: [parseInt(dealId)] },
+        attachments,
+        metadata: { body: "📎 Documents uploaded via portal: " + fileNames }
       })
     }
 
