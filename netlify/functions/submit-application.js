@@ -57,6 +57,18 @@ exports.handler = async (event) => {
   const isStudent = payload.type === "student" || payload.companyName === "Direct Student"
   const contactId = payload.contactId
 
+  // ── Block Holmes staff from submitting applications ─────────────────────
+  const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
+  const emailDomain = (payload.email || "").split("@")[1]?.toLowerCase() || ""
+  const isStaff = HOLMES_DOMAINS.some(d => emailDomain === d)
+  if (isStaff) {
+    return {
+      statusCode: 403,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: "Holmes staff cannot submit applications. View-only access." })
+    }
+  }
+
   try {
     // ── Block direct students from lodging more than one application ───────
     if (isStudent && contactId) {
