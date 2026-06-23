@@ -23,11 +23,9 @@ const COURSES = [
   "Bachelor of Aviation (Management)",
   "Bachelor of Business (3 Years)",
   "Bachelor of Business – Hospitality Management Specialisation (3 Years)",
-  "Bachelor of Fashion and Business (2 Years)",
   "Bachelor of Information Systems (3 Years)",
   "Diploma of Business Management with Bachelor of Business (3 Years)",
   "Single Unit Study – Undergraduate",
-  "Undergraduate Certificate of Fashion Business",
   "Graduate Diploma in Business with MBA with MPA (2 Years)",
   "Graduate Diploma of Early Childhood",
   "Graduate Diploma of Early Childhood with Master of Teaching",
@@ -58,7 +56,7 @@ const ENGLISH_TESTS = [
   { value: "TOEFL", label: "TOEFL" },
   { value: "Cambridge_English_qualification", label: "Cambridge English Qualification" },
   { value: "Australian_Studies_High_School_Diploma_Above", label: "Australian High School / Diploma or Higher" },
-  { value: "Holmes_Pass_Rate_50", label: "Holmes 50% Pass Rate (Recent Semester)" },
+  { value: "Holmes_Pass_Rate_50", label: "50% Pass Rate (Recent Semester)" },
   { value: "English_Placement_Test_Request", label: "Request English Placement Test" },
 ]
 
@@ -479,7 +477,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         <Sel label="Campus (Australia)" name="campus_australia" value={f.campus_australia} onChange={set("campus_australia")} options={CAMPUSES} required />
         <Sel label="Intake (Australia)" name="intake_australia" value={f.intake_australia} onChange={set("intake_australia")} options={INTAKES} required />
         <Sel label="Advanced Standing" name="advanced_standing" value={f.advanced_standing} onChange={set("advanced_standing")} options={YES_NO} required />
-        <Sel label="OSHC" name="oshc" value={f.oshc} onChange={set("oshc")} options={YES_NO} />
+        <Sel label="Do you require OSHC from us?" name="oshc" value={f.oshc} onChange={set("oshc")} options={YES_NO} />
         {showWWCC && (
           <div className="col-span-full">
             <Inp label="WWCC / Blue Card Number" name="wwcc_blue_card_number" value={f.wwcc_blue_card_number} onChange={set("wwcc_blue_card_number")} required placeholder="Card number" />
@@ -493,9 +491,13 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
 
         {/* ── English Proficiency ── */}
         <Section title="English Proficiency" />
-        <Sel label="English Proficiency Test" name="name_of_english_proficiency_test_australia" value={f.name_of_english_proficiency_test_australia} onChange={set("name_of_english_proficiency_test_australia")} options={ENGLISH_TESTS} />
-        <Inp label="Results of English Proficiency Test" name="what_are_the_results_of_your_english_proficiency_test_" value={f.what_are_the_results_of_your_english_proficiency_test_} onChange={set("what_are_the_results_of_your_english_proficiency_test_")} placeholder="e.g. Overall 6.5, Writing 6.0" />
-        <Inp label="Date you took the test" name="what_date_did_you_take_your_english_proficiency_test_" value={f.what_date_did_you_take_your_english_proficiency_test_} onChange={set("what_date_did_you_take_your_english_proficiency_test_")} type="date" />
+        <Sel label="English Proficiency Test" name="name_of_english_proficiency_test_australia" value={f.name_of_english_proficiency_test_australia} onChange={set("name_of_english_proficiency_test_australia")} options={ENGLISH_TESTS} required />
+        {!hideResults && (
+          <Inp label="Results of English Proficiency Test" name="what_are_the_results_of_your_english_proficiency_test_" value={f.what_are_the_results_of_your_english_proficiency_test_} onChange={set("what_are_the_results_of_your_english_proficiency_test_")} required={resultsRequired} placeholder="e.g. Overall 6.5, Writing 6.0" />
+        )}
+        {!hideDate && (
+          <Inp label="Date you took the test" name="what_date_did_you_take_your_english_proficiency_test_" value={f.what_date_did_you_take_your_english_proficiency_test_} onChange={set("what_date_did_you_take_your_english_proficiency_test_")} required={dateRequired} type="date" />
+        )}
         <div className="col-span-full">
           <Sel label="Do you require English course prior to starting?" name="ohc_english" value={f.ohc_english} onChange={set("ohc_english")} options={YES_NO} />
         </div>
