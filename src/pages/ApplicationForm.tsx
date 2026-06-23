@@ -382,6 +382,14 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   const showWWCC = WWCC_COURSES.includes(f.course_name_australia)
   const showOHCWeeks = f.ohc_english === "Yes"
 
+  const englishTest = f.name_of_english_proficiency_test_australia
+  const hideResults = englishTest === "Australian_Studies_High_School_Diploma_Above"
+                   || englishTest === "Holmes_Pass_Rate_50"
+                   || englishTest === "English_Placement_Test_Request"
+  const hideDate    = englishTest === "English_Placement_Test_Request"
+  const resultsRequired = !hideResults && englishTest !== "" && englishTest !== "English_Placement_Test_Request"
+  const dateRequired    = !hideDate && englishTest !== "" && englishTest !== "English_Placement_Test_Request"
+
   const handleSuburbSelect = (r: { suburb: string; state: string; postcode: string }) => {
     setF(prev => ({ ...prev, city: r.suburb, state: r.state, post_code: r.postcode, country: "Australia" }))
   }
