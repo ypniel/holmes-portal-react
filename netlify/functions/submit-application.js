@@ -106,6 +106,7 @@ exports.handler = async (event) => {
       usi_number: form.usi_number || "",
       passport_number: form.passport_number || "",
       residency_status: form.residency_status || "",
+      residency_status_australia: form.residency_status || "",
       where_are_you_applying_from: form.where_are_you_applying_from || "",
       do_you_have_a_disability_impairment_or_longterm_medical_conditions_which_may_affect_your_studies_2: form.disability || "",
       // Course
