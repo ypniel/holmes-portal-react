@@ -129,6 +129,7 @@ exports.handler = async (event) => {
       advanced_standing: form.advanced_standing || "",
       oshc: form.oshc || "",
       wwcc_blue_card_number: form.wwcc_blue_card_number || "",
+      placement_type: form.placement_type || "",
       ohc_english: form.ohc_english || "",
       ohcweeks: form.ohcweeks || "",
       // Prior education
