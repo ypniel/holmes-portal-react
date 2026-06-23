@@ -3,7 +3,7 @@ const https = require("https")
 
 const JWT_SECRET = process.env.JWT_SECRET
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN
-const PIPELINE_ID = process.env.VITE_PIPELINE_ID || "789344406"
+const PIPELINE_ID = "789344406"
 const STAGE_ID = "1155257364" // New Application Received
 
 const corsHeaders = {
