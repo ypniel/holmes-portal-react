@@ -82,6 +82,20 @@ exports.handler = async (event) => {
       }
     }
 
+
+    // ── Normalise residency status to match new enumeration values ──────────
+    const RESIDENCY_MAP = {
+      "currently have an international student visa": "Currently have an international student Visa",
+      "none - currently residing outside australia":  "None - Currently residing outside Australia",
+      "currently have a non-student temporary visa":  "Currently have a non-student temporary Visa (Work, Tourist, or Spouse Visa)",
+      "australian citizen":  "Australian Citizen",
+      "humanitarian visa":   "Humanitarian Visa",
+      "new zealand citizen": "New Zealand Citizen",
+      "permanent visa":      "Permanent Visa",
+    }
+    const rawResidency = form.residency_status || ""
+    const normResidency = RESIDENCY_MAP[rawResidency.toLowerCase()] || rawResidency
+
     // ── Build deal name ─────────────────────────────────────────────────────
     const dealName = `${form.firstname || ""} ${form.lastname || ""}`.trim() || "New Application"
 
@@ -105,8 +119,7 @@ exports.handler = async (event) => {
       nationality: form.nationality || "",
       usi_number: form.usi_number || "",
       passport_number: form.passport_number || "",
-      residency_status: form.residency_status || "",
-      residency_status_australia: form.residency_status || "",
+      residency_status_australia: normResidency,
       where_are_you_applying_from: form.where_are_you_applying_from || "",
       do_you_have_a_disability_impairment_or_longterm_medical_conditions_which_may_affect_your_studies_2: form.disability || "",
       // Course
