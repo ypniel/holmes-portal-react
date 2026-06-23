@@ -13,6 +13,21 @@ export default function StudentApplyPage() {
     const parsed = JSON.parse(raw)
     if (!parsed.sessionToken) { navigate("/student", { replace: true }); return }
     if (parsed.dealId) { navigate(`/student/application/${parsed.dealId}`, { replace: true }); return }
+
+    // Check HubSpot for existing deal via contact associations
+    if (parsed.contactId) {
+      try {
+        const res = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${parsed.contactId}/associations/deals`)}`)
+        const data = await res.json()
+        if (data.results?.length > 0) {
+          const existingDealId = String(data.results[0].toObjectId)
+          sessionStorage.setItem("holmes_student", JSON.stringify({ ...parsed, dealId: existingDealId }))
+          navigate(`/student/application/${existingDealId}`, { replace: true })
+          return
+        }
+      } catch {}
+    }
+
     setSession({ email: parsed.email, fullName: parsed.fullName, sessionToken: parsed.sessionToken })
   }, [navigate])
 
