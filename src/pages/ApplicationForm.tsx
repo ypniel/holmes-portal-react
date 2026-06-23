@@ -366,6 +366,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
     advanced_standing: "",
     oshc: "",
     wwcc_blue_card_number: "",
+    placement_type: "",
     name_of_qualification: "",
     name_of_institution_attended: "",
     name_of_english_proficiency_test_australia: "",
@@ -380,6 +381,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
 
   // ── Derived logic flags ───────────────────────────────────────────────────
   const showWWCC = WWCC_COURSES.includes(f.course_name_australia)
+  const showPlacementType = WWCC_COURSES.includes(f.course_name_australia)
   const showOHCWeeks = f.ohc_english === "Yes"
 
   const englishTest = f.name_of_english_proficiency_test_australia
@@ -489,6 +491,14 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         {showWWCC && (
           <div className="col-span-full">
             <Inp label="WWCC / Blue Card Number" name="wwcc_blue_card_number" value={f.wwcc_blue_card_number} onChange={set("wwcc_blue_card_number")} required placeholder="Card number" />
+          </div>
+        )}
+        {showPlacementType && (
+          <div className="col-span-full">
+            <Sel label="Placement Type" name="placement_type" value={f.placement_type} onChange={set("placement_type")} required options={[
+              { value: "Holmes_Institute_Placement", label: "Holmes Institute Placement" },
+              { value: "Self-Placement_Only_for_Early_Childhood_Teaching_Applicant", label: "Self-Placement (Only for Early Childhood/Teaching Applicant)" },
+            ]} />
           </div>
         )}
 
