@@ -1,544 +1,441 @@
-import React, { useState, useRef, useEffect, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
-import { Loader2, Paperclip, ChevronDown, AlertCircle, Search } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { useNavigate, useParams, useLocation } from "react-router-dom"
+import { fetchDeal, fetchNotes, fetchFiles, fetchOwners, createNote } from "../lib/hubspot"
+import { FileText, MessageSquare, Paperclip, Send, LogOut, ExternalLink, Download } from "lucide-react"
+import { formatDate, formatDateTime } from "../lib/utils"
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-interface Props {
-  mode: "agent" | "student"
-  sessionToken: string
-  prefillEmail: string
-  prefillName?: string
-  onSuccess?: (dealId: string) => void
+const MARKETERS = [
+  { name: "Indra Adhikari",   title: "Victoria Representative",       email: "iadhikari@holmes.edu.au" },
+  { name: "Dinesh Chetwani",  title: "Queensland Representative",      email: "dchetwani@holmes.edu.au" },
+  { name: "Don Kauffman",     title: "New South Wales Representative", email: "dkauffman@holmes.edu.au" },
+]
+
+const TEAMS = [
+  { name: "Agent Finance",            email: "agentfinance@holmes.edu.au",    description: "Commissions enquiries" },
+  { name: "Hello",                    email: "hello@holmes.edu.au",            description: "General enquiries" },
+  { name: "Deposit",                  email: "deposits@holmes.edu.au",         description: "Payment enquiries" },
+  { name: "Student Services",         email: "studentservices@holmes.edu.au",  description: "Deferment, suspension, cancellation and appeal enquiries" },
+  { name: "Credit Assessment Team",   email: "CAT@holmes.edu.au",              description: "Transfer credit assessment / enquiries" },
+  { name: "Early Childhood Placement",email: "ecplacement@holmes.edu.au",      description: "Work placement for GDEC / Master of Teaching students enquiries" },
+]
+
+
+function formatIntake(value: string): string {
+  if (!value) return value
+  const map: Record<string, string> = {
+    "July_2026_20_07_2026":     "July 2026",
+    "September 2026":           "September 2026",
+    "November_2026_09_11_2026": "November 2026",
+    "March_2026_23_03_2026":    "March 2026",
+    "May 2026":                 "May 2026",
+  }
+  if (map[value]) return map[value]
+  // Fallback: replace underscores/dashes, strip date suffix
+  return value.replace(/_\d{2}_\d{2}_\d{4}$/, "").replace(/_/g, " ")
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────────
-const WWCC_COURSES = [
-  "Graduate Diploma of Early Childhood",
-  "Graduate Diploma of Early Childhood with Master of Teaching",
-  "Master of Teaching (Early Childhood)",
-]
+export default function StudentApplicationPage() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [deal, setDeal] = useState<any>(null)
+  const [notes, setNotes] = useState<any[]>([])
+  const [files, setFiles] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const urlTab = new URLSearchParams(location.search).get("tab") as "info" | "messages" | "documents" | null
+  const [activeTab, setActiveTab] = useState<"info" | "messages" | "documents">(urlTab || "info")
+  const [comment, setComment] = useState("")
+  const [sending, setSending] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-const COURSES = [
-  "Bachelor of Aviation (Flight)",
-  "Bachelor of Aviation (Management)",
-  "Bachelor of Business (3 Years)",
-  "Bachelor of Business – Hospitality Management Specialisation (3 Years)",
-  "Bachelor of Fashion and Business (2 Years)",
-  "Bachelor of Information Systems (3 Years)",
-  "Diploma of Business Management with Bachelor of Business (3 Years)",
-  "Single Unit Study – Undergraduate",
-  "Undergraduate Certificate of Fashion Business",
-  "Graduate Diploma in Business with MBA with MPA (2 Years)",
-  "Graduate Diploma of Early Childhood",
-  "Graduate Diploma of Early Childhood with Master of Teaching",
-  "Master of Business Administration (1.5 Years)",
-  "Master of Business Administration Professional (2 Years)",
-  "Master of Business Administration with Master of Professional Accounting (2 Years)",
-  "Master of Information Systems (2 Years)",
-  "Master of Professional Accounting (1.5 Years)",
-  "Master of Professional Accounting with Master of Business Administration (2 Years)",
-  "Master of Teaching (Early Childhood)",
-  "Single Unit Study – Postgraduate",
-  "Master of Business Administration Professional - Health Care Management (2 Years)",
-  "Master of Business Administration Professional - Project management (2 Years)",
-]
-
-const CAMPUSES = ["Melbourne", "Sydney", "Brisbane", "Gold Coast"]
-
-const ALL_INTAKES = [
-  { value: "July_2026_20_07_2026",     label: "July 2026",     date: new Date("2026-07-20") },
-  { value: "September 2026",           label: "September 2026", date: new Date("2026-09-07") },
-  { value: "November_2026_09_11_2026", label: "November 2026", date: new Date("2026-11-09") },
-]
-const INTAKES = ALL_INTAKES.filter(i => i.date >= new Date())
-
-const ENGLISH_TESTS = [
-  { value: "IELTS", label: "IELTS" },
-  { value: "PTE", label: "PTE (Pearson Test of English)" },
-  { value: "TOEFL", label: "TOEFL" },
-  { value: "Cambridge_English_qualification", label: "Cambridge English Qualification" },
-  { value: "Australian_Studies_High_School_Diploma_Above", label: "Australian High School / Diploma or Higher" },
-  { value: "Holmes_Pass_Rate_50", label: "50% Pass Rate (Recent Semester)" },
-  { value: "English_Placement_Test_Request", label: "Request English Placement Test" },
-]
-
-const RESIDENCY_STATUSES = [
-  { value: "currently have an international student visa", label: "Currently have an international student visa" },
-  { value: "none - currently residing outside australia", label: "None - currently residing outside Australia" },
-  { value: "currently have a non-student temporary visa", label: "Currently have a non-student temporary visa" },
-  { value: "australian citizen", label: "Australian citizen" },
-  { value: "humanitarian visa", label: "Humanitarian visa" },
-  { value: "new zealand citizen", label: "New Zealand citizen" },
-  { value: "permanent visa", label: "Permanent visa" },
-]
-
-const NATIONALITIES = [
-  "Afghan","Albanian","Algerian","American","Argentine","Armenian","Australian","Austrian",
-  "Azerbaijani","Bahamian","Bahraini","Bangladeshi","Belgian","Bolivian","Bosnian","Brazilian",
-  "British","Bruneian","Bulgarian","Cambodian","Cameroonian","Canadian","Chilean","Chinese",
-  "Chinese (HK)","Colombian","Croatian","Cuban","Czech","Danish","Egyptian","Eritrean",
-  "Ethiopian","Filipino","Finnish","French","German","Ghanaian","Greek","Guatemalan",
-  "Honduran","Hong Kong","Hungarian","Indian","Indonesian","Iranian","Iraqi","Irish",
-  "Israeli","Italian","Jamaican","Japanese","Jordanian","Kenyan","Korean","Kuwaiti","Laotian",
-  "Latvian","Lebanese","Libyan","Lithuanian","Malaysian","Maldivian","Maltese","Mauritian",
-  "Mexican","Moldovan","Mongolian","Moroccan","Mozambican","Namibian","Nepalese",
-  "New Zealander","Nigerian","Norwegian","Omani","Pakistani","Peruvian","Polish","Portuguese",
-  "Qatari","Romanian","Russian","Saudi","Senegalese","Serbian","Singaporean","South African",
-  "Spanish","Sri Lankan","Sudanese","Swedish","Swiss","Syrian","Taiwanese","Tanzanian",
-  "Thai","Trinidadian","Tunisian","Turkish","Ukrainian","Uruguayan","Venezuelan","Vietnamese",
-  "Yemeni","Zambian","Zimbabwean","Other"
-]
-
-const YES_NO = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-const Sel = ({ label, name, value, onChange, options, required = false, placeholder = "Select…" }: {
-  label: string; name: string; value: string; onChange: (v: string) => void
-  options: { value: string; label: string }[] | string[]; required?: boolean; placeholder?: string
-}) => {
-  const opts = (options as any[]).map(o => typeof o === "string" ? { value: o, label: o } : o)
-  return (
-    <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
-      <div className="relative">
-        <select name={name} value={value} onChange={e => onChange(e.target.value)} required={required}
-          className="w-full appearance-none px-3 py-2.5 pr-8 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500">
-          <option value="">{placeholder}</option>
-          {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-      </div>
-    </div>
-  )
-}
-
-const Inp = ({ label, name, value, onChange, type = "text", required = false, readOnly = false, placeholder = "" }: {
-  label: string; name: string; value: string; onChange?: (v: string) => void
-  type?: string; required?: boolean; readOnly?: boolean; placeholder?: string
-}) => (
-  <div>
-    <label className="block text-xs font-medium text-gray-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
-    <input type={type} name={name} value={value} placeholder={placeholder}
-      onChange={e => onChange?.(e.target.value)} required={required} readOnly={readOnly}
-      className={`w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 ${readOnly ? "bg-stone-50 text-gray-500" : "bg-white"}`} />
-  </div>
-)
-
-const Section = ({ title }: { title: string }) => (
-  <div className="col-span-full mt-2">
-    <h3 className="text-sm font-semibold text-red-800 border-b border-red-100 pb-1">{title}</h3>
-  </div>
-)
-
-// ── Suburb Autocomplete ────────────────────────────────────────────────────────
-interface SuburbResult { suburb: string; state: string; postcode: string }
-
-function SuburbSearch({ value, onChange, onSelect, required }: {
-  value: string
-  onChange: (v: string) => void
-  onSelect: (r: SuburbResult) => void
-  required?: boolean
-}) {
-  const [results, setResults] = useState<SuburbResult[]>([])
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const debounce = useRef<ReturnType<typeof setTimeout>>()
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const studentSession = JSON.parse(sessionStorage.getItem("holmes_student") || "{}")
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [])
+    if (!studentSession.dealId) { navigate("/student"); return }
+    if (id !== studentSession.dealId) { navigate(`/student/application/${studentSession.dealId}`); return }
+    if (!id) return
+    Promise.all([fetchDeal(id), fetchNotes(id), fetchFiles(id), fetchOwners()])
+      .then(([d, n, f]) => { setDeal(d); setNotes(n); setFiles(f) })
+      .finally(() => setLoading(false))
+  }, [id])
 
-  const search = useCallback((q: string) => {
-    clearTimeout(debounce.current)
-    if (q.length < 2) { setResults([]); setOpen(false); return }
-    debounce.current = setTimeout(async () => {
-      setLoading(true)
-      try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + " Australia")}&countrycodes=au&featuretype=city&format=json&addressdetails=1&limit=8`
-        const res = await fetch(url, { headers: { "Accept-Language": "en" } })
-        const data = await res.json()
-        const seen = new Set<string>()
-        const mapped: SuburbResult[] = []
-        for (const item of data) {
-          const addr = item.address || {}
-          const suburb = addr.suburb || addr.town || addr.village || addr.city_district || addr.city || addr.municipality || ""
-          const state = addr.state || ""
-          const postcode = addr.postcode || ""
-          if (!suburb || seen.has(suburb + postcode)) continue
-          seen.add(suburb + postcode)
-          mapped.push({ suburb, state: stateAbbr(state), postcode })
-        }
-        setResults(mapped)
-        setOpen(mapped.length > 0)
-      } catch { setResults([]) }
-      finally { setLoading(false) }
-    }, 350)
-  }, [])
-
-  const stateAbbr = (s: string) => {
-    const m: Record<string, string> = {
-      "New South Wales": "NSW", "Victoria": "VIC", "Queensland": "QLD",
-      "South Australia": "SA", "Western Australia": "WA", "Tasmania": "TAS",
-      "Northern Territory": "NT", "Australian Capital Territory": "ACT"
+  const handleSend = async () => {
+    if (!comment.trim() || !id) return
+    setSending(true)
+    const ok = await createNote(id, comment.trim(), studentSession.fullName || "Student", deal?.studentName, deal?.passport)
+    if (ok) {
+      setComment("")
+      const updated = await fetchNotes(id)
+      setNotes(updated)
     }
-    return m[s] || s
+    setSending(false)
   }
 
-  return (
-    <div ref={wrapRef} className="relative">
-      <label className="block text-xs font-medium text-gray-600 mb-1">City / Suburb{required && <span className="text-red-500 ml-0.5">*</span>}</label>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-        <input
-          type="text" value={value} required={required}
-          onChange={e => { onChange(e.target.value); search(e.target.value) }}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="Type suburb name…"
-          className="w-full pl-9 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
-        />
-        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />}
-      </div>
-      {open && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg overflow-hidden">
-          {results.map((r, i) => (
-            <button key={i} type="button"
-              onMouseDown={e => { e.preventDefault(); onSelect(r); onChange(r.suburb); setOpen(false) }}
-              className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 flex items-center justify-between gap-4 border-b border-stone-100 last:border-0">
-              <span className="font-medium text-gray-800">{r.suburb}</span>
-              <span className="text-xs text-gray-400 flex-shrink-0">{r.state} {r.postcode}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Post-submission file uploader ─────────────────────────────────────────────
-function FileUploaderPost({ dealId }: { dealId: string }) {
-  const [uploading, setUploading] = useState(false)
-  const [dragging, setDragging] = useState(false)
-  const [msg, setMsg] = useState<string | null>(null)
-  const ref = useRef<HTMLInputElement>(null)
-
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return
-    setUploading(true); setMsg(null)
+  const handleUpload = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0 || !id) return
+    setUploading(true)
+    setUploadMsg(null)
     try {
-      for (const file of Array.from(files)) {
-        const res = await fetch(`/.netlify/functions/upload?dealId=${dealId}`, {
+      for (const file of Array.from(fileList)) {
+        const res = await fetch(`/.netlify/functions/upload?dealId=${id}`, {
           method: "POST",
-          headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-Deal-Id": dealId },
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+            "X-File-Name": encodeURIComponent(file.name),
+            "X-Deal-Id": id,
+          },
           body: file,
         })
         if (!res.ok) throw new Error("Upload failed")
+        const url = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${id}/${encodeURIComponent(file.name)}`
+        setFiles(prev => [{ name: file.name, id: url, url, createdAt: Date.now() }, ...prev])
       }
-      setMsg(`✅ ${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully`)
-    } catch { setMsg("❌ Upload failed. Please try again.") }
-    finally { setUploading(false) }
+      setUploadMsg(`✅ ${fileList.length} file${fileList.length > 1 ? "s" : ""} uploaded successfully`)
+    } catch {
+      setUploadMsg("❌ Upload failed. Please try again.")
+    } finally {
+      setUploading(false)
+    }
   }
 
-  return (
-    <div>
-      <div onDragOver={e => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
-        onClick={() => ref.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}>
-        <input ref={ref} type="file" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
-        <Paperclip className={`h-8 w-8 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
-        {uploading ? <p className="text-sm text-gray-500 animate-pulse">Uploading…</p> : (
-          <><p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
-            <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, JPG, PNG recommended · max 10 files</p></>
-        )}
-      </div>
-      {msg && <p className={`text-xs mt-2 text-center ${msg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>{msg}</p>}
+  const handleLogout = () => {
+    sessionStorage.removeItem("holmes_student")
+    navigate("/student")
+  }
+
+  if (loading) return (
+    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+      <div className="h-8 w-8 border-4 border-stone-300 border-t-red-700 rounded-full animate-spin" />
     </div>
   )
-}
 
-// ── Pre-submission file uploader ──────────────────────────────────────────────
-const ALLOWED_EXT = ["pdf", "jpg", "jpeg", "png"]
-const MAX_SIZE_MB = 5
-interface UploadedFile { fileId: string; fileName: string; extension: string; size: number }
-
-function PreSubmitUploader({ files, onChange, disabled }: {
-  files: UploadedFile[]; onChange: (f: UploadedFile[]) => void; disabled?: boolean
-}) {
-  const [uploading, setUploading] = useState(false)
-  const [dragging, setDragging] = useState(false)
-  const [err, setErr] = useState("")
-  const ref = useRef<HTMLInputElement>(null)
-
-  const handleFiles = async (list: FileList | null) => {
-    if (!list || uploading || disabled) return
-    if (files.length >= 10) { setErr("Maximum 10 files reached."); return }
-    setErr("")
-    const toAdd = Array.from(list).slice(0, 10 - files.length)
-    const results: UploadedFile[] = []
-    setUploading(true)
-    for (const file of toAdd) {
-      const ext = file.name.split(".").pop()?.toLowerCase() || ""
-      if (!ALLOWED_EXT.includes(ext)) { setErr(`${file.name}: .${ext} not allowed.`); continue }
-      if (file.size > MAX_SIZE_MB * 1024 * 1024) { setErr(`${file.name} exceeds ${MAX_SIZE_MB}MB.`); continue }
-      try {
-        const res = await fetch("/.netlify/functions/upload-temp", {
-          method: "POST",
-          headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-File-Size": String(file.size) },
-          body: file,
-        })
-        const data = await res.json()
-        if (!res.ok || !data.ok) { setErr(data.error || `Failed to upload ${file.name}`); continue }
-        results.push({ fileId: data.fileId, fileName: data.fileName, extension: data.extension, size: data.size })
-      } catch { setErr(`Failed to upload ${file.name}`) }
-    }
-    onChange([...files, ...results])
-    setUploading(false)
-  }
+  if (!deal) return (
+    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+      <p className="text-gray-400">Application not found.</p>
+    </div>
+  )
 
   return (
-    <div className="space-y-2">
-      {files.length > 0 && (
-        <div className="space-y-1.5">
-          {files.map((f, i) => (
-            <div key={i} className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
-              <Paperclip className="h-3.5 w-3.5 text-stone-400 flex-shrink-0" />
-              <span className="text-xs text-gray-700 flex-1 truncate">{f.fileName}</span>
-              <span className="text-xs text-gray-400">{(f.size / 1024).toFixed(0)}KB</span>
-              {!disabled && <button type="button" onClick={() => onChange(files.filter((_, j) => j !== i))} className="text-stone-300 hover:text-red-500 transition-colors ml-1">✕</button>}
+    <div className="min-h-screen bg-stone-50">
+      {/* Header */}
+      <header className="bg-red-800 text-white px-4 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <img
+            src="https://holmes.edu.au/templates/images/Logo-base-banner.png"
+            alt="Holmes"
+            className="h-7 w-auto"
+            onError={e => e.currentTarget.style.display = "none"}
+          />
+          <div className="flex flex-col leading-tight">
+            <span className="text-white text-sm font-bold leading-none">Holmes Institute Australia</span>
+            <span className="text-red-200 text-xs leading-none mt-0.5">Admissions Direct Student Portal</span>
+          </div>
+        </div>
+        <button onClick={handleLogout} className="flex items-center gap-1.5 text-sm text-red-200 hover:text-white transition-colors">
+          <LogOut className="h-4 w-4" /> Sign Out
+        </button>
+      </header>
+
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        {/* Welcome */}
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold text-gray-800">
+            Welcome, {studentSession.fullName?.split(" ")[0] || "Student"}!
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">Here's the status of your Holmes application.</p>
+        </div>
+
+        {/* Status card */}
+        <div className="bg-gradient-to-br from-red-700 to-red-900 rounded-xl p-6 text-white mb-6 shadow-lg">
+          <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+            <div>
+              <h2 className="text-xl font-bold mb-1">{deal.studentName}</h2>
+              <div className="flex flex-wrap gap-2 text-sm text-red-200">
+                {deal.passport && <span>Passport: {deal.passport}</span>}
+                {deal.dob && <span>· DOB: {formatDate(deal.dob)}</span>}
+              </div>
             </div>
+          </div>
+
+          {/* Pills row — case status + response status */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <span className="inline-flex items-center gap-2 bg-white/15 border border-white/25 px-4 py-1.5 rounded-full text-sm font-semibold">
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              {deal.stageLabel}
+            </span>
+            {deal.responseStatus && (
+              <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold border backdrop-blur ${
+                deal.responseStatus.toLowerCase().includes("holmes")
+                  ? "bg-red-500/30 border-red-300/40 text-red-100"
+                  : "bg-emerald-500/20 border-emerald-300/30 text-emerald-200"
+              }`}>
+                {deal.responseStatus}
+              </span>
+            )}
+          </div>
+
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {deal.courseName && (
+              <div className="bg-white/10 rounded-lg p-3">
+                <p className="text-xs text-red-300">Course</p>
+                <p className="text-sm font-medium mt-0.5">{deal.courseName}</p>
+              </div>
+            )}
+            {deal.campus && (
+              <div className="bg-white/10 rounded-lg p-3">
+                <p className="text-xs text-red-300">Campus</p>
+                <p className="text-sm font-medium mt-0.5">{deal.campus}</p>
+              </div>
+            )}
+            {deal.intake && (
+              <div className="bg-white/10 rounded-lg p-3">
+                <p className="text-xs text-red-300">Intake</p>
+                <p className="text-sm font-medium mt-0.5">{formatIntake(deal.intake)}</p>
+              </div>
+            )}
+            {deal.studentId && (
+              <div className="bg-white/10 rounded-lg p-3">
+                <p className="text-xs text-red-300">Student ID</p>
+                <p className="text-sm font-medium mt-0.5">{deal.studentId}</p>
+              </div>
+            )}
+            {deal.dealId && (
+              <div className="bg-white/10 rounded-lg p-3">
+                <p className="text-xs text-red-300">Deal ID</p>
+                <p className="text-sm font-medium mt-0.5">{deal.dealId}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="bg-white rounded-xl border border-stone-200 p-1 flex gap-1 mb-4">
+          {[
+            { id: "info", label: "Application Info", icon: FileText },
+            { id: "messages", label: `Messages${notes.length ? ` (${notes.length})` : ""}`, icon: MessageSquare },
+            { id: "documents", label: `Documents${files.length ? ` (${files.length})` : ""}`, icon: Paperclip },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 flex-1 justify-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id ? "bg-red-50 text-red-700" : "text-gray-500 hover:bg-stone-50"}`}
+            >
+              <tab.icon className="h-4 w-4" />
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
           ))}
         </div>
-      )}
-      {files.length < 10 && !disabled && (
-        <div onDragOver={e => { e.preventDefault(); setDragging(true) }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
-          onClick={() => ref.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}>
-          <input ref={ref} type="file" multiple accept={ALLOWED_EXT.map(e => "." + e).join(",")} className="hidden"
-            onChange={e => { handleFiles(e.target.files); e.target.value = "" }} />
-          <Paperclip className={`h-7 w-7 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
-          {uploading
-            ? <p className="text-sm text-gray-500 animate-pulse">Uploading…</p>
-            : <><p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
-                <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, JPG, JPEG, PNG only · max 5MB each · {10 - files.length} slot{10 - files.length !== 1 ? "s" : ""} remaining</p></>
-          }
+
+        {/* Tab content */}
+        <div className="bg-white rounded-xl border border-stone-200 p-6">
+
+          {/* Info tab */}
+          {activeTab === "info" && (
+            <div className="grid sm:grid-cols-2 gap-x-8">
+              {[
+                ["Course", deal.courseName],
+                ["Campus", deal.campus],
+                ["Intake", formatIntake(deal.intake)],
+                ["Start Date", formatDate(deal.courseStart)],
+                ["End Date", formatDate(deal.courseEnd)],
+                ["OSHC", deal.oshc],
+                ["Advanced Standing", deal.advancedStanding],
+                ["English Test", deal.englishTestType],
+                ["English Score", deal.englishScore],
+                ["Total Cost", deal.totalCost],
+                ["Student ID", deal.studentId],
+                ["Deal ID", deal.dealId],
+              ].map(([label, value]) => value && value !== "—" ? (
+                <div key={label as string} className="py-3 border-b border-stone-100 last:border-0">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
+                  <p className="text-sm text-gray-800 mt-0.5">{value}</p>
+                </div>
+              ) : null)}
+            </div>
+          )}
+
+          {/* Messages tab */}
+          {activeTab === "messages" && (
+            <div className="flex flex-col h-[500px]">
+              <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
+                {notes.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                    <MessageSquare className="h-8 w-8 text-stone-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No messages yet</p>
+                    <p className="text-xs text-gray-400 mt-1">Send a message to Holmes Admissions below</p>
+                  </div>
+                ) : notes.map(note => {
+                  const isStudent = note.type === "email"
+                  const author = isStudent ? (studentSession.fullName?.split(" ")[0] || "You") : "Holmes Admissions"
+                  return (
+                    <div key={note.id} className="flex gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${isStudent ? "bg-red-100 text-red-700" : "bg-stone-100 text-stone-600"}`}>
+                        {author[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-semibold text-gray-800">{author}</span>
+                          <span className="text-xs text-gray-400">{formatDateTime(note.createdAt)}</span>
+                        </div>
+                        <div className="bg-stone-50 rounded-xl rounded-tl-none px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border border-stone-100">
+                          {note.body}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="border-t border-stone-100 pt-4">
+                <div className="bg-stone-50 rounded-xl border border-stone-200 focus-within:border-red-400 focus-within:ring-2 focus-within:ring-red-100 transition-all">
+                  <textarea
+                    value={comment}
+                    onChange={e => setComment(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSend() }}
+                    placeholder="Send a message to Holmes Admissions…"
+                    rows={3}
+                    className="w-full px-4 py-3 text-sm bg-transparent focus:outline-none resize-none text-gray-700 placeholder-stone-400"
+                  />
+                  <div className="flex items-center justify-between px-4 pb-3">
+                    <span className="text-xs text-stone-400">Ctrl+Enter to send</span>
+                    <button
+                      onClick={handleSend}
+                      disabled={!comment.trim() || sending}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors font-medium"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      {sending ? "Sending…" : "Send"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Documents tab */}
+          {activeTab === "documents" && (
+            <div>
+              {/* Upload area */}
+              <div
+                onDragOver={e => { e.preventDefault(); setDragging(true) }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={e => { e.preventDefault(); setDragging(false); handleUpload(e.dataTransfer.files) }}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all mb-4 ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={e => handleUpload(e.target.files)}
+                />
+                <Paperclip className={`h-8 w-8 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
+                {uploading ? (
+                  <p className="text-sm text-gray-500 animate-pulse">Uploading…</p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
+                    <p className="text-xs text-gray-400 mt-1">or click to browse · Syncs directly to HubSpot</p>
+                  </>
+                )}
+              </div>
+              {uploadMsg && (
+                <p className={`text-xs mb-3 text-center ${uploadMsg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>
+                  {uploadMsg}
+                </p>
+              )}
+
+              {/* File list */}
+              {files.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Paperclip className="h-8 w-8 text-stone-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No documents yet</p>
+                  <p className="text-xs text-gray-400 mt-1">Upload above or wait for Holmes Admissions to attach documents</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {files.map((file, i) => {
+                    const ext = file.name?.split(".").pop()?.toUpperCase() || "FILE"
+                    const isViewable = ["pdf", "jpg", "jpeg", "png"].includes(ext.toLowerCase())
+                    return (
+                      <div key={file.id || i} className="flex items-center gap-3 p-3 rounded-xl border border-stone-100 bg-stone-50 hover:bg-stone-100 transition-colors group">
+                        <div className="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                          {ext}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
+                          {file.createdAt && <p className="text-xs text-gray-400">{formatDateTime(new Date(file.createdAt).toISOString())}</p>}
+                        </div>
+                        {file.url && (
+                          <a
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            {...isViewable ? {} : { download: file.name }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            {isViewable ? <><ExternalLink className="h-3 w-3" />View</> : <><Download className="h-3 w-3" />Download</>}
+                          </a>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
-      {err && <p className="text-xs text-red-600">{err}</p>}
+
+        {/* Need Help box */}
+        <div className="mt-4 bg-white rounded-xl border border-stone-200 p-5">
+          <h3 className="font-semibold text-gray-800 text-sm mb-1">Need Help?</h3>
+          <p className="text-xs text-gray-500 mb-4">You can reach out to other teams at:</p>
+          <div className="space-y-2 mb-4">
+            <p className="text-sm text-gray-600">📞 <span className="font-medium">+61 3 9564 1444</span></p>
+            <p className="text-xs text-gray-400">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
+          </div>
+          {/* Sales Reps */}
+          <div className="space-y-2 mb-3">
+            {MARKETERS.map(m => (
+              <a key={m.email} href={`mailto:${m.email}`}
+                className="flex items-center gap-3 p-3 rounded-lg border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+              >
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs flex-shrink-0">
+                  {m.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
+                  <p className="text-xs text-gray-500">{m.title}</p>
+                  <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+          {/* Divider */}
+          <div className="border-t border-stone-100 my-3" />
+          {/* Teams */}
+          <div className="space-y-2">
+            {TEAMS.map(t => (
+              <a key={t.email} href={`mailto:${t.email}`}
+                className="flex items-center gap-3 p-3 rounded-lg border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+              >
+                <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 font-bold text-xs flex-shrink-0">
+                  {t.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{t.name}</p>
+                  <p className="text-xs text-gray-500">{t.description}</p>
+                  <p className="text-xs text-red-600 mt-0.5">{t.email}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+
+      </div>
     </div>
-  )
-}
-
-// ── Main Form ──────────────────────────────────────────────────────────────────
-export default function ApplicationForm({ mode, sessionToken, prefillEmail, prefillName, onSuccess }: Props) {
-  const navigate = useNavigate()
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState("")
-  const [dealId, setDealId] = useState<string | null>(null)
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
-
-  const nameParts = (prefillName || "").split(" ")
-  const [f, setF] = useState({
-    firstname: mode === "student" ? nameParts[0] || "" : "",
-    lastname: mode === "student" ? nameParts.slice(1).join(" ") : "",
-    student_email: mode === "student" ? prefillEmail : "",
-    mobile_phone_number: "",
-    date_of_birth: "",
-    street_name: "",
-    city: "",
-    state: "",
-    post_code: "",
-    country: "",
-    nationality: "",
-    usi_number: "",
-    passport_number: "",
-    residency_status: "",
-    where_are_you_applying_from: "",
-    disability: "",
-    course_name_australia: "",
-    campus_australia: "",
-    intake_australia: "",
-    advanced_standing: "",
-    oshc: "",
-    wwcc_blue_card_number: "",
-    name_of_qualification: "",
-    name_of_institution_attended: "",
-    name_of_english_proficiency_test_australia: "",
-    what_are_the_results_of_your_english_proficiency_test_: "",
-    what_date_did_you_take_your_english_proficiency_test_: "",
-    ohc_english: "",
-    ohcweeks: "",
-    do_you_intend_to_apply_for_fee_help_: "",
-  })
-
-  const set = (k: string) => (v: string) => setF(prev => ({ ...prev, [k]: v }))
-
-  // ── Derived logic flags ───────────────────────────────────────────────────
-  const showWWCC = WWCC_COURSES.includes(f.course_name_australia)
-  const showOHCWeeks = f.ohc_english === "Yes"
-
-  const handleSuburbSelect = (r: { suburb: string; state: string; postcode: string }) => {
-    setF(prev => ({ ...prev, city: r.suburb, state: r.state, post_code: r.postcode, country: "Australia" }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitting(true); setError("")
-    try {
-      const res = await fetch("/.netlify/functions/submit-application", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionToken, ...f, uploadedFiles }),
-      })
-      const data = await res.json()
-      if (res.status === 409 && data.dealId) {
-        window.location.href = mode === "agent" ? `/applications/${data.dealId}` : `/student/application/${data.dealId}`
-        return
-      }
-      if (!res.ok || !data.ok) {
-        setError(data.error || "Submission failed. Please try again.")
-        setSubmitting(false)
-        return
-      }
-      onSuccess?.(data.dealId)
-      window.location.href = mode === "agent" ? `/applications/${data.dealId}?tab=documents` : `/student/application/${data.dealId}?tab=documents`
-    } catch {
-      setError("Something went wrong. Please try again.")
-      setSubmitting(false)
-    }
-  }
-
-  // ── Success state ─────────────────────────────────────────────────────────
-  if (dealId) {
-    return (
-      <div className="text-center py-8 px-4">
-        <div className="text-left max-w-lg mx-auto mb-6">
-          <p className="text-xs font-semibold text-gray-600 mb-2">Upload Supporting Documents</p>
-          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-            For best results upload PDF, JPG, JPEG or PNG. Avoid uploading more than 10 files.
-          </div>
-          <FileUploaderPost dealId={dealId} />
-        </div>
-        <button onClick={() => mode === "agent" ? navigate(`/applications/${dealId}`) : navigate(`/student/application/${dealId}`)}
-          className="px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-medium transition-colors">
-          View Application →
-        </button>
-      </div>
-    )
-  }
-
-  // ── Form ──────────────────────────────────────────────────────────────────
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-        {/* ── Personal Details ── */}
-        <Section title="Personal Details" />
-        <Inp label="First Name" name="firstname" value={f.firstname} onChange={set("firstname")} required placeholder="Given name" />
-        <Inp label="Last Name" name="lastname" value={f.lastname} onChange={set("lastname")} required placeholder="Family name" />
-        <Inp label="Student Email" name="student_email" value={f.student_email} onChange={mode === "student" ? undefined : set("student_email")} readOnly={mode === "student"} required type="email" placeholder="student@email.com" />
-        {mode === "agent" && <Inp label="Agent Email" name="agent_email" value={prefillEmail} readOnly type="email" />}
-        <Inp label="Mobile Phone Number" name="mobile_phone_number" value={f.mobile_phone_number} onChange={set("mobile_phone_number")} required placeholder="+61 4XX XXX XXX" />
-        <Inp label="Date of Birth" name="date_of_birth" value={f.date_of_birth} onChange={set("date_of_birth")} required type="date" />
-
-        {/* ── Address ── */}
-        <Section title="Address" />
-        <div className="col-span-full">
-          <Inp label="Street Address" name="street_name" value={f.street_name} onChange={set("street_name")} required placeholder="123 Example Street" />
-        </div>
-        <div className="col-span-full">
-          <SuburbSearch value={f.city} onChange={set("city")} onSelect={handleSuburbSelect} required />
-        </div>
-        <Inp label="State" name="state" value={f.state} onChange={set("state")} required placeholder="VIC" />
-        <Inp label="Postcode" name="post_code" value={f.post_code} onChange={set("post_code")} required placeholder="3000" />
-        <div className="col-span-full">
-          <Inp label="Country" name="country" value={f.country} onChange={set("country")} required placeholder="Australia" />
-        </div>
-
-        {/* ── Identity ── */}
-        <Section title="Identity" />
-        <Sel label="Nationality" name="nationality" value={f.nationality} onChange={set("nationality")} options={NATIONALITIES} required />
-        <Inp label="Passport Number" name="passport_number" value={f.passport_number} onChange={set("passport_number")} required placeholder="Passport number" />
-        <Sel label="Residency Status" name="residency_status" value={f.residency_status} onChange={set("residency_status")} options={RESIDENCY_STATUSES} required />
-        <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[{ value: "Onshore", label: "Onshore" }, { value: "Offshore", label: "Offshore" }]} required />
-        <Inp label="USI Number" name="usi_number" value={f.usi_number} onChange={set("usi_number")} placeholder="10-character alphanumeric (e.g. AB12CD34EF)" />
-        <Sel label="Do you have a disability or long-term medical condition?" name="disability" value={f.disability} onChange={set("disability")} options={YES_NO} />
-
-        {/* ── Course Details ── */}
-        <Section title="Course Details" />
-        <div className="col-span-full">
-          <Sel label="Course Name (Australia)" name="course_name_australia" value={f.course_name_australia} onChange={set("course_name_australia")} options={COURSES} required />
-        </div>
-        <Sel label="Campus (Australia)" name="campus_australia" value={f.campus_australia} onChange={set("campus_australia")} options={CAMPUSES} required />
-        <Sel label="Intake (Australia)" name="intake_australia" value={f.intake_australia} onChange={set("intake_australia")} options={INTAKES} required />
-        <Sel label="Advanced Standing" name="advanced_standing" value={f.advanced_standing} onChange={set("advanced_standing")} options={YES_NO} required />
-        <Sel label="Do you require OSHC from us?" name="oshc" value={f.oshc} onChange={set("oshc")} options={YES_NO} />
-        {showWWCC && (
-          <div className="col-span-full">
-            <Inp label="WWCC / Blue Card Number" name="wwcc_blue_card_number" value={f.wwcc_blue_card_number} onChange={set("wwcc_blue_card_number")} required placeholder="Card number" />
-          </div>
-        )}
-
-        {/* ── Prior Education ── */}
-        <Section title="Prior Education" />
-        <Inp label="Name of Qualification" name="name_of_qualification" value={f.name_of_qualification} onChange={set("name_of_qualification")} required placeholder="e.g. Bachelor of Science" />
-        <Inp label="Name of Institution Attended" name="name_of_institution_attended" value={f.name_of_institution_attended} onChange={set("name_of_institution_attended")} required placeholder="e.g. University of Melbourne" />
-
-        {/* ── English Proficiency ── */}
-        <Section title="English Proficiency" />
-        <Sel label="English Proficiency Test" name="name_of_english_proficiency_test_australia" value={f.name_of_english_proficiency_test_australia} onChange={set("name_of_english_proficiency_test_australia")} options={ENGLISH_TESTS} />
-        {!hideResults && (
-          <Inp label="Results of English Proficiency Test" name="what_are_the_results_of_your_english_proficiency_test_" value={f.what_are_the_results_of_your_english_proficiency_test_} onChange={set("what_are_the_results_of_your_english_proficiency_test_")} required={resultsRequired} placeholder="e.g. Overall 6.5, Writing 6.0" />
-        )}
-        {!hideDate && (
-          <Inp label="Date you took the test" name="what_date_did_you_take_your_english_proficiency_test_" value={f.what_date_did_you_take_your_english_proficiency_test_} onChange={set("what_date_did_you_take_your_english_proficiency_test_")} required={dateRequired} type="date" />
-        )}
-        <div className="col-span-full">
-          <Sel label="Do you require English course prior to starting?" name="ohc_english" value={f.ohc_english} onChange={set("ohc_english")} options={YES_NO} />
-        </div>
-        {showOHCWeeks && (
-          <Inp label="OHC Weeks" name="ohcweeks" value={f.ohcweeks} onChange={set("ohcweeks")} placeholder="e.g. 10" />
-        )}
-
-        {/* ── Additional Information ── */}
-        <Section title="Additional Information" />
-        <Sel label="Do you intend to apply for FEE HELP?" name="do_you_intend_to_apply_for_fee_help_" value={f.do_you_intend_to_apply_for_fee_help_} onChange={set("do_you_intend_to_apply_for_fee_help_")} options={YES_NO} />
-
-      </div>
-
-      {/* ── Document Upload ── */}
-      <div className="mt-2">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex-1 h-px bg-stone-200" />
-          <span className="text-xs text-stone-400 uppercase tracking-wider">Supporting Documents</span>
-          <div className="flex-1 h-px bg-stone-200" />
-        </div>
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3 text-xs text-amber-800 leading-relaxed">
-          <p className="font-semibold mb-1">⚠️ Important</p>
-          <p>Only PDF, JPG, JPEG and PNG files are supported.</p>
-          <p>Maximum file size is 5 MB per file.</p>
-          <p className="mt-1 text-amber-700">Files larger than 5 MB or unsupported file types cannot be uploaded. For the best experience, please upload documents as PDF and images as JPG or PNG.</p>
-        </div>
-        <PreSubmitUploader files={uploadedFiles} onChange={setUploadedFiles} disabled={submitting} />
-      </div>
-
-      {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
-        </div>
-      )}
-
-      <button type="submit" disabled={submitting}
-        className="w-full py-3 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
-        {submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Submitting…</> : "Submit Application"}
-      </button>
-    </form>
   )
 }
