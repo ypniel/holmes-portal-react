@@ -132,6 +132,53 @@ const Section = ({ title }: { title: string }) => (
 )
 
 
+// ── Post-submission file uploader (for documents tab) ────────────────────────
+function FileUploaderPost({ dealId }: { dealId: string }) {
+  const [uploading, setUploading] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const ref = useRef<HTMLInputElement>(null)
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploading(true); setMsg(null)
+    try {
+      for (const file of Array.from(files)) {
+        const res = await fetch(`/.netlify/functions/upload?dealId=${dealId}`, {
+          method: "POST",
+          headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-Deal-Id": dealId },
+          body: file,
+        })
+        if (!res.ok) throw new Error("Upload failed")
+      }
+      setMsg(`✅ ${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully`)
+    } catch { setMsg("❌ Upload failed. Please try again.") }
+    finally { setUploading(false) }
+  }
+
+  return (
+    <div>
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
+        onClick={() => ref.current?.click()}
+        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}
+      >
+        <input ref={ref} type="file" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
+        <Paperclip className={`h-8 w-8 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
+        {uploading ? <p className="text-sm text-gray-500 animate-pulse">Uploading…</p> : (
+          <>
+            <p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
+            <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, JPG, PNG recommended · max 10 files</p>
+          </>
+        )}
+      </div>
+      {msg && <p className={`text-xs mt-2 text-center ${msg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>{msg}</p>}
+    </div>
+  )
+}
+
 // ── Pre-submission file uploader ───────────────────────────────────────────────
 const ALLOWED_EXT = ["pdf", "jpg", "jpeg", "png"]
 const MAX_SIZE_MB = 5
@@ -315,7 +362,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
           <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
             For best results upload PDF, JPG, JPEG or PNG. Avoid uploading more than 10 files.
           </div>
-          <FileUploader dealId={dealId} />
+          <FileUploaderPost dealId={dealId} />
         </div>
         <button
           onClick={() => mode === "agent" ? navigate(`/applications/${dealId}`) : navigate(`/student/application/${dealId}`)}
