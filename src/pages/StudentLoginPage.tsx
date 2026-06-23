@@ -146,6 +146,10 @@ export default function StudentLoginPage() {
                 >
                   {status === "sending" ? <><Loader2 className="h-4 w-4 animate-spin" />Sending…</> : "Send 6-digit code"}
                 </button>
+                <p className="text-center text-xs text-gray-400">
+                  New student?{" "}
+                  <button type="button" onClick={() => navigate("/student/register")} className="text-red-700 hover:underline font-medium">Register here</button>
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
