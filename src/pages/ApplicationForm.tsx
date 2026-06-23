@@ -1,17 +1,23 @@
-import React, { useState, useRef } from "react"
+import React, { useState, useRef, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { Loader2, Paperclip, ChevronDown, CheckCircle2, AlertCircle } from "lucide-react"
+import { Loader2, Paperclip, ChevronDown, AlertCircle, Search } from "lucide-react"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Props {
   mode: "agent" | "student"
   sessionToken: string
-  prefillEmail: string       // agent email (agent mode) OR student email (student mode)
-  prefillName?: string       // student's full name for pre-fill
+  prefillEmail: string
+  prefillName?: string
   onSuccess?: (dealId: string) => void
 }
 
-// ── Options ────────────────────────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────────────────────
+const WWCC_COURSES = [
+  "Graduate Diploma of Early Childhood",
+  "Graduate Diploma of Early Childhood with Master of Teaching",
+  "Master of Teaching (Early Childhood)",
+]
+
 const COURSES = [
   "Bachelor of Aviation (Flight)",
   "Bachelor of Aviation (Management)",
@@ -41,13 +47,12 @@ const COURSES = [
 
 const CAMPUSES = ["Melbourne", "Sydney", "Brisbane", "Gold Coast"]
 
-const INTAKES = [
-  { value: "March_2026_23_03_2026", label: "March 2026 (23/03/2026)" },
-  { value: "May 2026", label: "May 2026" },
-  { value: "July_2026_20_07_2026", label: "July 2026 (20/07/2026)" },
-  { value: "September 2026", label: "September 2026" },
-  { value: "November_2026_09_11_2026", label: "November 2026 (09/11/2026)" },
+const ALL_INTAKES = [
+  { value: "July_2026_20_07_2026",     label: "July 2026",     date: new Date("2026-07-20") },
+  { value: "September 2026",           label: "September 2026", date: new Date("2026-09-07") },
+  { value: "November_2026_09_11_2026", label: "November 2026", date: new Date("2026-11-09") },
 ]
+const INTAKES = ALL_INTAKES.filter(i => i.date >= new Date())
 
 const ENGLISH_TESTS = [
   { value: "IELTS", label: "IELTS" },
@@ -98,10 +103,8 @@ const Sel = ({ label, name, value, onChange, options, required = false, placehol
     <div>
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
       <div className="relative">
-        <select
-          name={name} value={value} onChange={e => onChange(e.target.value)} required={required}
-          className="w-full appearance-none px-3 py-2.5 pr-8 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
-        >
+        <select name={name} value={value} onChange={e => onChange(e.target.value)} required={required}
+          className="w-full appearance-none px-3 py-2.5 pr-8 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500">
           <option value="">{placeholder}</option>
           {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -117,11 +120,9 @@ const Inp = ({ label, name, value, onChange, type = "text", required = false, re
 }) => (
   <div>
     <label className="block text-xs font-medium text-gray-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
-    <input
-      type={type} name={name} value={value} placeholder={placeholder}
+    <input type={type} name={name} value={value} placeholder={placeholder}
       onChange={e => onChange?.(e.target.value)} required={required} readOnly={readOnly}
-      className={`w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 ${readOnly ? "bg-stone-50 text-gray-500" : "bg-white"}`}
-    />
+      className={`w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 ${readOnly ? "bg-stone-50 text-gray-500" : "bg-white"}`} />
   </div>
 )
 
@@ -131,8 +132,96 @@ const Section = ({ title }: { title: string }) => (
   </div>
 )
 
+// ── Suburb Autocomplete ────────────────────────────────────────────────────────
+interface SuburbResult { suburb: string; state: string; postcode: string }
 
-// ── Post-submission file uploader (for documents tab) ────────────────────────
+function SuburbSearch({ value, onChange, onSelect, required }: {
+  value: string
+  onChange: (v: string) => void
+  onSelect: (r: SuburbResult) => void
+  required?: boolean
+}) {
+  const [results, setResults] = useState<SuburbResult[]>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const debounce = useRef<ReturnType<typeof setTimeout>>()
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  const search = useCallback((q: string) => {
+    clearTimeout(debounce.current)
+    if (q.length < 2) { setResults([]); setOpen(false); return }
+    debounce.current = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + " Australia")}&countrycodes=au&featuretype=city&format=json&addressdetails=1&limit=8`
+        const res = await fetch(url, { headers: { "Accept-Language": "en" } })
+        const data = await res.json()
+        const seen = new Set<string>()
+        const mapped: SuburbResult[] = []
+        for (const item of data) {
+          const addr = item.address || {}
+          const suburb = addr.suburb || addr.town || addr.village || addr.city_district || addr.city || addr.municipality || ""
+          const state = addr.state || ""
+          const postcode = addr.postcode || ""
+          if (!suburb || seen.has(suburb + postcode)) continue
+          seen.add(suburb + postcode)
+          mapped.push({ suburb, state: stateAbbr(state), postcode })
+        }
+        setResults(mapped)
+        setOpen(mapped.length > 0)
+      } catch { setResults([]) }
+      finally { setLoading(false) }
+    }, 350)
+  }, [])
+
+  const stateAbbr = (s: string) => {
+    const m: Record<string, string> = {
+      "New South Wales": "NSW", "Victoria": "VIC", "Queensland": "QLD",
+      "South Australia": "SA", "Western Australia": "WA", "Tasmania": "TAS",
+      "Northern Territory": "NT", "Australian Capital Territory": "ACT"
+    }
+    return m[s] || s
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <label className="block text-xs font-medium text-gray-600 mb-1">City / Suburb{required && <span className="text-red-500 ml-0.5">*</span>}</label>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+        <input
+          type="text" value={value} required={required}
+          onChange={e => { onChange(e.target.value); search(e.target.value) }}
+          onFocus={() => results.length > 0 && setOpen(true)}
+          placeholder="Type suburb name…"
+          className="w-full pl-9 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+        />
+        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />}
+      </div>
+      {open && results.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg overflow-hidden">
+          {results.map((r, i) => (
+            <button key={i} type="button"
+              onMouseDown={e => { e.preventDefault(); onSelect(r); onChange(r.suburb); setOpen(false) }}
+              className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 flex items-center justify-between gap-4 border-b border-stone-100 last:border-0">
+              <span className="font-medium text-gray-800">{r.suburb}</span>
+              <span className="text-xs text-gray-400 flex-shrink-0">{r.state} {r.postcode}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Post-submission file uploader ─────────────────────────────────────────────
 function FileUploaderPost({ dealId }: { dealId: string }) {
   const [uploading, setUploading] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -158,20 +247,16 @@ function FileUploaderPost({ dealId }: { dealId: string }) {
 
   return (
     <div>
-      <div
-        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+      <div onDragOver={e => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
         onClick={() => ref.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}
-      >
+        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}>
         <input ref={ref} type="file" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
         <Paperclip className={`h-8 w-8 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
         {uploading ? <p className="text-sm text-gray-500 animate-pulse">Uploading…</p> : (
-          <>
-            <p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
-            <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, JPG, PNG recommended · max 10 files</p>
-          </>
+          <><p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
+            <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, JPG, PNG recommended · max 10 files</p></>
         )}
       </div>
       {msg && <p className={`text-xs mt-2 text-center ${msg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>{msg}</p>}
@@ -179,16 +264,13 @@ function FileUploaderPost({ dealId }: { dealId: string }) {
   )
 }
 
-// ── Pre-submission file uploader ───────────────────────────────────────────────
+// ── Pre-submission file uploader ──────────────────────────────────────────────
 const ALLOWED_EXT = ["pdf", "jpg", "jpeg", "png"]
 const MAX_SIZE_MB = 5
-
 interface UploadedFile { fileId: string; fileName: string; extension: string; size: number }
 
 function PreSubmitUploader({ files, onChange, disabled }: {
-  files: UploadedFile[]
-  onChange: (f: UploadedFile[]) => void
-  disabled?: boolean
+  files: UploadedFile[]; onChange: (f: UploadedFile[]) => void; disabled?: boolean
 }) {
   const [uploading, setUploading] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -209,11 +291,7 @@ function PreSubmitUploader({ files, onChange, disabled }: {
       try {
         const res = await fetch("/.netlify/functions/upload-temp", {
           method: "POST",
-          headers: {
-            "Content-Type": file.type || "application/octet-stream",
-            "X-File-Name": encodeURIComponent(file.name),
-            "X-File-Size": String(file.size),
-          },
+          headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-File-Size": String(file.size) },
           body: file,
         })
         const data = await res.json()
@@ -234,31 +312,24 @@ function PreSubmitUploader({ files, onChange, disabled }: {
               <Paperclip className="h-3.5 w-3.5 text-stone-400 flex-shrink-0" />
               <span className="text-xs text-gray-700 flex-1 truncate">{f.fileName}</span>
               <span className="text-xs text-gray-400">{(f.size / 1024).toFixed(0)}KB</span>
-              {!disabled && (
-                <button type="button" onClick={() => onChange(files.filter((_, j) => j !== i))}
-                  className="text-stone-300 hover:text-red-500 transition-colors ml-1">✕</button>
-              )}
+              {!disabled && <button type="button" onClick={() => onChange(files.filter((_, j) => j !== i))} className="text-stone-300 hover:text-red-500 transition-colors ml-1">✕</button>}
             </div>
           ))}
         </div>
       )}
       {files.length < 10 && !disabled && (
-        <div
-          onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        <div onDragOver={e => { e.preventDefault(); setDragging(true) }}
           onDragLeave={() => setDragging(false)}
           onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
           onClick={() => ref.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}
-        >
+          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}>
           <input ref={ref} type="file" multiple accept={ALLOWED_EXT.map(e => "." + e).join(",")} className="hidden"
             onChange={e => { handleFiles(e.target.files); e.target.value = "" }} />
           <Paperclip className={`h-7 w-7 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
           {uploading
             ? <p className="text-sm text-gray-500 animate-pulse">Uploading…</p>
-            : <>
-                <p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
-                <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, JPG, JPEG, PNG only · max 5MB each · {10 - files.length} slot{10 - files.length !== 1 ? "s" : ""} remaining</p>
-              </>
+            : <><p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
+                <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, JPG, JPEG, PNG only · max 5MB each · {10 - files.length} slot{10 - files.length !== 1 ? "s" : ""} remaining</p></>
           }
         </div>
       )}
@@ -277,13 +348,13 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
 
   const nameParts = (prefillName || "").split(" ")
   const [f, setF] = useState({
-    // Personal
     firstname: mode === "student" ? nameParts[0] || "" : "",
     lastname: mode === "student" ? nameParts.slice(1).join(" ") : "",
     student_email: mode === "student" ? prefillEmail : "",
     mobile_phone_number: "",
     date_of_birth: "",
     street_name: "",
+    city: "",
     state: "",
     post_code: "",
     country: "",
@@ -293,31 +364,31 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
     residency_status: "",
     where_are_you_applying_from: "",
     disability: "",
-    // Course
     course_name_australia: "",
     campus_australia: "",
     intake_australia: "",
     advanced_standing: "",
     oshc: "",
     wwcc_blue_card_number: "",
-    // Prior education
     name_of_qualification: "",
     name_of_institution_attended: "",
-    // English
     name_of_english_proficiency_test_australia: "",
-    score: "",
     what_are_the_results_of_your_english_proficiency_test_: "",
     what_date_did_you_take_your_english_proficiency_test_: "",
-    eap_required: "",
-    // Additional
-    do_you_intend_to_apply_for_fee_help_: "",
-    course_start_date: "",
-    course_end_date: "",
     ohc_english: "",
     ohcweeks: "",
+    do_you_intend_to_apply_for_fee_help_: "",
   })
 
   const set = (k: string) => (v: string) => setF(prev => ({ ...prev, [k]: v }))
+
+  // ── Derived logic flags ───────────────────────────────────────────────────
+  const showWWCC = WWCC_COURSES.includes(f.course_name_australia)
+  const showOHCWeeks = f.ohc_english === "Yes"
+
+  const handleSuburbSelect = (r: { suburb: string; state: string; postcode: string }) => {
+    setF(prev => ({ ...prev, city: r.suburb, state: r.state, post_code: r.postcode, country: "Australia" }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -330,9 +401,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
       })
       const data = await res.json()
       if (res.status === 409 && data.dealId) {
-        // Already has a deal — redirect to it
-        const path = mode === "agent" ? `/applications/${data.dealId}` : `/student/application/${data.dealId}`
-        window.location.href = path
+        window.location.href = mode === "agent" ? `/applications/${data.dealId}` : `/student/application/${data.dealId}`
         return
       }
       if (!res.ok || !data.ok) {
@@ -341,9 +410,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         return
       }
       onSuccess?.(data.dealId)
-      // Navigate straight to documents tab
-      const path = mode === "agent" ? `/applications/${data.dealId}?tab=documents` : `/student/application/${data.dealId}?tab=documents`
-      window.location.href = path
+      window.location.href = mode === "agent" ? `/applications/${data.dealId}?tab=documents` : `/student/application/${data.dealId}?tab=documents`
     } catch {
       setError("Something went wrong. Please try again.")
       setSubmitting(false)
@@ -354,9 +421,6 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   if (dealId) {
     return (
       <div className="text-center py-8 px-4">
-        <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-gray-800 mb-2">Application Submitted!</h2>
-        <p className="text-sm text-gray-500 mb-6">Your application has been received. You can now upload supporting documents below.</p>
         <div className="text-left max-w-lg mx-auto mb-6">
           <p className="text-xs font-semibold text-gray-600 mb-2">Upload Supporting Documents</p>
           <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
@@ -364,10 +428,8 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
           </div>
           <FileUploaderPost dealId={dealId} />
         </div>
-        <button
-          onClick={() => mode === "agent" ? navigate(`/applications/${dealId}`) : navigate(`/student/application/${dealId}`)}
-          className="px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-medium transition-colors"
-        >
+        <button onClick={() => mode === "agent" ? navigate(`/applications/${dealId}`) : navigate(`/student/application/${dealId}`)}
+          className="px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-medium transition-colors">
           View Application →
         </button>
       </div>
@@ -384,57 +446,70 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         <Inp label="First Name" name="firstname" value={f.firstname} onChange={set("firstname")} required placeholder="Given name" />
         <Inp label="Last Name" name="lastname" value={f.lastname} onChange={set("lastname")} required placeholder="Family name" />
         <Inp label="Student Email" name="student_email" value={f.student_email} onChange={mode === "student" ? undefined : set("student_email")} readOnly={mode === "student"} required type="email" placeholder="student@email.com" />
-        {mode === "agent" && (
-          <Inp label="Agent Email" name="agent_email" value={prefillEmail} readOnly type="email" />
-        )}
-        <Inp label="Mobile Phone Number" name="mobile_phone_number" value={f.mobile_phone_number} onChange={set("mobile_phone_number")} placeholder="+61 4XX XXX XXX" />
-        <Inp label="Date of Birth" name="date_of_birth" value={f.date_of_birth} onChange={set("date_of_birth")} type="date" />
+        {mode === "agent" && <Inp label="Agent Email" name="agent_email" value={prefillEmail} readOnly type="email" />}
+        <Inp label="Mobile Phone Number" name="mobile_phone_number" value={f.mobile_phone_number} onChange={set("mobile_phone_number")} required placeholder="+61 4XX XXX XXX" />
+        <Inp label="Date of Birth" name="date_of_birth" value={f.date_of_birth} onChange={set("date_of_birth")} required type="date" />
 
         {/* ── Address ── */}
         <Section title="Address" />
         <div className="col-span-full">
-          <Inp label="Street Name" name="street_name" value={f.street_name} onChange={set("street_name")} placeholder="123 Example St" />
+          <Inp label="Street Address" name="street_name" value={f.street_name} onChange={set("street_name")} required placeholder="123 Example Street" />
         </div>
-        <Inp label="State" name="state" value={f.state} onChange={set("state")} placeholder="VIC" />
-        <Inp label="Postcode" name="post_code" value={f.post_code} onChange={set("post_code")} placeholder="3000" />
-        <Inp label="Country" name="country" value={f.country} onChange={set("country")} placeholder="Australia" />
-        <Sel label="Nationality" name="nationality" value={f.nationality} onChange={set("nationality")} options={NATIONALITIES} />
+        <div className="col-span-full">
+          <SuburbSearch value={f.city} onChange={set("city")} onSelect={handleSuburbSelect} required />
+        </div>
+        <Inp label="State" name="state" value={f.state} onChange={set("state")} required placeholder="VIC" />
+        <Inp label="Postcode" name="post_code" value={f.post_code} onChange={set("post_code")} required placeholder="3000" />
+        <div className="col-span-full">
+          <Inp label="Country" name="country" value={f.country} onChange={set("country")} required placeholder="Australia" />
+        </div>
 
         {/* ── Identity ── */}
         <Section title="Identity" />
+        <Sel label="Nationality" name="nationality" value={f.nationality} onChange={set("nationality")} options={NATIONALITIES} required />
+        <Inp label="Passport Number" name="passport_number" value={f.passport_number} onChange={set("passport_number")} required placeholder="Passport number" />
+        <Sel label="Residency Status" name="residency_status" value={f.residency_status} onChange={set("residency_status")} options={RESIDENCY_STATUSES} required />
+        <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[{ value: "Onshore", label: "Onshore" }, { value: "Offshore", label: "Offshore" }]} required />
         <Inp label="USI Number" name="usi_number" value={f.usi_number} onChange={set("usi_number")} placeholder="10-character alphanumeric (e.g. AB12CD34EF)" />
-        <Inp label="Passport Number" name="passport_number" value={f.passport_number} onChange={set("passport_number")} placeholder="Passport number" />
-        <Sel label="Residency Status" name="residency_status" value={f.residency_status} onChange={set("residency_status")} options={RESIDENCY_STATUSES} />
-        <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[{ value: "Onshore", label: "Onshore" }, { value: "Offshore", label: "Offshore" }]} />
         <Sel label="Do you have a disability or long-term medical condition?" name="disability" value={f.disability} onChange={set("disability")} options={YES_NO} />
 
-        {/* ── Course ── */}
+        {/* ── Course Details ── */}
         <Section title="Course Details" />
+        <div className="col-span-full bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-800 leading-relaxed">
+          <p className="font-semibold mb-0.5">ℹ️ Please note</p>
+          <p>Course start date, end date, tuition fees, scholarship and total cost will be updated once the case has been assessed. Please allow 24–72 hours.</p>
+        </div>
         <div className="col-span-full">
           <Sel label="Course Name (Australia)" name="course_name_australia" value={f.course_name_australia} onChange={set("course_name_australia")} options={COURSES} required />
         </div>
         <Sel label="Campus (Australia)" name="campus_australia" value={f.campus_australia} onChange={set("campus_australia")} options={CAMPUSES} required />
         <Sel label="Intake (Australia)" name="intake_australia" value={f.intake_australia} onChange={set("intake_australia")} options={INTAKES} required />
-
-        <Sel label="Advanced Standing" name="advanced_standing" value={f.advanced_standing} onChange={set("advanced_standing")} options={YES_NO} />
+        <Sel label="Advanced Standing" name="advanced_standing" value={f.advanced_standing} onChange={set("advanced_standing")} options={YES_NO} required />
         <Sel label="OSHC" name="oshc" value={f.oshc} onChange={set("oshc")} options={YES_NO} />
-        <Sel label="OHC English" name="ohc_english" value={f.ohc_english} onChange={set("ohc_english")} options={YES_NO} />
-        <Inp label="OHC Weeks" name="ohcweeks" value={f.ohcweeks} onChange={set("ohcweeks")} placeholder="e.g. 10" />
-        <Inp label="WWCC / Blue Card Number" name="wwcc_blue_card_number" value={f.wwcc_blue_card_number} onChange={set("wwcc_blue_card_number")} placeholder="Card number" />
+        {showWWCC && (
+          <div className="col-span-full">
+            <Inp label="WWCC / Blue Card Number" name="wwcc_blue_card_number" value={f.wwcc_blue_card_number} onChange={set("wwcc_blue_card_number")} required placeholder="Card number" />
+          </div>
+        )}
 
         {/* ── Prior Education ── */}
         <Section title="Prior Education" />
-        <Inp label="Name of Qualification" name="name_of_qualification" value={f.name_of_qualification} onChange={set("name_of_qualification")} placeholder="e.g. Bachelor of Science" />
-        <Inp label="Name of Institution Attended" name="name_of_institution_attended" value={f.name_of_institution_attended} onChange={set("name_of_institution_attended")} placeholder="e.g. University of Melbourne" />
+        <Inp label="Name of Qualification" name="name_of_qualification" value={f.name_of_qualification} onChange={set("name_of_qualification")} required placeholder="e.g. Bachelor of Science" />
+        <Inp label="Name of Institution Attended" name="name_of_institution_attended" value={f.name_of_institution_attended} onChange={set("name_of_institution_attended")} required placeholder="e.g. University of Melbourne" />
 
         {/* ── English Proficiency ── */}
         <Section title="English Proficiency" />
         <Sel label="English Proficiency Test" name="name_of_english_proficiency_test_australia" value={f.name_of_english_proficiency_test_australia} onChange={set("name_of_english_proficiency_test_australia")} options={ENGLISH_TESTS} />
-        <Inp label="What are the results of your English Proficiency Test?" name="what_are_the_results_of_your_english_proficiency_test_" value={f.what_are_the_results_of_your_english_proficiency_test_} onChange={set("what_are_the_results_of_your_english_proficiency_test_")} placeholder="e.g. Overall 6.5, Writing 6.0" />
+        <Inp label="Results of English Proficiency Test" name="what_are_the_results_of_your_english_proficiency_test_" value={f.what_are_the_results_of_your_english_proficiency_test_} onChange={set("what_are_the_results_of_your_english_proficiency_test_")} placeholder="e.g. Overall 6.5, Writing 6.0" />
         <Inp label="Date you took the test" name="what_date_did_you_take_your_english_proficiency_test_" value={f.what_date_did_you_take_your_english_proficiency_test_} onChange={set("what_date_did_you_take_your_english_proficiency_test_")} type="date" />
-        <Sel label="EAP Required" name="eap_required" value={f.eap_required} onChange={set("eap_required")} options={YES_NO} />
+        <div className="col-span-full">
+          <Sel label="Do you require English course prior to starting?" name="ohc_english" value={f.ohc_english} onChange={set("ohc_english")} options={YES_NO} />
+        </div>
+        {showOHCWeeks && (
+          <Inp label="OHC Weeks" name="ohcweeks" value={f.ohcweeks} onChange={set("ohcweeks")} placeholder="e.g. 10" />
+        )}
 
-        {/* ── Additional ── */}
+        {/* ── Additional Information ── */}
         <Section title="Additional Information" />
         <Sel label="Do you intend to apply for FEE HELP?" name="do_you_intend_to_apply_for_fee_help_" value={f.do_you_intend_to_apply_for_fee_help_} onChange={set("do_you_intend_to_apply_for_fee_help_")} options={YES_NO} />
 
@@ -442,16 +517,12 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
 
       {error && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          {error}
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full py-3 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-      >
+      <button type="submit" disabled={submitting}
+        className="w-full py-3 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
         {submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Submitting…</> : "Submit Application"}
       </button>
 
