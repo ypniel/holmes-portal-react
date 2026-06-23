@@ -12,7 +12,7 @@ const corsHeaders = {
 
 function hs(path, method, body) {
   return new Promise((resolve, reject) => {
-    const data = body ? JSON.stringify(body) : ""
+    const data = body ? JSON.stringify(body) : "{}"
     const req = https.request({
       hostname: "api.hubapi.com", path, method,
       headers: {
@@ -29,7 +29,7 @@ function hs(path, method, body) {
       })
     })
     req.on("error", reject)
-    if (data) req.write(data)
+    req.write(data)
     req.end()
   })
 }
@@ -47,7 +47,7 @@ exports.handler = async (event) => {
 
   const email = form.email?.trim().toLowerCase()
   const firstname = form.firstname?.trim()
-  const lastname = form.lastname?.trim()
+  const lastname = (form.lastname || "").trim()
 
   if (!email || !firstname) {
     return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "First name and email are required." }) }
@@ -60,7 +60,6 @@ exports.handler = async (event) => {
     limit: 1,
   })
 
-  // Block if contact already exists — tell them to sign in
   if (searchRes.body.results?.length > 0) {
     return {
       statusCode: 409,
@@ -69,37 +68,28 @@ exports.handler = async (event) => {
     }
   }
 
-  let contactId
-  if (false) {
-    // (never reached)
-  } else {
-    // Create new contact
-    const createRes = await hs("/crm/v3/objects/contacts", "POST", {
-      properties: {
-        email,
-        firstname,
-        lastname: lastname || "",
-        phone: form.phone || "",
-        // Custom contact properties
-        ...(form.date_of_birth && { date_of_birth: form.date_of_birth }),
-        ...(form.nationality && { nationality: form.nationality }),
-        ...(form.applying_for && { country_the_applicant_is_applying_for: form.applying_for }),
-      }
-    })
+  // Build contact properties — only include valid HubSpot contact properties
+  const contactProps = { email, firstname, lastname }
+  if (form.phone) contactProps.phone = form.phone
+  if (form.date_of_birth) contactProps.date_of_birth = form.date_of_birth
+  if (form.nationality) contactProps.nationality = form.nationality
+  if (form.applying_for) contactProps.country_the_applicant_is_applying_for = form.applying_for
 
-    if (createRes.status !== 201) {
-      return {
-        statusCode: 500,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: "Failed to create account. Please try again." })
-      }
+  const createRes = await hs("/crm/v3/objects/contacts", "POST", { properties: contactProps })
+
+  if (createRes.status !== 201) {
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: "Failed to create account. Please try again.", detail: createRes.body })
     }
-    contactId = createRes.body.id
   }
 
-  // Generate a session token so they're automatically logged in
+  const contactId = createRes.body.id
+  const fullName = `${firstname} ${lastname}`.trim()
+
   const sessionToken = jwt.sign(
-    { email, contactId, companyName: "Direct Student", type: "student", fullName: `${firstname} ${lastname || ""}`.trim() },
+    { email, contactId, companyName: "Direct Student", type: "student", fullName },
     JWT_SECRET,
     { expiresIn: "8h" }
   )
@@ -110,12 +100,7 @@ exports.handler = async (event) => {
     body: JSON.stringify({
       ok: true,
       sessionToken,
-      user: {
-        email,
-        fullName: `${firstname} ${lastname || ""}`.trim(),
-        contactId,
-        companyName: "Direct Student",
-      }
+      user: { email, fullName, contactId, companyName: "Direct Student" }
     })
   }
 }
