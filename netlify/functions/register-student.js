@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken")
 
 const JWT_SECRET = process.env.JWT_SECRET
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN
+const HUBSPOT_TOKEN_WRITE = process.env.HUBSPOT_TOKEN_WRITE
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,13 +11,13 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
-function hs(path, method, body) {
+function hs(path, method, body, token) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : "{}"
     const req = https.request({
       hostname: "api.hubapi.com", path, method,
       headers: {
-        "Authorization": `Bearer ${HUBSPOT_TOKEN}`,
+        "Authorization": `Bearer ${token || HUBSPOT_TOKEN}`,
         "Content-Type": "application/json",
         "Content-Length": Buffer.byteLength(data),
       },
@@ -75,7 +76,8 @@ exports.handler = async (event) => {
   if (form.nationality) contactProps.nationality = form.nationality
   if (form.applying_for) contactProps.country_the_applicant_is_applying_for = form.applying_for
 
-  const createRes = await hs("/crm/v3/objects/contacts", "POST", { properties: contactProps })
+  // Use write token for contact creation
+  const createRes = await hs("/crm/v3/objects/contacts", "POST", { properties: contactProps }, HUBSPOT_TOKEN_WRITE)
 
   if (createRes.status !== 201) {
     return {
