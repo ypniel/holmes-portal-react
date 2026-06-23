@@ -23,6 +23,7 @@ const COURSES = [
   "Bachelor of Aviation (Management)",
   "Bachelor of Business (3 Years)",
   "Bachelor of Business – Hospitality Management Specialisation (3 Years)",
+  "Bachelor of Fashion and Business (2 Years)",
   "Bachelor of Information Systems (3 Years)",
   "Diploma of Business Management with Bachelor of Business (3 Years)",
   "Single Unit Study – Undergraduate",
@@ -508,17 +509,6 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
 
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
-        </div>
-      )}
-
-      <button type="submit" disabled={submitting}
-        className="w-full py-3 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
-        {submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Submitting…</> : "Submit Application"}
-      </button>
-
       {/* ── Document Upload ── */}
       <div className="mt-2">
         <div className="flex items-center gap-2 mb-3">
@@ -534,6 +524,17 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         </div>
         <PreSubmitUploader files={uploadedFiles} onChange={setUploadedFiles} disabled={submitting} />
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
+        </div>
+      )}
+
+      <button type="submit" disabled={submitting}
+        className="w-full py-3 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+        {submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Submitting…</> : "Submit Application"}
+      </button>
     </form>
   )
 }
