@@ -61,13 +61,13 @@ const ENGLISH_TESTS = [
 ]
 
 const RESIDENCY_STATUSES = [
-  { value: "currently have an international student visa", label: "Currently have an international student visa" },
-  { value: "none - currently residing outside australia", label: "None - currently residing outside Australia" },
-  { value: "currently have a non-student temporary visa", label: "Currently have a non-student temporary visa" },
-  { value: "australian citizen", label: "Australian citizen" },
-  { value: "humanitarian visa", label: "Humanitarian visa" },
-  { value: "new zealand citizen", label: "New Zealand citizen" },
-  { value: "permanent visa", label: "Permanent visa" },
+  { value: "Australian Citizen",                                                      label: "Australian Citizen" },
+  { value: "New Zealand Citizen",                                                     label: "New Zealand Citizen" },
+  { value: "Humanitarian Visa",                                                       label: "Humanitarian Visa" },
+  { value: "Permanent Visa",                                                          label: "Permanent Visa" },
+  { value: "Currently have an international student Visa",                            label: "Currently have an international student Visa" },
+  { value: "Currently have a non-student temporary Visa (Work, Tourist, or Spouse Visa)", label: "Currently have a non-student temporary Visa (Work, Tourist, or Spouse Visa)" },
+  { value: "None - Currently residing outside Australia",                             label: "None - Currently residing outside Australia" },
 ]
 
 const NATIONALITIES = [
@@ -504,7 +504,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
           <Inp label="Results of English Proficiency Test" name="what_are_the_results_of_your_english_proficiency_test_" value={f.what_are_the_results_of_your_english_proficiency_test_} onChange={set("what_are_the_results_of_your_english_proficiency_test_")} required={resultsRequired} placeholder="e.g. Overall 6.5, Writing 6.0" />
         )}
         {!hideDate && (
-          <Inp label="Date you took the test" name="what_date_did_you_take_your_english_proficiency_test_" value={f.what_date_did_you_take_your_english_proficiency_test_} onChange={set("what_date_did_you_take_your_english_proficiency_test_")} required={dateRequired} type="date" />
+          <Inp label="English Test Date" name="what_date_did_you_take_your_english_proficiency_test_" value={f.what_date_did_you_take_your_english_proficiency_test_} onChange={set("what_date_did_you_take_your_english_proficiency_test_")} required={dateRequired} type="date" />
         )}
         <div className="col-span-full">
           <Sel label="Do you require English course prior to starting?" name="ohc_english" value={f.ohc_english} onChange={set("ohc_english")} options={YES_NO} />
