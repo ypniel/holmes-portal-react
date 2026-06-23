@@ -166,12 +166,14 @@ export default function HomePage() {
           <div className="bg-gradient-to-br from-red-700 to-red-800 rounded-xl p-6 text-white shadow-lg">
             <h2 className="text-lg font-semibold mb-5">Quick Actions</h2>
             <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <button onClick={() => navigate("/applications/new")}
-                className="bg-white rounded-lg p-4 flex items-center gap-3 hover:bg-red-50 transition-colors text-left"
-              >
-                <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center text-red-700 flex-shrink-0 text-lg">➕</div>
-                <div className="font-bold text-base text-red-700">New Application</div>
-              </button>
+              {!isHolmesStaff(user?.email || "") && (
+                <button onClick={() => navigate("/applications/new")}
+                  className="bg-white rounded-lg p-4 flex items-center gap-3 hover:bg-red-50 transition-colors text-left"
+                >
+                  <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center text-red-700 flex-shrink-0 text-lg">➕</div>
+                  <div className="font-bold text-base text-red-700">New Application</div>
+                </button>
+              )}
               <button onClick={() => navigate("/applications")}
                 className="bg-white/10 border border-white/20 rounded-lg p-4 flex items-start gap-3 hover:bg-white/20 transition-colors text-left"
               >
