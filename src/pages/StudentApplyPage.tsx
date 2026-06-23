@@ -8,6 +8,7 @@ export default function StudentApplyPage() {
   const [session, setSession] = useState<{ email: string; fullName: string; sessionToken: string } | null>(null)
 
   useEffect(() => {
+    const run = async () => {
     const raw = sessionStorage.getItem("holmes_student")
     if (!raw) { navigate("/student", { replace: true }); return }
     const parsed = JSON.parse(raw)
@@ -29,6 +30,8 @@ export default function StudentApplyPage() {
     }
 
     setSession({ email: parsed.email, fullName: parsed.fullName, sessionToken: parsed.sessionToken })
+    }
+    run()
   }, [navigate])
 
   const handleLogout = () => {
