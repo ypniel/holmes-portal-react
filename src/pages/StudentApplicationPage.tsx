@@ -19,6 +19,21 @@ const TEAMS = [
   { name: "Early Childhood Placement",email: "ecplacement@holmes.edu.au",      description: "Work placement for GDEC / Master of Teaching students enquiries" },
 ]
 
+
+function formatIntake(value: string): string {
+  if (!value) return value
+  const map: Record<string, string> = {
+    "July_2026_20_07_2026":     "July 2026",
+    "September 2026":           "September 2026",
+    "November_2026_09_11_2026": "November 2026",
+    "March_2026_23_03_2026":    "March 2026",
+    "May 2026":                 "May 2026",
+  }
+  if (map[value]) return map[value]
+  // Fallback: replace underscores/dashes, strip date suffix
+  return value.replace(/_\d{2}_\d{2}_\d{4}$/, "").replace(/_/g, " ")
+}
+
 export default function StudentApplicationPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -178,7 +193,7 @@ export default function StudentApplicationPage() {
             {deal.intake && (
               <div className="bg-white/10 rounded-lg p-3">
                 <p className="text-xs text-red-300">Intake</p>
-                <p className="text-sm font-medium mt-0.5">{deal.intake}</p>
+                <p className="text-sm font-medium mt-0.5">{formatIntake(deal.intake)}</p>
               </div>
             )}
             {deal.studentId && (
@@ -223,7 +238,7 @@ export default function StudentApplicationPage() {
               {[
                 ["Course", deal.courseName],
                 ["Campus", deal.campus],
-                ["Intake", deal.intake],
+                ["Intake", formatIntake(deal.intake)],
                 ["Start Date", formatDate(deal.courseStart)],
                 ["End Date", formatDate(deal.courseEnd)],
                 ["OSHC", deal.oshc],
