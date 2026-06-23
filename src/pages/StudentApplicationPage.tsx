@@ -219,8 +219,7 @@ export default function StudentApplicationPage() {
 
           {/* Info tab */}
           {activeTab === "info" && (
-            <div>
-              <div className="grid sm:grid-cols-2 gap-x-8">
+            <div className="grid sm:grid-cols-2 gap-x-8">
               {[
                 ["Course", deal.courseName],
                 ["Campus", deal.campus],
