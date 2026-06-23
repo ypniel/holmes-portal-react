@@ -131,49 +131,91 @@ const Section = ({ title }: { title: string }) => (
   </div>
 )
 
-// ── Uploader (post-submission) ─────────────────────────────────────────────────
-function FileUploader({ dealId }: { dealId: string }) {
+
+// ── Pre-submission file uploader ───────────────────────────────────────────────
+const ALLOWED_EXT = ["pdf", "jpg", "jpeg", "png"]
+const MAX_SIZE_MB = 5
+
+interface UploadedFile { fileId: string; fileName: string; extension: string; size: number }
+
+function PreSubmitUploader({ files, onChange, disabled }: {
+  files: UploadedFile[]
+  onChange: (f: UploadedFile[]) => void
+  disabled?: boolean
+}) {
   const [uploading, setUploading] = useState(false)
   const [dragging, setDragging] = useState(false)
-  const [msg, setMsg] = useState<string | null>(null)
+  const [err, setErr] = useState("")
   const ref = useRef<HTMLInputElement>(null)
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return
-    setUploading(true); setMsg(null)
-    try {
-      for (const file of Array.from(files)) {
-        const res = await fetch(`/.netlify/functions/upload?dealId=${dealId}`, {
+  const handleFiles = async (list: FileList | null) => {
+    if (!list || uploading || disabled) return
+    if (files.length >= 10) { setErr("Maximum 10 files reached."); return }
+    setErr("")
+    const toAdd = Array.from(list).slice(0, 10 - files.length)
+    const results: UploadedFile[] = []
+    setUploading(true)
+    for (const file of toAdd) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || ""
+      if (!ALLOWED_EXT.includes(ext)) { setErr(`${file.name}: .${ext} not allowed.`); continue }
+      if (file.size > MAX_SIZE_MB * 1024 * 1024) { setErr(`${file.name} exceeds ${MAX_SIZE_MB}MB.`); continue }
+      try {
+        const res = await fetch("/.netlify/functions/upload-temp", {
           method: "POST",
-          headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-Deal-Id": dealId },
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+            "X-File-Name": encodeURIComponent(file.name),
+            "X-File-Size": String(file.size),
+          },
           body: file,
         })
-        if (!res.ok) throw new Error("Upload failed")
-      }
-      setMsg(`✅ ${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully`)
-    } catch { setMsg("❌ Upload failed. Please try again.") }
-    finally { setUploading(false) }
+        const data = await res.json()
+        if (!res.ok || !data.ok) { setErr(data.error || `Failed to upload ${file.name}`); continue }
+        results.push({ fileId: data.fileId, fileName: data.fileName, extension: data.extension, size: data.size })
+      } catch { setErr(`Failed to upload ${file.name}`) }
+    }
+    onChange([...files, ...results])
+    setUploading(false)
   }
 
   return (
-    <div>
-      <div
-        onDragOver={e => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
-        onClick={() => ref.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}
-      >
-        <input ref={ref} type="file" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
-        <Paperclip className={`h-8 w-8 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
-        {uploading ? <p className="text-sm text-gray-500 animate-pulse">Uploading…</p> : (
-          <>
-            <p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
-            <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, JPG, PNG recommended · max 10 files</p>
-          </>
-        )}
-      </div>
-      {msg && <p className={`text-xs mt-2 text-center ${msg.startsWith("✅") ? "text-emerald-600" : "text-red-600"}`}>{msg}</p>}
+    <div className="space-y-2">
+      {files.length > 0 && (
+        <div className="space-y-1.5">
+          {files.map((f, i) => (
+            <div key={i} className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+              <Paperclip className="h-3.5 w-3.5 text-stone-400 flex-shrink-0" />
+              <span className="text-xs text-gray-700 flex-1 truncate">{f.fileName}</span>
+              <span className="text-xs text-gray-400">{(f.size / 1024).toFixed(0)}KB</span>
+              {!disabled && (
+                <button type="button" onClick={() => onChange(files.filter((_, j) => j !== i))}
+                  className="text-stone-300 hover:text-red-500 transition-colors ml-1">✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {files.length < 10 && !disabled && (
+        <div
+          onDragOver={e => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
+          onClick={() => ref.current?.click()}
+          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}
+        >
+          <input ref={ref} type="file" multiple accept={ALLOWED_EXT.map(e => "." + e).join(",")} className="hidden"
+            onChange={e => { handleFiles(e.target.files); e.target.value = "" }} />
+          <Paperclip className={`h-7 w-7 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
+          {uploading
+            ? <p className="text-sm text-gray-500 animate-pulse">Uploading…</p>
+            : <>
+                <p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
+                <p className="text-xs text-gray-400 mt-1">or click to browse · PDF, JPG, JPEG, PNG only · max 5MB each · {10 - files.length} slot{10 - files.length !== 1 ? "s" : ""} remaining</p>
+              </>
+          }
+        </div>
+      )}
+      {err && <p className="text-xs text-red-600">{err}</p>}
     </div>
   )
 }
@@ -184,6 +226,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [dealId, setDealId] = useState<string | null>(null)
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
 
   const nameParts = (prefillName || "").split(" ")
   const [f, setF] = useState({
@@ -236,7 +279,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
       const res = await fetch("/.netlify/functions/submit-application", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionToken, ...f }),
+        body: JSON.stringify({ sessionToken, ...f, uploadedFiles }),
       })
       const data = await res.json()
       if (res.status === 409 && data.dealId) {
@@ -372,33 +415,13 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
           <span className="text-xs text-stone-400 uppercase tracking-wider">Supporting Documents</span>
           <div className="flex-1 h-px bg-stone-200" />
         </div>
-        {!dealId ? (
-          <div className="border-2 border-dashed border-stone-200 rounded-xl p-8 text-center bg-stone-50">
-            <div className="w-12 h-12 rounded-full bg-white border border-stone-200 flex items-center justify-center mx-auto mb-3">
-              <Paperclip className="h-5 w-5 text-stone-300" />
-            </div>
-            <p className="text-sm font-medium text-stone-500 mb-1">Upload supporting documents</p>
-            <p className="text-xs text-stone-400 mb-4 leading-relaxed">Passport, transcripts, English test results and more.<br />Available after you submit the application above.</p>
-            <div className="inline-flex items-center gap-1.5 bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs text-stone-400">
-              🔒 Submit application to unlock
-            </div>
-          </div>
-        ) : (
-          <div className="border-2 border-dashed border-red-200 rounded-xl p-8 text-center bg-red-50">
-            <div className="w-12 h-12 rounded-full bg-white border border-red-200 flex items-center justify-center mx-auto mb-3">
-              <Paperclip className="h-5 w-5 text-red-400" />
-            </div>
-            <p className="text-sm font-medium text-red-700 mb-1">Application submitted!</p>
-            <p className="text-xs text-red-500 mb-4 leading-relaxed">Upload passport, transcripts, English test results and more<br />in the Documents tab of your application.</p>
-            <button
-              type="button"
-              onClick={() => { window.location.href = mode === "agent" ? `/applications/${dealId}` : `/student/application/${dealId}` }}
-              className="inline-flex items-center gap-1.5 bg-red-700 hover:bg-red-800 text-white rounded-lg px-4 py-2 text-xs font-medium transition-colors"
-            >
-              Go to Documents tab →
-            </button>
-          </div>
-        )}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3 text-xs text-amber-800 leading-relaxed">
+          <p className="font-semibold mb-1">⚠️ Important</p>
+          <p>Only PDF, JPG, JPEG and PNG files are supported.</p>
+          <p>Maximum file size is 5 MB per file.</p>
+          <p className="mt-1 text-amber-700">Files larger than 5 MB or unsupported file types cannot be uploaded. For the best experience, please upload documents as PDF and images as JPG or PNG.</p>
+        </div>
+        <PreSubmitUploader files={uploadedFiles} onChange={setUploadedFiles} disabled={submitting} />
       </div>
     </form>
   )
