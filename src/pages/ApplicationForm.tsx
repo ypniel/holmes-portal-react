@@ -239,6 +239,12 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         body: JSON.stringify({ sessionToken, ...f }),
       })
       const data = await res.json()
+      if (res.status === 409 && data.dealId) {
+        // Already has a deal — redirect to it
+        const path = mode === "agent" ? `/applications/${data.dealId}` : `/student/application/${data.dealId}`
+        window.location.href = path
+        return
+      }
       if (!res.ok || !data.ok) {
         setError(data.error || "Submission failed. Please try again.")
         setSubmitting(false)
