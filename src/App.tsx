@@ -46,7 +46,7 @@ function AppRoutes() {
       <Route path="/student/application/:id" element={<StudentApplicationPage />} />
       <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       <Route path="/applications" element={<ProtectedRoute><ApplicationsPage /></ProtectedRoute>} />
-      <Route path="/applications/new" element={<ProtectedRoute><NewApplicationPage /></ProtectedRoute>} />
+      <Route path="/applications/new" element={<ProtectedRoute>{user && isHolmesStaff(user.email) ? <Navigate to="/applications" replace /> : <NewApplicationPage />}</ProtectedRoute>} />
       <Route path="/applications/:id" element={<ProtectedRoute><ApplicationDetailPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="*" element={<ProtectedRoute><NotFoundPage /></ProtectedRoute>} />
