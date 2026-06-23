@@ -60,10 +60,18 @@ exports.handler = async (event) => {
     limit: 1,
   })
 
-  let contactId
+  // Block if contact already exists — tell them to sign in
   if (searchRes.body.results?.length > 0) {
-    // Contact exists — just return their info so they can log in
-    contactId = searchRes.body.results[0].id
+    return {
+      statusCode: 409,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: "An account with this email already exists. Please sign in instead." })
+    }
+  }
+
+  let contactId
+  if (false) {
+    // (never reached)
   } else {
     // Create new contact
     const createRes = await hs("/crm/v3/objects/contacts", "POST", {
