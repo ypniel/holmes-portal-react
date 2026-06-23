@@ -58,6 +58,18 @@ exports.handler = async (event) => {
   const contactId = payload.contactId
 
   try {
+    // ── Block direct students from lodging more than one application ───────
+    if (isStudent && contactId) {
+      const existingDeals = await hs(`/crm/v4/objects/contacts/${contactId}/associations/deals`, "GET", null)
+      if (existingDeals.body.results?.length > 0) {
+        return {
+          statusCode: 409,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: "An application already exists for this contact.", dealId: String(existingDeals.body.results[0].toObjectId) })
+        }
+      }
+    }
+
     // ── Build deal name ─────────────────────────────────────────────────────
     const dealName = `${form.firstname || ""} ${form.lastname || ""}`.trim() || "New Application"
 
