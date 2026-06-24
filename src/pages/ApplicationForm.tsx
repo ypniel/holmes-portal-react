@@ -342,6 +342,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   const [dealId, setDealId] = useState<string | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [passportWarning, setPassportWarning] = useState<{ studentName: string; status: string; applicationUrl: string } | null>(null)
+  const [corWarning, setCorWarning] = useState(false)
   const [passportChecking, setPassportChecking] = useState(false)
   const passportTimer = useRef<ReturnType<typeof setTimeout>>()
 
@@ -420,8 +421,13 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         const data = await res.json()
         if (data.duplicate && data.sameCompany) {
           setPassportWarning({ studentName: data.studentName, status: data.status, applicationUrl: data.applicationUrl })
+          setCorWarning(false)
+        } else if (data.duplicate && data.type === "different_agency") {
+          setCorWarning(true)
+          setPassportWarning(null)
         } else {
           setPassportWarning(null)
+          setCorWarning(false)
         }
       } catch { setPassportWarning(null) }
       finally { setPassportChecking(false) }
@@ -557,6 +563,13 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
                 View existing application →
               </a>
               <p className="mt-2 text-amber-600">Existing application: <strong>{passportWarning.studentName}</strong> · {passportWarning.status}</p>
+            </div>
+          )}
+          {corWarning && (
+            <div className="mt-2 bg-blue-50 border border-blue-300 rounded-xl px-4 py-3 text-xs text-blue-800">
+              <p className="font-semibold mb-1">ℹ️ Previous application detected</p>
+              <p>This passport number appears to be linked to an application submitted through another agency.</p>
+              <p className="mt-1">Please upload a <strong>Change of Representation letter</strong> with this application to avoid processing delays.</p>
             </div>
           )}
         </div>
