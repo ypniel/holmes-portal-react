@@ -70,6 +70,39 @@ exports.handler = async (event) => {
   }
 
   try {
+    // ── Server-side passport duplicate check (agents only) ──────────────────
+    if (!isStudent && payload.companyId && form.passport_number) {
+      const passportSearch = await hs("/crm/v3/objects/deals/search", "POST", {
+        filterGroups: [{ filters: [{ propertyName: "passport_number", operator: "EQ", value: form.passport_number }] }],
+        properties: ["dealname", "dealstage", "first_name", "last_name"],
+        limit: 5,
+      })
+      const matchingDeals = passportSearch.body?.results || []
+      for (const deal of matchingDeals) {
+        const assocRes = await hs(`/crm/v4/objects/contacts/${deal.id}/associations/companies`, "GET", null)
+        const dealCompanyId = assocRes.body?.results?.[0]?.toObjectId ? String(assocRes.body.results[0].toObjectId) : null
+        // Check company association via deal
+        const dealAssoc = await hs(`/crm/v4/objects/deals/${deal.id}/associations/companies`, "GET", null)
+        const dealCompany = dealAssoc.body?.results?.[0]?.toObjectId ? String(dealAssoc.body.results[0].toObjectId) : null
+        if (dealCompany === String(payload.companyId)) {
+          const p = deal.properties || {}
+          const studentName = [p.first_name, p.last_name].filter(Boolean).join(" ") || p.dealname || "Unknown"
+          return {
+            statusCode: 409,
+            headers: corsHeaders,
+            body: JSON.stringify({
+              error: "A duplicate application exists for this passport number within your agency.",
+              duplicate: true,
+              sameCompany: true,
+              dealId: deal.id,
+              studentName,
+              applicationUrl: `/applications/${deal.id}`,
+            })
+          }
+        }
+      }
+    }
+
     // ── Block direct students from lodging more than one application ───────
     if (isStudent && contactId) {
       const existingDeals = await hs(`/crm/v4/objects/contacts/${contactId}/associations/deals`, "GET", null)
