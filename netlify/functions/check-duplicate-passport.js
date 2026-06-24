@@ -104,19 +104,35 @@ exports.handler = async (event) => {
     }
 
     if (!agentCompanyId && deals.length > 0) {
-      // No company context — still flag as potential duplicate but without details
+      // No company context — treat as different agency
       return {
         statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ duplicate: true, sameCompany: false })
+        body: JSON.stringify({
+          duplicate: true,
+          type: "different_agency",
+          requiresChangeOfRepresentation: true,
+        })
       }
     }
   }
 
-  // Deals found but none from same company — different agency, don't expose details
+  // Deals found but none from same company — different agency, vague response only
+  if (deals.length > 0) {
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        duplicate: true,
+        type: "different_agency",
+        requiresChangeOfRepresentation: true,
+      })
+    }
+  }
+
   return {
     statusCode: 200,
     headers: corsHeaders,
-    body: JSON.stringify({ duplicate: false, otherCompany: true })
+    body: JSON.stringify({ duplicate: false })
   }
 }
