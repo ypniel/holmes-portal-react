@@ -341,6 +341,9 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   const [error, setError] = useState("")
   const [dealId, setDealId] = useState<string | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
+  const [passportWarning, setPassportWarning] = useState<{ studentName: string; status: string; applicationUrl: string } | null>(null)
+  const [passportChecking, setPassportChecking] = useState(false)
+  const passportTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const nameParts = (prefillName || "").split(" ")
   const [f, setF] = useState({
@@ -392,6 +395,39 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   const resultsRequired = !hideResults && englishTest !== "" && englishTest !== "English_Placement_Test_Request"
   const dateRequired    = !hideDate && englishTest !== "" && englishTest !== "English_Placement_Test_Request"
 
+  // ── Passport duplicate check ─────────────────────────────────────────────
+  const checkPassportDuplicate = useCallback(async (passportValue: string) => {
+    clearTimeout(passportTimer.current)
+    if (passportValue.length < 6) { setPassportWarning(null); return }
+    passportTimer.current = setTimeout(async () => {
+      setPassportChecking(true)
+      try {
+        // Get companyId from session
+        const token = sessionStorage.getItem("holmes_session_token")
+        let companyId: string | null = null
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split(".")[1]))
+            companyId = payload.companyId || null
+          } catch {}
+        }
+        if (!companyId && mode !== "agent") { setPassportChecking(false); return }
+        const res = await fetch("/.netlify/functions/check-duplicate-passport", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ passport: passportValue, agentCompanyId: companyId }),
+        })
+        const data = await res.json()
+        if (data.duplicate && data.sameCompany) {
+          setPassportWarning({ studentName: data.studentName, status: data.status, applicationUrl: data.applicationUrl })
+        } else {
+          setPassportWarning(null)
+        }
+      } catch { setPassportWarning(null) }
+      finally { setPassportChecking(false) }
+    }, 600)
+  }, [mode])
+
   const handleSuburbSelect = (r: { suburb: string; state: string; postcode: string }) => {
     setF(prev => ({ ...prev, city: r.suburb, state: r.state, post_code: r.postcode, country: "Australia" }))
   }
@@ -400,13 +436,43 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
     e.preventDefault()
     setSubmitting(true); setError("")
     try {
+      // Submit-time duplicate check
+      if (mode === "agent" && f.passport_number.length >= 6) {
+        const token = sessionStorage.getItem("holmes_session_token")
+        let companyId: string | null = null
+        if (token) {
+          try { const p = JSON.parse(atob(token.split(".")[1])); companyId = p.companyId || null } catch {}
+        }
+        if (companyId) {
+          const dupRes = await fetch("/.netlify/functions/check-duplicate-passport", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ passport: f.passport_number, agentCompanyId: companyId }),
+          })
+          const dupData = await dupRes.json()
+          if (dupData.duplicate && dupData.sameCompany) {
+            setPassportWarning({ studentName: dupData.studentName, status: dupData.status, applicationUrl: dupData.applicationUrl })
+            setError("A duplicate application exists for this passport number. Please review the warning above.")
+            setSubmitting(false)
+            return
+          }
+        }
+      }
       const res = await fetch("/.netlify/functions/submit-application", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionToken, ...f, uploadedFiles }),
       })
       const data = await res.json()
-      if (res.status === 409 && data.dealId) {
+      if (res.status === 409 && data.duplicate && data.sameCompany) {
+        // Same-company passport duplicate — show warning, block submission
+        setPassportWarning({ studentName: data.studentName, status: "", applicationUrl: data.applicationUrl })
+        setError("A duplicate application exists for this passport number. Please review the warning above.")
+        setSubmitting(false)
+        return
+      }
+      if (res.status === 409 && data.dealId && !data.duplicate) {
+        // Student already has a deal
         window.location.href = mode === "agent" ? `/applications/${data.dealId}` : `/student/application/${data.dealId}`
         return
       }
@@ -473,7 +539,27 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         {/* ── Identity ── */}
         <Section title="Identity" />
         <Sel label="Nationality" name="nationality" value={f.nationality} onChange={set("nationality")} options={NATIONALITIES} required />
-        <Inp label="Passport Number" name="passport_number" value={f.passport_number} onChange={set("passport_number")} required placeholder="Passport number" />
+        <div className="col-span-full sm:col-span-1">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Passport Number<span className="text-red-500 ml-0.5">*</span></label>
+          <div className="relative">
+            <input type="text" name="passport_number" value={f.passport_number} required placeholder="Passport number"
+              onChange={e => { set("passport_number")(e.target.value); if (mode === "agent") checkPassportDuplicate(e.target.value) }}
+              className="w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500" />
+            {passportChecking && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />}
+          </div>
+          {passportWarning && (
+            <div className="mt-2 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 text-xs text-amber-800">
+              <p className="font-semibold mb-1">⚠️ This applicant appears to have already been submitted by your agency.</p>
+              <p className="mb-2">Please do not create a duplicate application. Open the existing case and add a comment if an amendment or update is required.</p>
+              <a href={passportWarning.applicationUrl}
+                className="inline-flex items-center gap-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg px-3 py-1.5 font-medium transition-colors"
+              >
+                View existing application →
+              </a>
+              <p className="mt-2 text-amber-600">Existing application: <strong>{passportWarning.studentName}</strong> · {passportWarning.status}</p>
+            </div>
+          )}
+        </div>
         <Sel label="Residency Status" name="residency_status" value={f.residency_status} onChange={set("residency_status")} options={RESIDENCY_STATUSES} required />
         <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[{ value: "Onshore", label: "Onshore" }, { value: "Offshore", label: "Offshore" }]} required />
         <Inp label="USI Number" name="usi_number" value={f.usi_number} onChange={set("usi_number")} placeholder="10-character alphanumeric (e.g. AB12CD34EF)" />
