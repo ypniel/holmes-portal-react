@@ -28,10 +28,18 @@ function formatIntake(value: string): string {
     "November_2026_09_11_2026": "November 2026",
     "March_2026_23_03_2026":    "March 2026",
     "May 2026":                 "May 2026",
+    "July_2025_21_07_2025":     "July 2025",
+    "September_2025":           "September 2025",
+    "November_2025":            "November 2025",
+    "March_2025":               "March 2025",
   }
   if (map[value]) return map[value]
-  // Fallback: replace underscores/dashes, strip date suffix
-  return value.replace(/_\d{2}_\d{2}_\d{4}$/, "").replace(/_/g, " ")
+  // Fallback: strip trailing date pattern _DD_MM_YYYY, then replace remaining underscores with spaces
+  return value
+    .replace(/_\d{2}_\d{2}_\d{4}$/, "")
+    .replace(/_\d{4}$/, "")
+    .replace(/_/g, " ")
+    .trim()
 }
 
 export default function StudentApplicationPage() {
