@@ -8,7 +8,7 @@ const SENDGRID_TEMPLATE_ID = process.env.SENDGRID_TEMPLATE_ID
 const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "admissions@holmes.edu.au"
 const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME || "Holmes Admissions"
 const SALT_ROUNDS = 10
-const PORTAL_URL = "https://holmes-admissions-portal-v2.netlify.app"
+const PORTAL_URL = "https://aportal.holmes.edu.au"
 
 function hubspotRequest(path, method, body) {
   return new Promise((resolve, reject) => {
