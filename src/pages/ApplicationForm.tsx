@@ -465,10 +465,19 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
     do_you_intend_to_apply_for_fee_help_: "",
   })
 
-  const set = (k: string) => (v: string) => setF(prev => ({ ...prev, [k]: v }))
+  const set = (k: string) => (v: string) => setF(prev => {
+    const next = { ...prev, [k]: v }
+    // If course changes to Aviation Flight and campus isn't Melbourne, reset campus
+    if (k === "course_name_australia" && v === "Bachelor of Aviation (Flight)" && prev.campus_australia !== "Melbourne") {
+      next.campus_australia = "Melbourne"
+    }
+    return next
+  })
 
   // ── Derived logic flags ───────────────────────────────────────────────────
   const showWWCC = WWCC_COURSES.includes(f.course_name_australia)
+  const isAviation = f.course_name_australia === "Bachelor of Aviation (Flight)"
+  const CAMPUSES_FILTERED = isAviation ? ["Melbourne"] : CAMPUSES
   const showPlacementType = WWCC_COURSES.includes(f.course_name_australia)
   const showOHCWeeks = f.ohc_english === "Yes"
 
@@ -676,7 +685,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         <div className="col-span-full">
           <Sel label="Course Name (Australia)" name="course_name_australia" value={f.course_name_australia} onChange={set("course_name_australia")} options={COURSES} required />
         </div>
-        <Sel label="Campus (Australia)" name="campus_australia" value={f.campus_australia} onChange={set("campus_australia")} options={CAMPUSES} required />
+        <Sel label="Campus (Australia)" name="campus_australia" value={f.campus_australia} onChange={v => { set("campus_australia")(v) }} options={isAviation ? ["Melbourne"] : CAMPUSES} required />
         <Sel label="Intake (Australia)" name="intake_australia" value={f.intake_australia} onChange={set("intake_australia")} options={INTAKES} required />
         <Sel label="Advanced Standing" name="advanced_standing" value={f.advanced_standing} onChange={set("advanced_standing")} options={YES_NO} required />
         <Sel label="Do you require OSHC from us?" name="oshc" value={f.oshc} onChange={set("oshc")} options={YES_NO} />
