@@ -128,92 +128,176 @@ const Section = ({ title }: { title: string }) => (
   </div>
 )
 
-// ── Suburb Autocomplete ────────────────────────────────────────────────────────
-interface SuburbResult { suburb: string; state: string; postcode: string }
+// ── Address Autocomplete (Nominatim) ──────────────────────────────────────────
+interface AddressResult {
+  display: string
+  street: string
+  suburb: string
+  state: string
+  postcode: string
+  country: string
+}
 
-function SuburbSearch({ value, onChange, onSelect, required }: {
-  value: string
-  onChange: (v: string) => void
-  onSelect: (r: SuburbResult) => void
+const STATE_ABBR: Record<string, string> = {
+  "New South Wales": "NSW", "Victoria": "VIC", "Queensland": "QLD",
+  "South Australia": "SA", "Western Australia": "WA", "Tasmania": "TAS",
+  "Northern Territory": "NT", "Australian Capital Territory": "ACT"
+}
+
+function AddressSearch({ streetValue, suburbValue, onStreetChange, onSuburbChange, onSelect, required }: {
+  streetValue: string
+  suburbValue: string
+  onStreetChange: (v: string) => void
+  onSuburbChange: (v: string) => void
+  onSelect: (r: AddressResult) => void
   required?: boolean
 }) {
-  const [results, setResults] = useState<SuburbResult[]>([])
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const debounce = useRef<ReturnType<typeof setTimeout>>()
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const [streetResults, setStreetResults] = useState<AddressResult[]>([])
+  const [suburbResults, setSuburbResults] = useState<{ suburb: string; state: string; postcode: string }[]>([])
+  const [streetOpen, setStreetOpen] = useState(false)
+  const [suburbOpen, setSuburbOpen] = useState(false)
+  const [streetLoading, setStreetLoading] = useState(false)
+  const [suburbLoading, setSuburbLoading] = useState(false)
+  const streetTimer = useRef<ReturnType<typeof setTimeout>>()
+  const suburbTimer = useRef<ReturnType<typeof setTimeout>>()
+  const streetRef = useRef<HTMLDivElement>(null)
+  const suburbRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+      if (streetRef.current && !streetRef.current.contains(e.target as Node)) setStreetOpen(false)
+      if (suburbRef.current && !suburbRef.current.contains(e.target as Node)) setSuburbOpen(false)
     }
     document.addEventListener("mousedown", handler)
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
-  const search = useCallback((q: string) => {
-    clearTimeout(debounce.current)
-    if (q.length < 2) { setResults([]); setOpen(false); return }
-    debounce.current = setTimeout(async () => {
-      setLoading(true)
+  const searchStreet = useCallback((q: string) => {
+    clearTimeout(streetTimer.current)
+    if (q.length < 4) { setStreetResults([]); setStreetOpen(false); return }
+    streetTimer.current = setTimeout(async () => {
+      setStreetLoading(true)
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + " Australia")}&countrycodes=au&format=json&addressdetails=1&limit=6`
+        const res = await fetch(url, { headers: { "Accept-Language": "en" } })
+        const data = await res.json()
+        const seen = new Set<string>()
+        const mapped: AddressResult[] = []
+        for (const item of data) {
+          const addr = item.address || {}
+          const houseNumber = addr.house_number || ""
+          const road = addr.road || addr.pedestrian || addr.footway || ""
+          const street = [houseNumber, road].filter(Boolean).join(" ")
+          const suburb = addr.suburb || addr.town || addr.village || addr.city_district || addr.city || addr.municipality || ""
+          const state = STATE_ABBR[addr.state || ""] || addr.state || ""
+          const postcode = addr.postcode || ""
+          const country = addr.country_code?.toUpperCase() === "AU" ? "Australia" : addr.country || ""
+          const display = item.display_name || ""
+          if (!road || seen.has(display)) continue
+          seen.add(display)
+          mapped.push({ display, street, suburb, state, postcode, country })
+        }
+        setStreetResults(mapped)
+        setStreetOpen(mapped.length > 0)
+      } catch { setStreetResults([]) }
+      finally { setStreetLoading(false) }
+    }, 400)
+  }, [])
+
+  const searchSuburb = useCallback((q: string) => {
+    clearTimeout(suburbTimer.current)
+    if (q.length < 2) { setSuburbResults([]); setSuburbOpen(false); return }
+    suburbTimer.current = setTimeout(async () => {
+      setSuburbLoading(true)
       try {
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + " Australia")}&countrycodes=au&featuretype=city&format=json&addressdetails=1&limit=8`
         const res = await fetch(url, { headers: { "Accept-Language": "en" } })
         const data = await res.json()
         const seen = new Set<string>()
-        const mapped: SuburbResult[] = []
+        const mapped: { suburb: string; state: string; postcode: string }[] = []
         for (const item of data) {
           const addr = item.address || {}
           const suburb = addr.suburb || addr.town || addr.village || addr.city_district || addr.city || addr.municipality || ""
-          const state = addr.state || ""
+          const state = STATE_ABBR[addr.state || ""] || addr.state || ""
           const postcode = addr.postcode || ""
           if (!suburb || seen.has(suburb + postcode)) continue
           seen.add(suburb + postcode)
-          mapped.push({ suburb, state: stateAbbr(state), postcode })
+          mapped.push({ suburb, state, postcode })
         }
-        setResults(mapped)
-        setOpen(mapped.length > 0)
-      } catch { setResults([]) }
-      finally { setLoading(false) }
+        setSuburbResults(mapped)
+        setSuburbOpen(mapped.length > 0)
+      } catch { setSuburbResults([]) }
+      finally { setSuburbLoading(false) }
     }, 350)
   }, [])
 
-  const stateAbbr = (s: string) => {
-    const m: Record<string, string> = {
-      "New South Wales": "NSW", "Victoria": "VIC", "Queensland": "QLD",
-      "South Australia": "SA", "Western Australia": "WA", "Tasmania": "TAS",
-      "Northern Territory": "NT", "Australian Capital Territory": "ACT"
-    }
-    return m[s] || s
-  }
-
   return (
-    <div ref={wrapRef} className="relative">
-      <label className="block text-xs font-medium text-gray-600 mb-1">City / Suburb{required && <span className="text-red-500 ml-0.5">*</span>}</label>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-        <input
-          type="text" value={value} required={required}
-          onChange={e => { onChange(e.target.value); search(e.target.value) }}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="Type suburb name…"
-          className="w-full pl-9 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
-        />
-        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />}
-      </div>
-      {open && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg overflow-hidden">
-          {results.map((r, i) => (
-            <button key={i} type="button"
-              onMouseDown={e => { e.preventDefault(); onSelect(r); onChange(r.suburb); setOpen(false) }}
-              className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 flex items-center justify-between gap-4 border-b border-stone-100 last:border-0">
-              <span className="font-medium text-gray-800">{r.suburb}</span>
-              <span className="text-xs text-gray-400 flex-shrink-0">{r.state} {r.postcode}</span>
-            </button>
-          ))}
+    <>
+      {/* Street Address */}
+      <div ref={streetRef} className="col-span-full relative">
+        <label className="block text-xs font-medium text-gray-600 mb-1">Street Address{required && <span className="text-red-500 ml-0.5">*</span>}</label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <input type="text" value={streetValue} required={required}
+            onChange={e => { onStreetChange(e.target.value); searchStreet(e.target.value) }}
+            onFocus={() => streetResults.length > 0 && setStreetOpen(true)}
+            placeholder="Start typing your street address…"
+            className="w-full pl-9 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+          />
+          {streetLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />}
         </div>
-      )}
-    </div>
+        {streetOpen && streetResults.length > 0 && (
+          <div className="absolute z-50 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg overflow-hidden">
+            {streetResults.map((r, i) => (
+              <button key={i} type="button"
+                onMouseDown={e => {
+                  e.preventDefault()
+                  onSelect(r)
+                  onStreetChange(r.street || streetValue)
+                  onSuburbChange(r.suburb)
+                  setStreetOpen(false)
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 border-b border-stone-100 last:border-0">
+                <p className="font-medium text-gray-800 truncate">{r.street || r.display}</p>
+                <p className="text-xs text-gray-400 truncate">{r.suburb} {r.state} {r.postcode}</p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* City / Suburb */}
+      <div ref={suburbRef} className="col-span-full relative">
+        <label className="block text-xs font-medium text-gray-600 mb-1">City / Suburb{required && <span className="text-red-500 ml-0.5">*</span>}</label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <input type="text" value={suburbValue} required={required}
+            onChange={e => { onSuburbChange(e.target.value); searchSuburb(e.target.value) }}
+            onFocus={() => suburbResults.length > 0 && setSuburbOpen(true)}
+            placeholder="Type suburb name…"
+            className="w-full pl-9 pr-4 py-2.5 border border-stone-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+          />
+          {suburbLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />}
+        </div>
+        {suburbOpen && suburbResults.length > 0 && (
+          <div className="absolute z-50 mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg overflow-hidden">
+            {suburbResults.map((r, i) => (
+              <button key={i} type="button"
+                onMouseDown={e => {
+                  e.preventDefault()
+                  onSuburbChange(r.suburb)
+                  onSelect({ display: r.suburb, street: streetValue, suburb: r.suburb, state: r.state, postcode: r.postcode, country: "Australia" })
+                  setSuburbOpen(false)
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 flex items-center justify-between gap-4 border-b border-stone-100 last:border-0">
+                <span className="font-medium text-gray-800">{r.suburb}</span>
+                <span className="text-xs text-gray-400 flex-shrink-0">{r.state} {r.postcode}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -434,8 +518,15 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
     }, 600)
   }, [mode])
 
-  const handleSuburbSelect = (r: { suburb: string; state: string; postcode: string }) => {
-    setF(prev => ({ ...prev, city: r.suburb, state: r.state, post_code: r.postcode, country: "Australia" }))
+  const handleAddressSelect = (r: { display: string; street: string; suburb: string; state: string; postcode: string; country: string }) => {
+    setF(prev => ({
+      ...prev,
+      street_name: r.street || prev.street_name,
+      city: r.suburb || prev.city,
+      state: r.state || prev.state,
+      post_code: r.postcode || prev.post_code,
+      country: r.country || "Australia",
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -530,12 +621,14 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
 
         {/* ── Address ── */}
         <Section title="Address" />
-        <div className="col-span-full">
-          <Inp label="Street Address" name="street_name" value={f.street_name} onChange={set("street_name")} required placeholder="123 Example Street" />
-        </div>
-        <div className="col-span-full">
-          <SuburbSearch value={f.city} onChange={set("city")} onSelect={handleSuburbSelect} required />
-        </div>
+        <AddressSearch
+          streetValue={f.street_name}
+          suburbValue={f.city}
+          onStreetChange={set("street_name")}
+          onSuburbChange={set("city")}
+          onSelect={handleAddressSelect}
+          required
+        />
         <Inp label="State" name="state" value={f.state} onChange={set("state")} required placeholder="VIC" />
         <Inp label="Postcode" name="post_code" value={f.post_code} onChange={set("post_code")} required placeholder="3000" />
         <div className="col-span-full">
