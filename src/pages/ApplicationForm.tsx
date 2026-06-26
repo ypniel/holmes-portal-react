@@ -61,13 +61,13 @@ const ENGLISH_TESTS = [
 ]
 
 const RESIDENCY_STATUSES = [
-  { value: "Australian Citizen",                                                      label: "Australian Citizen" },
-  { value: "New Zealand Citizen",                                                     label: "New Zealand Citizen" },
-  { value: "Humanitarian Visa",                                                       label: "Humanitarian Visa" },
-  { value: "Permanent Visa",                                                          label: "Permanent Visa" },
-  { value: "Currently have an international student Visa",                            label: "Currently have an international student Visa" },
-  { value: "Currently have a non-student temporary Visa (Work, Tourist, or Spouse Visa)", label: "Currently have a non-student temporary Visa (Work, Tourist, or Spouse Visa)" },
-  { value: "None - Currently residing outside Australia",                             label: "None - Currently residing outside Australia" },
+  { value: "Currently have an international student Visa", label: "Student Visa" },
+  { value: "Currently have a non-student temporary Visa (Work, Tourist, or Spouse Visa)", label: "Temporary Visa" },
+  { value: "None - Currently residing outside Australia",  label: "None - Currently residing outside Australia" },
+  { value: "Australian Citizen",                           label: "Australian Citizen" },
+  { value: "New Zealand Citizen",                          label: "New Zealand Citizen" },
+  { value: "Humanitarian Visa",                            label: "Humanitarian Visa" },
+  { value: "Permanent Visa",                               label: "Permanent Visa" },
 ]
 
 const NATIONALITIES = [
@@ -676,7 +676,11 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
           )}
         </div>
         <Sel label="Residency Status" name="residency_status" value={f.residency_status} onChange={set("residency_status")} options={RESIDENCY_STATUSES} required />
-        <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[{ value: "Onshore", label: "Onshore" }, { value: "Offshore", label: "Offshore" }]} required />
+        <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[
+              { value: "Onshore", label: "In Australia" },
+              { value: "Offshore", label: "Outside Australia" },
+              { value: "Non Visa Required", label: "Non Visa Required" },
+            ]} required />
         <Inp label="USI Number" name="usi_number" value={f.usi_number} onChange={set("usi_number")} placeholder="10-character alphanumeric (e.g. AB12CD34EF)" />
         <Sel label="Do you have a disability or long-term medical condition?" name="disability" value={f.disability} onChange={set("disability")} options={YES_NO} />
 
