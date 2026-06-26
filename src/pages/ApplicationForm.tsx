@@ -679,7 +679,6 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         <Sel label="Where are you applying from?" name="where_are_you_applying_from" value={f.where_are_you_applying_from} onChange={set("where_are_you_applying_from")} options={[
               { value: "Onshore", label: "In Australia" },
               { value: "Offshore", label: "Outside Australia" },
-              { value: "Non Visa Required", label: "Non Visa Required" },
             ]} required />
         <Inp label="USI Number" name="usi_number" value={f.usi_number} onChange={set("usi_number")} placeholder="10-character alphanumeric (e.g. AB12CD34EF)" />
         <Sel label="Do you have a disability or long-term medical condition?" name="disability" value={f.disability} onChange={set("disability")} options={YES_NO} />
