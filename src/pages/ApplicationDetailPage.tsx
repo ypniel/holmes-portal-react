@@ -11,6 +11,23 @@ import {
   createNote, Deal, Note, FileItem, Company
 } from "../lib/hubspot"
 import { formatDate, formatDateTime, formatIntake, BADGE_CLASSES as BC, initials } from "../lib/utils"
+const titleCase = (s: string) => s
+  ? s.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase())
+  : s
+
+const ENGLISH_TEST_LABELS: Record<string, string> = {
+  "IELTS": "IELTS",
+  "PTE": "PTE (Pearson Test of English)",
+  "TOEFL": "TOEFL",
+  "Cambridge_English_qualification": "Cambridge English Qualification",
+  "Australian_Studies_High_School_Diploma_Above": "Australian High School / Diploma or Higher",
+  "Holmes_Pass_Rate_50": "50% Pass Rate (Recent Semester)",
+  "English_Placement_Test_Request": "Request English Placement Test",
+}
+
+const formatEnglishTest = (v: string) => ENGLISH_TEST_LABELS[v] || titleCase(v)
+
+
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { DetailPageSkeleton } from "../components/Skeleton"
 
@@ -286,11 +303,11 @@ export default function ApplicationDetailPage() {
                   <DetailRow label="Intake"            value={formatIntake(deal.intake)} />
                   <DetailRow label="Start Date"        value={formatDate(deal.courseStart)} />
                   <DetailRow label="End Date"          value={formatDate(deal.courseEnd)} />
-                  <DetailRow label="Do you require OSHC from us?" value={deal.oshc} />
-                  <DetailRow label="English course prior to starting" value={deal.ohcEnglish} />
-                  <DetailRow label="Advanced Standing" value={deal.advancedStanding} />
-                  {deal.wwcc && <DetailRow label="WWCC / Blue Card Number" value={deal.wwcc} />}
-                  <DetailRow label="English Proficiency Test" value={deal.englishTestType} />
+                  <DetailRow label="Do you require OSHC from us?" value={titleCase(deal.oshc)} />
+                  <DetailRow label="English course prior to starting" value={titleCase(deal.ohcEnglish)} />
+                  <DetailRow label="Advanced Standing" value={titleCase(deal.advancedStanding)} />
+                  {deal.wwcc && <DetailRow label="WWCC / Blue Card Number" value={titleCase(deal.wwcc)} />}
+                  <DetailRow label="English Proficiency Test" value={formatEnglishTest(deal.englishTestType)} />
                   <DetailRow label="English Proficiency Results" value={deal.englishScore} />
                   <DetailRow label="English Test Date"   value={deal.englishTestDate} />
                   <DetailRow label="Tuition Fees"      value={deal.tuitionFees} />
@@ -310,11 +327,11 @@ export default function ApplicationDetailPage() {
                   <DetailRow label="Street"            value={deal.streetName} />
                   <DetailRow label="City"              value={deal.city} />
                   <DetailRow label="Postcode"          value={deal.postCode} />
-                  <DetailRow label="Country"           value={deal.nationality} />
-                  <DetailRow label="Residency Status"  value={deal.residencyStatus} />
+                  <DetailRow label="Country"           value={titleCase(deal.nationality)} />
+                  <DetailRow label="Residency Status"  value={titleCase(deal.residencyStatus)} />
                   <DetailRow label="Date of Birth"     value={formatDate(deal.dob)} />
                   <DetailRow label="Passport Number"   value={deal.passport} />
-                  <DetailRow label="WWCC / Blue Card"  value={deal.wwcc} />
+                  <DetailRow label="WWCC / Blue Card"  value={titleCase(deal.wwcc)} />
                   <DetailRow label="Student ID"        value={deal.studentId} />
                   <DetailRow label="Deal ID"           value={deal.dealId} />
                 </div>
