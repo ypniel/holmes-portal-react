@@ -48,7 +48,7 @@ export const DEAL_PROPS = [
   "agent_company","agency_name_import_use_only","branch_office",
   "agent_email","agent_company_name","agent_mobile_number","agent_contact_name",
   "contact_person_name","name",
-  "student_id","jupiter_id","hs_object_id",
+  "student_id","student_number","jupiter_id","hs_object_id",
   "ohc_english","wwcc_blue_card_number","email","mobile_phone_number","street_name","city","post_code",
 ]
 
@@ -498,7 +498,7 @@ function mapDeal(raw: any): Deal {
     agentPhone: g("agent_mobile_number"),
     agentContact: g("agent_contact_name", "contact_person_name"),
     branchOffice: g("branch_office"),
-    studentId: g("student_id"),
+    studentId: g("student_number") || g("student_id"),
     jupiterId: g("jupiter_id"),
     dealId: raw.id,
     ohcEnglish: g("ohc_english"),
