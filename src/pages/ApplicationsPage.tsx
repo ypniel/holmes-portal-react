@@ -297,7 +297,7 @@ export default function ApplicationsPage() {
             <FilterDropdown label="Country"          value={nationalityFilter} options={nationalities} onSelect={v => { setNationalityFilter(v); setPage(1) }} open={openDropdown==="nationality"} onToggle={() => setOpenDropdown(openDropdown==="nationality" ? null : "nationality")} />
             <FilterDropdown label="Residency"        value={residencyFilter}   options={residencies}  onSelect={v => { setResidencyFilter(v);   setPage(1) }} open={openDropdown==="residency"}   onToggle={() => setOpenDropdown(openDropdown==="residency"   ? null : "residency")} />
             <FilterDropdown label="Course"           value={courseFilter}      options={courses}      onSelect={v => { setCourseFilter(v);      setPage(1) }} open={openDropdown==="course"}      onToggle={() => setOpenDropdown(openDropdown==="course"      ? null : "course")} />
-            <FilterDropdown label="Intake"           value={intakeFilter}      options={intakes}      onSelect={v => { setIntakeFilter(v);      setPage(1) }} open={openDropdown==="intake"}      onToggle={() => setOpenDropdown(openDropdown==="intake"      ? null : "intake")} />
+            <FilterDropdown label="Intake"           value={intakeFilter}      options={intakes}      onSelect={v => { setIntakeFilter(v);      setPage(1) }} open={openDropdown==="intake"}      onToggle={() => setOpenDropdown(openDropdown==="intake"      ? null : "intake")} labelFn={formatIntake} />
           </div>
         </div>
       </div>
@@ -420,11 +420,13 @@ export default function ApplicationsPage() {
   )
 }
 
-function FilterDropdown({ label, value, options, onSelect, open, onToggle }: {
+function FilterDropdown({ label, value, options, onSelect, open, onToggle, labelFn }: {
   label: string; value: string; options: string[]
   onSelect: (v: string) => void; open: boolean; onToggle: () => void
+  labelFn?: (v: string) => string
 }) {
   const active = value !== "all" && value !== ""
+  const display = labelFn || ((v: string) => v)
   return (
     <div className="relative">
       <button type="button" onClick={onToggle}
@@ -432,7 +434,7 @@ function FilterDropdown({ label, value, options, onSelect, open, onToggle }: {
           active ? "border-red-300 bg-red-50 text-red-700" : "border-stone-200 text-stone-600 hover:bg-stone-50"
         }`}
       >
-        <span className="truncate">{active ? value : label}</span>
+        <span className="truncate">{active ? display(value) : label}</span>
         <ChevronDown className="h-3.5 w-3.5 shrink-0" />
       </button>
       {open && (
@@ -443,7 +445,7 @@ function FilterDropdown({ label, value, options, onSelect, open, onToggle }: {
           {options.map(opt => (
             <button key={opt} type="button" onClick={() => onSelect(opt)}
               className={`w-full text-left px-4 py-2 text-sm hover:bg-stone-50 ${value===opt?"text-red-700 font-medium bg-red-50":"text-stone-700"}`}
-            >{opt}</button>
+            >{display(opt)}</button>
           ))}
         </div>
       )}
