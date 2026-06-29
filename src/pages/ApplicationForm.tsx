@@ -352,7 +352,7 @@ function FileUploaderPost({ dealId }: { dealId: string }) {
       for (const file of Array.from(files)) {
         const ext = getFileExt(file.name)
         if (!PORTAL_ALLOWED_FILE_EXT.includes(ext)) {
-          setMsg(`❌ ${file.name}: only PDF, JPG, and JPEG files are supported.`)
+          setMsg(`❌ ${file.name}: only PDF, JPG, JPEG and PNG files are supported.`)
           continue
         }
         if (file.size > PORTAL_MAX_FILE_SIZE) {
@@ -671,7 +671,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         <div className="text-left max-w-lg mx-auto mb-6">
           <p className="text-xs font-semibold text-gray-600 mb-2">Upload Supporting Documents</p>
           <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-            For best results upload PDF, JPG, JPEG or PNG. Avoid uploading more than 10 files.
+            For the best viewing experience, please upload documents in PDF or JPG/JPEG format. Maximum file size is 5 MB per file. Files such as PNG, HEIC, DOCX, XLSX, PPTX, and ZIP may not be previewable within the portal. Please also avoid uploading too many files — a maximum of 10 is recommended.
           </div>
           <FileUploaderPost dealId={dealId} />
         </div>
@@ -822,9 +822,9 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         </div>
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-3 text-xs text-amber-800 leading-relaxed">
           <p className="font-semibold mb-1">⚠️ Important</p>
-          <p>Only PDF, JPG, JPEG and PNG files are supported.</p>
+          <p>For the best viewing experience, please upload documents in PDF or JPG/JPEG format.</p>
           <p>Maximum file size is 5 MB per file.</p>
-          <p className="mt-1 text-amber-700">Files larger than 5 MB or unsupported file types cannot be uploaded. For the best experience, please upload documents as PDF and images as JPG or PNG.</p>
+          <p className="mt-1 text-amber-700">Files such as PNG, HEIC, DOCX, XLSX, PPTX, and ZIP may not be previewable within the portal. Please also avoid uploading too many files — a maximum of 10 is recommended.</p>
         </div>
         <PreSubmitUploader files={uploadedFiles} onChange={setUploadedFiles} disabled={submitting} />
       </div>

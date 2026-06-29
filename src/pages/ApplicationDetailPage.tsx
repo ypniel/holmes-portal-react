@@ -463,8 +463,9 @@ export default function ApplicationDetailPage() {
                   <div className="flex gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
                     <span className="text-amber-500 flex-shrink-0 mt-0.5">⚠️</span>
                     <div className="text-xs text-amber-800 leading-relaxed">
-                      <p className="font-semibold mb-0.5">For the best viewing experience, please upload documents in PDF, JPG, JPEG, or PNG format.</p>
-                      <p>Files such as HEIC, DOCX, XLSX, PPTX, and ZIP may not be previewable within the portal. Please also avoid uploading too many files — a maximum of 10 is recommended.</p>
+                      <p className="font-semibold mb-0.5">For the best viewing experience, please upload documents in PDF or JPG/JPEG format.</p>
+                      <p>Maximum file size is 5 MB per file.</p>
+                      <p>Files such as PNG, HEIC, DOCX, XLSX, PPTX, and ZIP may not be previewable within the portal. Please also avoid uploading too many files — a maximum of 10 is recommended.</p>
                     </div>
                   </div>
                   {/* Upload area */}
@@ -742,7 +743,7 @@ function DocumentUploader({ dealId, onUploaded, onOptimisticFile }: {
       for (const file of Array.from(files)) {
         const ext = getFileExt(file.name)
         if (!PORTAL_ALLOWED_FILE_EXT.includes(ext)) {
-          setUploadMsg(`❌ ${file.name}: only PDF, JPG, and JPEG  files are supported.`)
+          setUploadMsg(`❌ ${file.name}: only PDF, JPG, JPEG and PNG files are supported.`)
           continue
         }
         if (file.size > PORTAL_MAX_FILE_SIZE) {
