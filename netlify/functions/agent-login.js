@@ -11,7 +11,7 @@ const EMAIL_NOT_FOUND_MESSAGE =
   "This email address is not registered for access to the Holmes Admissions Portal. Please check that you are using the correct agent email address. If you believe you should have access, contact admissions@holmes.edu.au."
 
 const WRONG_PASSWORD_MESSAGE =
-  "The password entered is incorrect. Please check your email for the login instructions sent to your email. If you continue to experience difficulties, contact admissions@holmes.edu.au."
+  "The password entered is incorrect. Please check your email for the login instructions. If you continue to experience difficulties, contact admissions@holmes.edu.au."
 
 function hubspotRequest(path, method, body) {
   return new Promise((resolve, reject) => {
