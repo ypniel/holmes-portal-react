@@ -21,9 +21,14 @@ export const BADGE_CLASSES: Record<string, string> = {
 // ── Core fetch wrapper — always proxied through Netlify function ──────────────
 async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
   const url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}`
+  const token = sessionStorage.getItem("holmes_session_token") || localStorage.getItem("holmes_student_token") || ""
   const fetchInit: RequestInit = {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      ...(init.headers || {}),
+    },
   }
   const res = await fetch(url, fetchInit)
   if (!res.ok) throw new Error(`HubSpot API error: ${res.status}`)
