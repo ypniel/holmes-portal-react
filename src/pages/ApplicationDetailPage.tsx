@@ -519,7 +519,7 @@ export default function ApplicationDetailPage() {
               </div>
             </div>
             <div className="space-y-2 text-sm mb-3">
-              <div><p className="text-xs text-gray-500">Phone</p><p className="font-medium text-gray-900">+61 3 9564 1444</p></div>
+              <div><p className="text-xs text-gray-500">Phone</p><p className="font-medium text-gray-900">+61 3 9662 2055</p></div>
               <div><p className="text-xs text-gray-500">Email</p><p className="font-medium text-gray-900">admissions@holmes.edu.au</p></div>
             </div>
             <div className="pt-3 border-t border-stone-100">
