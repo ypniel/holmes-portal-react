@@ -152,7 +152,7 @@ export default function StudentApplicationPage() {
       for (const file of Array.from(fileList)) {
         const ext = getFileExt(file.name)
         if (!PORTAL_ALLOWED_FILE_EXT.includes(ext)) {
-          setUploadMsg(`❌ ${file.name}: only PDF, JPG, JPEG and PNG files are supported.`)
+          setUploadMsg(`❌ ${file.name}: only PDF, JPG, and JPEG files are supported.`)
           continue
         }
         if (file.size > PORTAL_MAX_FILE_SIZE) {
