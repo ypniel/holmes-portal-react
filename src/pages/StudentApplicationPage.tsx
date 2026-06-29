@@ -272,15 +272,15 @@ export default function StudentApplicationPage() {
 
           {/* Messages tab */}
           {activeTab === "messages" && (
-            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 w-full">
-              <span className="text-amber-500 mt-0.5 flex-shrink-0">⏱</span>
-              <p className="text-xs text-amber-800 leading-relaxed">
-                <span className="font-semibold">Response time: 24–48 hours</span> for standard cases.
-                Cases with credit assessment requests may take up to <span className="font-semibold">72 hours</span>.
-                Please do not chase up before this window has passed.
-              </p>
-            </div>
             <div className="flex flex-col h-[500px]">
+              <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 w-full">
+                <span className="text-amber-500 mt-0.5 flex-shrink-0">⏱</span>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  <span className="font-semibold">Response time: 24–48 hours</span> for standard cases.
+                  Cases with credit assessment requests may take up to <span className="font-semibold">72 hours</span>.
+                  Please do not chase up before this window has passed.
+                </p>
+              </div>
               <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
                 {notes.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center py-8">
