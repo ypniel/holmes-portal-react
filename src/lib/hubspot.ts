@@ -27,6 +27,10 @@ async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
     headers: { "Content-Type": "application/json", ...(init.headers || {}) },
   }
   const res = await fetch(url, fetchInit)
+  if (res.status === 403) {
+    window.location.href = "/login"
+    throw new Error("Access denied")
+  }
   if (!res.ok) throw new Error(`HubSpot API error: ${res.status}`)
   return res.json()
 }
@@ -392,7 +396,7 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         if (fileIdMatch) {
           const fileId = fileIdMatch[1]
           if (files.find(f => f.id === fileId)) continue
-          files.push({ name, id: fileId, url: `/.netlify/functions/download-file?fileId=${fileId}`, createdAt: eng.engagement?.createdAt })
+          files.push({ name, id: fileId, url: `/.netlify/functions/download-file?fileId=${fileId}&dealId=${dealId}&sessionToken=${encodeURIComponent(sessionStorage.getItem('holmes_session_token') || '')}`, createdAt: eng.engagement?.createdAt })
         }
       }
 
@@ -414,9 +418,9 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
               if (fileData.extension && !name.toLowerCase().endsWith("."+fileData.extension.toLowerCase())) {
                 name = name + "." + fileData.extension
               }
-              return { name, id: attId, url: `/.netlify/functions/download-file?fileId=${attId}`, createdAt: eng.engagement?.createdAt }
+              return { name, id: attId, url: `/.netlify/functions/download-file?fileId=${attId}&dealId=${dealId}&sessionToken=${encodeURIComponent(sessionStorage.getItem('holmes_session_token') || '')}`, createdAt: eng.engagement?.createdAt }
             })
-            .catch(() => ({ name: "Document", id: attId, url: `/.netlify/functions/download-file?fileId=${attId}`, createdAt: eng.engagement?.createdAt }))
+            .catch(() => ({ name: "Document", id: attId, url: `/.netlify/functions/download-file?fileId=${attId}&dealId=${dealId}&sessionToken=${encodeURIComponent(sessionStorage.getItem('holmes_session_token') || '')}`, createdAt: eng.engagement?.createdAt }))
         )
       )
       files.push(...metaResults)
