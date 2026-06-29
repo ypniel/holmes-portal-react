@@ -10,7 +10,7 @@ import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
 
-type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
+type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified" | "dateAdded"
 type SortDir  = "asc" | "desc"
 
 
@@ -115,7 +115,10 @@ export default function ApplicationsPage() {
     }).sort((a, b) => {
       let av: any = a[sortKey as keyof Deal]
       let bv: any = b[sortKey as keyof Deal]
-      if (sortKey === "lastModified") {
+      if (sortKey === "dateAdded") {
+        av = new Date(a.createdAt || 0).getTime()
+        bv = new Date(b.createdAt || 0).getTime()
+      } else if (sortKey === "lastModified") {
         // Date sort — always reliable
         av = av ? new Date(av).getTime() : 0
         bv = bv ? new Date(bv).getTime() : 0
@@ -193,7 +196,7 @@ export default function ApplicationsPage() {
       ["Student Name","Country","Residency","Course Name","Intake","Campus","Response Status","Case Status","Last Modified"],
       ...filtered.map(d => [
         d.studentName, d.nationality, d.residencyStatus, d.courseName,
-        d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.lastModified), d.agentEmail || ""
+        d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.createdAt), formatDate(d.lastModified), d.agentEmail || ""
       ])
     ]
     // Add UTF-8 BOM so Excel renders accented characters correctly
@@ -333,6 +336,7 @@ export default function ApplicationsPage() {
                     { key: "campus" as SortKey, label: "Campus" },
                     { key: null, label: "Response Status" },
                     { key: "stageLabel" as SortKey, label: "Case Status" },
+                    { key: "dateAdded" as SortKey, label: "Date Added" },
                     { key: "lastModified" as SortKey, label: "Last Modified" },
                     { key: null, label: "Submitted By" },
                   ].map(col => (
