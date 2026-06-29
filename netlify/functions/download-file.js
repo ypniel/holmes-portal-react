@@ -95,13 +95,39 @@ exports.handler = async (event) => {
   }
 
   // ── Ownership check ───────────────────────────────────────────────────────
-  if (dealId && session.companyId) {
-    const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
-    if (!isStaff) {
+  if (dealId) {
+    const isStaff = session.companyId && HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
+    if (!isStaff && session.companyId) {
+      // Check deal belongs to agent company
       const dealCompanyId = await getDealCompanyId(dealId)
       if (dealCompanyId && String(dealCompanyId) !== String(session.companyId)) {
         return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied." }) }
       }
+    }
+    // Verify fileId actually belongs to this dealId via engagements
+    const engRes = await new Promise((resolve) => {
+      const req = require("https").request({
+        hostname: "api.hubapi.com",
+        path: `/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100`,
+        method: "GET",
+        headers: { "Authorization": `Bearer ${FILE_TOKEN}`, "Content-Type": "application/json" },
+      }, (res) => {
+        const chunks = []
+        res.on("data", c => chunks.push(c))
+        res.on("end", () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString())) } catch { resolve({}) } })
+      })
+      req.on("error", () => resolve({}))
+      req.end()
+    })
+    const allAttachments = (engRes.results || []).flatMap(e => e.attachments || []).map(a => String(a.id))
+    const allFileIds = (engRes.results || []).flatMap(e => {
+      const body = e.engagement?.bodyPreview || ""
+      const matches = [...body.matchAll(/fileId=(\d+)/g)].map(m => m[1])
+      return matches
+    })
+    const validIds = new Set([...allAttachments, ...allFileIds])
+    if (validIds.size > 0 && !validIds.has(String(fileId))) {
+      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied." }) }
     }
   }
 
