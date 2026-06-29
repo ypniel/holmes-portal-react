@@ -487,15 +487,11 @@ export default function ApplicationDetailPage() {
                                 <button
                                   type="button"
                                   onClick={async () => {
-                                    const fileUrl = f.url!
                                     const token = sessionStorage.getItem("holmes_session_token") || ""
-                                    const base = fileUrl.split("?")[0]
-                                    const params = new URLSearchParams(fileUrl.split("?")[1] || "")
-                                    params.set("sessionToken", token)
-                                    const url = `${base}?${params.toString()}`
+                                    const url = `/.netlify/functions/download-file?fileId=${encodeURIComponent(f.id)}&dealId=${encodeURIComponent(id || "")}`
                                     try {
-                                      const res = await fetch(url)
-                                      if (!res.ok) { alert("Access denied."); return }
+                                      const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } })
+                                      if (!res.ok) { alert("You do not have permission to access this file."); return }
                                       const blob = await res.blob()
                                       const blobUrl = URL.createObjectURL(blob)
                                       const a = document.createElement("a")
