@@ -48,6 +48,33 @@ const TEAMS = [
 
 type Tab = "course" | "student" | "agent" | "chatter" | "documents"
 
+const PORTAL_ALLOWED_FILE_EXT = ["pdf", "jpg", "jpeg", "png"]
+const PORTAL_MAX_FILE_SIZE = 5 * 1024 * 1024
+
+function getFileExt(fileName: string) {
+  return fileName.split(".").pop()?.toLowerCase() || ""
+}
+
+function contentTypeForFile(file: File, ext: string) {
+  if (file.type) return file.type
+  if (ext === "pdf") return "application/pdf"
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg"
+  if (ext === "png") return "image/png"
+  return "application/octet-stream"
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result || "")
+      resolve(result.includes(",") ? result.split(",")[1] : result)
+    }
+    reader.onerror = () => reject(reader.error || new Error("Could not read file"))
+    reader.readAsDataURL(file)
+  })
+}
+
 function useLiveStatus() {
   const [isLive, setIsLive] = useState(false)
   useEffect(() => {
@@ -710,24 +737,42 @@ function DocumentUploader({ dealId, onUploaded, onOptimisticFile }: {
     if (!files || files.length === 0) return
     setUploading(true)
     setUploadMsg(null)
+    let uploadedCount = 0
     try {
       for (const file of Array.from(files)) {
+        const ext = getFileExt(file.name)
+        if (!PORTAL_ALLOWED_FILE_EXT.includes(ext)) {
+          setUploadMsg(`❌ ${file.name}: only PDF, JPG, JPEG and PNG files are supported.`)
+          continue
+        }
+        if (file.size > PORTAL_MAX_FILE_SIZE) {
+          setUploadMsg(`❌ ${file.name} exceeds 5MB.`)
+          continue
+        }
+
+        const base64 = await fileToBase64(file)
         const res = await fetch(`/.netlify/functions/upload?dealId=${dealId}`, {
           method: "POST",
           headers: {
-            "Content-Type": file.type || "application/octet-stream",
+            "Content-Type": "text/plain",
+            "X-File-Type": contentTypeForFile(file, ext),
             "X-File-Name": encodeURIComponent(file.name),
+            "X-File-Size": String(file.size),
+            "X-File-Base64": "true",
             "X-Deal-Id": dealId,
           },
-          body: file,
+          body: base64,
         })
         if (!res.ok) throw new Error("Upload failed")
         // Optimistically add file to list immediately
         const cdnUrl = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${dealId}/${encodeURIComponent(file.name)}`
         onOptimisticFile({ name: file.name, id: cdnUrl, url: cdnUrl, createdAt: Date.now() })
+        uploadedCount += 1
       }
-      setUploadMsg(`✅ ${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully`)
-      onUploaded()
+      if (uploadedCount > 0) {
+        setUploadMsg(`✅ ${uploadedCount} file${uploadedCount > 1 ? "s" : ""} uploaded successfully`)
+        onUploaded()
+      }
     } catch {
       setUploadMsg("❌ Upload failed. Please try again.")
     } finally {
@@ -746,7 +791,7 @@ function DocumentUploader({ dealId, onUploaded, onOptimisticFile }: {
           dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"
         }`}
       >
-        <input ref={inputRef} type="file" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
+        <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={e => handleFiles(e.target.files)} />
         <Paperclip className={`h-8 w-8 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
         {uploading ? (
           <p className="text-sm text-gray-500 animate-pulse">Uploading…</p>
