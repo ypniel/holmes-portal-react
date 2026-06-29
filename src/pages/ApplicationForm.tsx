@@ -88,6 +88,13 @@ const NATIONALITIES = [
 ]
 
 const YES_NO = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]
+const PHONE_PATTERN = /^\+?[0-9\s()-]{7,20}$/
+const cleanPhoneInput = (value: string) => value.replace(/[^0-9+\s()-]/g, "")
+const isValidPhone = (value: string) => {
+  const trimmed = value.trim()
+  const digitCount = trimmed.replace(/\D/g, "").length
+  return PHONE_PATTERN.test(trimmed) && digitCount >= 7 && digitCount <= 15
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const Sel = ({ label, name, value, onChange, options, required = false, placeholder = "Select…" }: {
@@ -110,14 +117,16 @@ const Sel = ({ label, name, value, onChange, options, required = false, placehol
   )
 }
 
-const Inp = ({ label, name, value, onChange, type = "text", required = false, readOnly = false, placeholder = "" }: {
+const Inp = ({ label, name, value, onChange, type = "text", required = false, readOnly = false, placeholder = "", inputMode, pattern, title, maxLength }: {
   label: string; name: string; value: string; onChange?: (v: string) => void
   type?: string; required?: boolean; readOnly?: boolean; placeholder?: string
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"]; pattern?: string; title?: string; maxLength?: number
 }) => (
   <div>
     <label className="block text-xs font-medium text-gray-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
     <input type={type} name={name} value={value} placeholder={placeholder}
       onChange={e => onChange?.(e.target.value)} required={required} readOnly={readOnly}
+      inputMode={inputMode} pattern={pattern} title={title} maxLength={maxLength}
       className={`w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 ${readOnly ? "bg-stone-50 text-gray-500" : "bg-white"}`} />
   </div>
 )
@@ -542,6 +551,12 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
     e.preventDefault()
     setSubmitting(true); setError("")
     try {
+      if (!isValidPhone(f.mobile_phone_number)) {
+        setError("Please enter a valid mobile phone number. Use numbers only, with optional +, spaces, brackets or hyphens.")
+        setSubmitting(false)
+        return
+      }
+
       // Submit-time duplicate check
       if (mode === "agent" && f.passport_number.length >= 6) {
         const token = sessionStorage.getItem("holmes_session_token")
@@ -625,7 +640,18 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         <Inp label="Last Name" name="lastname" value={f.lastname} onChange={set("lastname")} required placeholder="Family name" />
         <Inp label="Student Email" name="student_email" value={f.student_email} onChange={mode === "student" ? undefined : set("student_email")} readOnly={mode === "student"} required type="email" placeholder="student@email.com" />
         {mode === "agent" && <Inp label="Agent Email" name="agent_email" value={prefillEmail} readOnly type="email" />}
-        <Inp label="Mobile Phone Number" name="mobile_phone_number" value={f.mobile_phone_number} onChange={set("mobile_phone_number")} required placeholder="+61 4XX XXX XXX" />
+        <Inp
+          label="Mobile Phone Number"
+          name="mobile_phone_number"
+          value={f.mobile_phone_number}
+          onChange={v => set("mobile_phone_number")(cleanPhoneInput(v))}
+          required
+          placeholder="+61 4XX XXX XXX"
+          inputMode="tel"
+          pattern="^\+?[0-9\s()-]{7,20}$"
+          title="Please enter a valid mobile phone number using numbers only. You may include +, spaces, brackets or hyphens."
+          maxLength={20}
+        />
         <Inp label="Date of Birth" name="date_of_birth" value={f.date_of_birth} onChange={set("date_of_birth")} required type="date" />
 
         {/* ── Address ── */}
