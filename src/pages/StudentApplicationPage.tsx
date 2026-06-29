@@ -167,7 +167,7 @@ export default function StudentApplicationPage() {
             </div>
           </div>
 
-          {/* Pills row — case status + response status */}
+          {/* Pills row — case status + response status + student ID */}
           <div className="flex flex-wrap gap-2 mb-4">
             <span className="inline-flex items-center gap-2 bg-white/15 border border-white/25 px-4 py-1.5 rounded-full text-sm font-semibold">
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
@@ -180,6 +180,11 @@ export default function StudentApplicationPage() {
                   : "bg-emerald-500/20 border-emerald-300/30 text-emerald-200"
               }`}>
                 {deal.responseStatus}
+              </span>
+            )}
+            {deal.studentId && (
+              <span className="inline-flex items-center gap-2 bg-white/15 border border-white/25 px-4 py-1.5 rounded-full text-sm font-semibold">
+                🎓 Student ID: {deal.studentId}
               </span>
             )}
           </div>
@@ -267,6 +272,14 @@ export default function StudentApplicationPage() {
 
           {/* Messages tab */}
           {activeTab === "messages" && (
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 w-full">
+              <span className="text-amber-500 mt-0.5 flex-shrink-0">⏱</span>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                <span className="font-semibold">Response time: 24–48 hours</span> for standard cases.
+                Cases with credit assessment requests may take up to <span className="font-semibold">72 hours</span>.
+                Please do not chase up before this window has passed.
+              </p>
+            </div>
             <div className="flex flex-col h-[500px]">
               <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
                 {notes.length === 0 ? (
