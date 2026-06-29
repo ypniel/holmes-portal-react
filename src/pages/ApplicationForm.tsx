@@ -310,6 +310,33 @@ function AddressSearch({ streetValue, suburbValue, onStreetChange, onSuburbChang
   )
 }
 
+const PORTAL_ALLOWED_FILE_EXT = ["pdf", "jpg", "jpeg", "png"]
+const PORTAL_MAX_FILE_SIZE = 5 * 1024 * 1024
+
+function getFileExt(fileName: string) {
+  return fileName.split(".").pop()?.toLowerCase() || ""
+}
+
+function contentTypeForFile(file: File, ext: string) {
+  if (file.type) return file.type
+  if (ext === "pdf") return "application/pdf"
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg"
+  if (ext === "png") return "image/png"
+  return "application/octet-stream"
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result || "")
+      resolve(result.includes(",") ? result.split(",")[1] : result)
+    }
+    reader.onerror = () => reject(reader.error || new Error("Could not read file"))
+    reader.readAsDataURL(file)
+  })
+}
+
 // ── Post-submission file uploader ─────────────────────────────────────────────
 function FileUploaderPost({ dealId }: { dealId: string }) {
   const [uploading, setUploading] = useState(false)
@@ -320,16 +347,36 @@ function FileUploaderPost({ dealId }: { dealId: string }) {
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     setUploading(true); setMsg(null)
+    let uploadedCount = 0
     try {
       for (const file of Array.from(files)) {
+        const ext = getFileExt(file.name)
+        if (!PORTAL_ALLOWED_FILE_EXT.includes(ext)) {
+          setMsg(`❌ ${file.name}: only PDF, JPG, JPEG and PNG files are supported.`)
+          continue
+        }
+        if (file.size > PORTAL_MAX_FILE_SIZE) {
+          setMsg(`❌ ${file.name} exceeds 5MB.`)
+          continue
+        }
+
+        const base64 = await fileToBase64(file)
         const res = await fetch(`/.netlify/functions/upload?dealId=${dealId}`, {
           method: "POST",
-          headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-Deal-Id": dealId },
-          body: file,
+          headers: {
+            "Content-Type": "text/plain",
+            "X-File-Type": contentTypeForFile(file, ext),
+            "X-File-Name": encodeURIComponent(file.name),
+            "X-File-Size": String(file.size),
+            "X-File-Base64": "true",
+            "X-Deal-Id": dealId,
+          },
+          body: base64,
         })
         if (!res.ok) throw new Error("Upload failed")
+        uploadedCount += 1
       }
-      setMsg(`✅ ${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully`)
+      if (uploadedCount > 0) setMsg(`✅ ${uploadedCount} file${uploadedCount > 1 ? "s" : ""} uploaded successfully`)
     } catch { setMsg("❌ Upload failed. Please try again.") }
     finally { setUploading(false) }
   }
@@ -341,7 +388,7 @@ function FileUploaderPost({ dealId }: { dealId: string }) {
         onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
         onClick={() => ref.current?.click()}
         className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragging ? "border-red-400 bg-red-50" : "border-stone-200 hover:border-red-300 hover:bg-stone-50"}`}>
-        <input ref={ref} type="file" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
+        <input ref={ref} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={e => handleFiles(e.target.files)} />
         <Paperclip className={`h-8 w-8 mx-auto mb-2 ${dragging ? "text-red-500" : "text-stone-300"}`} />
         {uploading ? <p className="text-sm text-gray-500 animate-pulse">Uploading…</p> : (
           <><p className="text-sm font-medium text-gray-600">Drag and drop files here</p>
@@ -378,10 +425,17 @@ function PreSubmitUploader({ files, onChange, disabled }: {
       if (!ALLOWED_EXT.includes(ext)) { setErr(`${file.name}: .${ext} not allowed.`); continue }
       if (file.size > MAX_SIZE_MB * 1024 * 1024) { setErr(`${file.name} exceeds ${MAX_SIZE_MB}MB.`); continue }
       try {
+        const base64 = await fileToBase64(file)
         const res = await fetch("/.netlify/functions/upload-temp", {
           method: "POST",
-          headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), "X-File-Size": String(file.size) },
-          body: file,
+          headers: {
+            "Content-Type": "text/plain",
+            "X-File-Type": contentTypeForFile(file, ext),
+            "X-File-Name": encodeURIComponent(file.name),
+            "X-File-Size": String(file.size),
+            "X-File-Base64": "true",
+          },
+          body: base64,
         })
         const data = await res.json()
         if (!res.ok || !data.ok) { setErr(data.error || `Failed to upload ${file.name}`); continue }
