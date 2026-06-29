@@ -20,7 +20,8 @@ export const BADGE_CLASSES: Record<string, string> = {
 
 // ── Core fetch wrapper — always proxied through Netlify function ──────────────
 async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
-  const url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}`
+  const token = sessionStorage.getItem("holmes_session_token") || ""
+  const url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}${token ? `&sessionToken=${encodeURIComponent(token)}` : ""}`
   const fetchInit: RequestInit = {
     ...init,
     headers: { "Content-Type": "application/json", ...(init.headers || {}) },
