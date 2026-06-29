@@ -52,11 +52,8 @@ exports.handler = async (event) => {
 
   // ── Session verification ───────────────────────────────────────────────────
   const session = verifySession(event)
-  if (!session) {
-    return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Unauthorized" }) }
-  }
-  const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
-  const isStudent = session.type === "student_otp" || session.companyName === "Direct Student"
+  const isStaff = session ? HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d)) : false
+  const isStudent = session ? (session.type === "student_otp" || session.companyName === "Direct Student") : false
 
   const path = event.queryStringParameters?.path || ""
   const isDownload = event.queryStringParameters?.download === "true"
