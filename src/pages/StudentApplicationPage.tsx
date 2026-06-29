@@ -42,6 +42,21 @@ function formatIntake(value: string): string {
     .trim()
 }
 
+const STUDENT_FORMS = [
+  { name: "Academic Calendar 2026–2030",        url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Academic%20Calendar%202026-2030.pdf" },
+  { name: "Manual Enrolment Form",              url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Manual%20Enrolment%20form.pdf" },
+  { name: "Subject Variation Request Form",     url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Subject%20variation%20request%20form.pdf" },
+  { name: "Special Consideration Application",  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Special%20Consideration%20Application%20Form.pdf" },
+  { name: "Study Overload Application Form",    url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Study%20Overload%20Application%20Form.pdf" },
+  { name: "Request for Reduced Study Load",     url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20Reduced%20Study%20Load.pdf" },
+  { name: "Concurrent Enrolment Form",          url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Concurrent%20enrolment%20form.pdf" },
+  { name: "Appeals Form",                       url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Appeals%20Form.pdf" },
+  { name: "Request for Academic Documents",     url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20Academic%20Documents%20Form.pdf" },
+  { name: "Change of Campus or Course",         url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Change%20of%20Campus%20or%20Course.pdf" },
+  { name: "Defer, Cancel and Suspend Request",  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Defer%20Cancel%20and%20Suspend%20Request.pdf" },
+  { name: "Request for Course Extension",       url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20course%20extension%20form.pdf" },
+]
+
 export default function StudentApplicationPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -50,6 +65,7 @@ export default function StudentApplicationPage() {
   const [files, setFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const urlTab = new URLSearchParams(location.search).get("tab") as "info" | "messages" | "documents" | null
+  const [formsOpen, setFormsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"info" | "messages" | "documents">(urlTab || "info")
   const [comment, setComment] = useState("")
   const [sending, setSending] = useState(false)
@@ -240,6 +256,29 @@ export default function StudentApplicationPage() {
               <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
+        </div>
+
+        {/* Forms & Documents */}
+        <div className="bg-white rounded-xl border border-stone-200 overflow-hidden mb-4">
+          <button onClick={() => setFormsOpen(o => !o)}
+            className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-stone-50 transition-colors">
+            <div className="flex items-center gap-2.5">
+              <span className="text-red-700">📥</span>
+              <span className="text-sm font-semibold text-gray-800">Forms &amp; Documents</span>
+            </div>
+            <span className="text-xs text-gray-400">{formsOpen ? "▲" : "▼"}</span>
+          </button>
+          {formsOpen && (
+            <div className="border-t border-stone-100 divide-y divide-stone-50">
+              {STUDENT_FORMS.map(form => (
+                <a key={form.url} href={form.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-between px-5 py-3 hover:bg-red-50 transition-colors group">
+                  <span className="text-xs text-gray-700 group-hover:text-red-700 transition-colors">{form.name}</span>
+                  <span className="text-gray-300 group-hover:text-red-500 text-xs ml-2">↓</span>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Tab content */}
