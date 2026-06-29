@@ -42,6 +42,25 @@ function formatIntake(value: string): string {
     .trim()
 }
 
+function useLiveStatus() {
+  const [isLive, setIsLive] = useState(false)
+  useEffect(() => {
+    const check = () => {
+      const melbStr = new Date().toLocaleString("en-AU", { timeZone: "Australia/Melbourne", hour12: false })
+      const parts = melbStr.split(", ")
+      if (parts.length < 2) return
+      const h = parseInt(parts[1].split(":")[0])
+      const dateSegments = parts[0].split("/")
+      const day = new Date(parseInt(dateSegments[2]), parseInt(dateSegments[1]) - 1, parseInt(dateSegments[0])).getDay()
+      setIsLive(day >= 1 && day <= 5 && h >= 9 && h < 17)
+    }
+    check()
+    const interval = setInterval(check, 30000)
+    return () => clearInterval(interval)
+  }, [])
+  return isLive
+}
+
 const STUDENT_FORMS = [
   { name: "Academic Calendar 2026–2030",        url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Academic%20Calendar%202026-2030.pdf" },
   { name: "Manual Enrolment Form",              url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Manual%20Enrolment%20form.pdf" },
@@ -66,6 +85,7 @@ export default function StudentApplicationPage() {
   const [loading, setLoading] = useState(true)
   const urlTab = new URLSearchParams(location.search).get("tab") as "info" | "messages" | "documents" | null
   const [formsOpen, setFormsOpen] = useState(false)
+  const isLive = useLiveStatus()
   const [activeTab, setActiveTab] = useState<"info" | "messages" | "documents">(urlTab || "info")
   const [comment, setComment] = useState("")
   const [sending, setSending] = useState(false)
@@ -256,6 +276,25 @@ export default function StudentApplicationPage() {
               <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
+        </div>
+
+        {/* Admissions Availability */}
+        <div className="bg-white rounded-xl border border-stone-200 p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-gray-800 text-sm">Need Assistance?</h3>
+            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-semibold ${isLive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-stone-100 text-stone-500 border-stone-200"}`}>
+              <span className={`w-2 h-2 rounded-full ${isLive ? "bg-emerald-500 animate-pulse" : "bg-stone-400"}`} />
+              <span>{isLive ? "Live Now" : "Closed"}</span>
+            </div>
+          </div>
+          <div className="space-y-2 text-sm mb-3">
+            <div><p className="text-xs text-gray-500">Phone</p><p className="font-medium text-gray-900">+61 3 9662 2055</p></div>
+            <div><p className="text-xs text-gray-500">Email</p><p className="font-medium text-gray-900">admissions@holmes.edu.au</p></div>
+          </div>
+          <div className="pt-3 border-t border-stone-100">
+            <p className="text-xs text-gray-500 font-medium mb-0.5">Available Hours</p>
+            <p className="text-xs text-gray-700">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
+          </div>
         </div>
 
         {/* Forms & Documents */}
