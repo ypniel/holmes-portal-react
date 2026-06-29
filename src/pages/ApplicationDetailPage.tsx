@@ -487,9 +487,10 @@ export default function ApplicationDetailPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    const fileUrl = f.url!
                                     const token = sessionStorage.getItem("holmes_session_token") || ""
-                                    const base = f.url.split("?")[0]
-                                    const params = new URLSearchParams(f.url.split("?")[1] || "")
+                                    const base = fileUrl.split("?")[0]
+                                    const params = new URLSearchParams(fileUrl.split("?")[1] || "")
                                     params.set("sessionToken", token)
                                     const url = `${base}?${params.toString()}`
                                     if (isViewable) { window.open(url, "_blank") }
