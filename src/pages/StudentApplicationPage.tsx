@@ -471,14 +471,20 @@ export default function StudentApplicationPage() {
                         {file.url && (
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               const token = sessionStorage.getItem("holmes_student_token") || sessionStorage.getItem("holmes_session_token") || ""
-                              const base = file.url.split("?")[0]
-                              const params = new URLSearchParams(file.url.split("?")[1] || "")
-                              params.set("sessionToken", token)
-                              const url = `${base}?${params.toString()}`
-                              if (isViewable) { window.open(url, "_blank") }
-                              else { const a = document.createElement("a"); a.href = url; a.download = file.name; a.click() }
+                              const url = `/.netlify/functions/download-file?fileId=${encodeURIComponent(file.id)}&dealId=${encodeURIComponent(id || "")}`
+                              try {
+                                const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } })
+                                if (!res.ok) { alert("You do not have permission to access this file."); return }
+                                const blob = await res.blob()
+                                const blobUrl = URL.createObjectURL(blob)
+                                const a = document.createElement("a")
+                                a.href = blobUrl
+                                if (isViewable) { a.target = "_blank" } else { a.download = file.name }
+                                a.click()
+                                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000)
+                              } catch { alert("Failed to open file.") }
                             }}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
                           >
