@@ -1,31 +1,11 @@
 const https = require("https")
 const jwt = require("jsonwebtoken")
+
 const TOKEN = process.env.HUBSPOT_TOKEN
 const JWT_SECRET = process.env.JWT_SECRET
 const PIPELINE_ID = "789344406"
-
 const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
 
-function verifySession(event) {
-  const auth = event.headers?.authorization || event.headers?.Authorization || ""
-  const token = auth.replace("Bearer ", "").trim() ||
-    event.queryStringParameters?.sessionToken || ""
-  if (!token) return null
-  try { return jwt.verify(token, JWT_SECRET) } catch { return null }
-}
-
-async function getDealCompanyId(dealId) {
-  const res = await makeRequest({
-    hostname: "api.hubapi.com",
-    path: `/crm/v4/objects/deals/${dealId}/associations/companies`,
-    method: "GET",
-    headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-  })
-  try {
-    const data = JSON.parse(res.body)
-    return data.results?.[0]?.toObjectId ? String(data.results[0].toObjectId) : null
-  } catch { return null }
-}
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
@@ -42,150 +22,116 @@ function makeRequest(options, body) {
     req.end()
   })
 }
+
+function verifySession(event) {
+  const token = event.queryStringParameters?.sessionToken || ""
+  if (!token || !JWT_SECRET) return null
+  try { return jwt.verify(token, JWT_SECRET) } catch { return null }
+}
+
+async function getDealCompanyId(dealId) {
+  try {
+    const res = await makeRequest({
+      hostname: "api.hubapi.com",
+      path: `/crm/v4/objects/deals/${dealId}/associations/companies`,
+      method: "GET",
+      headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+    })
+    const data = JSON.parse(res.body.toString() || "{}")
+    return data.results?.[0]?.toObjectId ? String(data.results[0].toObjectId) : null
+  } catch { return null }
+}
+
 exports.handler = async (event) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
   }
+
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
 
-  // ── Session verification ───────────────────────────────────────────────────
+  // ── 1. Verify session — fail closed ───────────────────────────────────────
   const session = verifySession(event)
-  const isStaff = session ? HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d)) : false
-  const isStudent = session ? (session.type === "student_otp" || session.companyName === "Direct Student") : false
+  if (!session) {
+    return {
+      statusCode: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Unauthorised. Please log in again." }),
+    }
+  }
+
+  const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
+  const isStudent = session.type === "student_otp" || session.companyName === "Direct Student"
+  const isAgent = !isStaff && !isStudent
 
   const path = event.queryStringParameters?.path || ""
-  const isDownload = event.queryStringParameters?.download === "true"
-  const fileId = event.queryStringParameters?.fileId || ""
 
+  // ── 2. No file download logic here — handled by download-file.js only ─────
+  // hubspot.js is CRM/deal/comment proxy only.
 
-  // ── File download by ID ─────────────────────────────────────────────────────
-  if (isDownload && fileId) {
-    try {
-      // HubSpot CRM file-upload properties can return HIDDEN_SENSITIVE files.
-      // Those files should be streamed through this Netlify function instead of
-      // redirecting the browser to a HubSpot API/proxy URL that requires auth.
-      let metaResult = await makeRequest({
-        hostname: "api.hubapi.com",
-        path: `/files/v3/files/${fileId}`,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-      })
-
-      // Fallback for older File Manager API responses.
-      if (metaResult.status !== 200) {
-        metaResult = await makeRequest({
-          hostname: "api.hubapi.com",
-          path: `/filemanager/api/v3/files/${fileId}`,
-          method: "GET",
-          headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-        })
-      }
-
-      if (metaResult.status !== 200) {
-        return { statusCode: 404, headers: corsHeaders, body: "File not found" }
-      }
-
-      const meta = JSON.parse(metaResult.body.toString())
-
-      // ── File ownership check ────────────────────────────────────────────────
-      // Files are stored in /portal-uploads/HubSpot-Deals/{dealId}/filename
-      // Extract dealId from the folder path and verify company ownership
-      const folderPath = meta.folder_path || meta.folder?.path || meta.path || ""
-      const dealIdFromPath = folderPath.match(/HubSpot-Deals\/(\d+)/)?.[1] ||
-                             (meta.name || "").match(/^(\d{10,})-/)?.[1]
-      if (dealIdFromPath && session && session.companyId && !isStaff) {
-        const dealCompanyId = await getDealCompanyId(dealIdFromPath)
-        if (dealCompanyId && String(dealCompanyId) !== String(session.companyId)) {
-          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied." }) }
-        }
-      }
-
-      const fileUrl = meta.url || meta.defaultHostingUrl || meta.default_hosting_url || meta.s3Url || meta.s3_url || ""
-      if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
-
-      const parsedUrl = new URL(fileUrl)
-      const shouldAuthorize = parsedUrl.hostname.includes("hubspot.com") || parsedUrl.hostname.includes("hubapi.com")
-      const fileResult = await makeRequest({
-        hostname: parsedUrl.hostname,
-        path: `${parsedUrl.pathname}${parsedUrl.search}`,
-        method: "GET",
-        headers: {
-          ...(shouldAuthorize ? { "Authorization": `Bearer ${TOKEN}` } : {}),
-        },
-      })
-
-      if (fileResult.status >= 300 && fileResult.status < 400 && fileResult.headers.location) {
-        return { statusCode: 302, headers: { ...corsHeaders, "Location": fileResult.headers.location }, body: "" }
-      }
-
-      if (fileResult.status < 200 || fileResult.status >= 300) {
-        return { statusCode: fileResult.status, headers: corsHeaders, body: "Unable to download file" }
-      }
-
-      const contentType = fileResult.headers["content-type"] || meta.mimeType || meta.encoding && `image/${meta.encoding}` || "application/octet-stream"
-      const dispositionName = `${meta.name || "document"}${meta.extension && !(meta.name || "").toLowerCase().endsWith(`.${String(meta.extension).toLowerCase()}`) ? `.${meta.extension}` : ""}`
-
-      return {
-        statusCode: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": contentType,
-          "Content-Disposition": `inline; filename="${String(dispositionName).replace(/"/g, "")}"`,
-          "Cache-Control": "private, max-age=300",
-        },
-        body: fileResult.body.toString("base64"),
-        isBase64Encoded: true,
-      }
-    } catch (err) {
-      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
+  if (!path) {
+    return {
+      statusCode: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "No path" }),
     }
   }
 
-  // ── Deal ownership check for agent deal access ───────────────────────────
+  // ── 3. Deal ownership check for agents ────────────────────────────────────
   const dealMatch = path.match(/\/crm\/v3\/objects\/deals\/(\d+)($|\?)/)
-  if (dealMatch && !isStaff && !isStudent && session.companyId) {
+  if (dealMatch && isAgent) {
     const dealId = dealMatch[1]
+    if (!session.companyId) {
+      return {
+        statusCode: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Access denied." }),
+      }
+    }
     const dealCompanyId = await getDealCompanyId(dealId)
-    if (dealCompanyId && String(dealCompanyId) !== String(session.companyId)) {
-      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied. This application does not belong to your agency." }) }
+    if (!dealCompanyId || String(dealCompanyId) !== String(session.companyId)) {
+      return {
+        statusCode: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Access denied. This application does not belong to your agency." }),
+      }
     }
   }
 
-  // ── Standard API proxy ────────────────────────────────────────────────────
-  if (!path) return { statusCode: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: "No path" }) }
-  const token = TOKEN
+  // ── 4. Proxy to HubSpot API ───────────────────────────────────────────────
   try {
     const isPost = event.httpMethod === "POST"
     const isPatch = event.httpMethod === "PATCH"
     let bodyToSend = event.body || ""
+
+    // Inject pipeline filter for deal searches
     if (isPost && path.includes("/deals/search")) {
       const parsed = event.body ? JSON.parse(event.body) : {}
-      const hasAgentFilter = parsed.filterGroups?.[0]?.filters?.some(
-        (f) => f.propertyName === "agent_email"
-      )
+      const hasAgentFilter = parsed.filterGroups?.[0]?.filters?.some(f => f.propertyName === "agent_email")
       if (hasAgentFilter) {
-        parsed.filterGroups = parsed.filterGroups.map((group) => ({
+        parsed.filterGroups = parsed.filterGroups.map(group => ({
           ...group,
           filters: [...group.filters, { propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }]
         }))
-      } else {
+      } else if (!parsed.filterGroups?.length) {
         parsed.filterGroups = [{ filters: [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] }]
       }
       bodyToSend = JSON.stringify(parsed)
     }
+
     const bodyBuf = Buffer.from(bodyToSend || "", "utf8")
     const options = {
       hostname: "api.hubapi.com",
       path: path,
       method: isPatch ? "PATCH" : isPost ? "POST" : "GET",
       headers: {
-        "Authorization": `Bearer ${token}`,
+        "Authorization": `Bearer ${TOKEN}`,
         "Content-Type": "application/json",
         "Content-Length": bodyBuf.length,
       },
     }
+
     const result = await makeRequest(options, bodyBuf.length > 0 ? bodyToSend : undefined)
     return {
       statusCode: result.status,
@@ -193,6 +139,10 @@ exports.handler = async (event) => {
       body: result.body.toString(),
     }
   } catch (err) {
-    return { statusCode: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ error: err.message }) }
+    return {
+      statusCode: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: err.message }),
+    }
   }
 }
