@@ -10,7 +10,7 @@ import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
 
-type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified" | "dateAdded"
+type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "dateAdded" | "lastModified"
 type SortDir  = "asc" | "desc"
 
 
@@ -392,6 +392,7 @@ export default function ApplicationsPage() {
                           {deal.stageLabel}
                         </span>
                       </td>
+                      <td className="px-4 py-3.5 text-sm text-stone-500">{formatDate(deal.createdAt)}</td>
                       <td className="px-4 py-3.5 text-sm text-stone-500">{formatDate(deal.lastModified)}</td>
                       <td className="px-4 py-3.5">
                         {contactEmails[deal.id]
