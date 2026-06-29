@@ -87,15 +87,20 @@ exports.handler = async (event) => {
 
 
   const dealId = event.queryStringParameters?.dealId || ""
-  if (dealId) {
-    const session = verifySession(event)
-    if (session && session.companyId) {
-      const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
-      if (!isStaff) {
-        const dealCompanyId = await getDealCompanyId(dealId)
-        if (dealCompanyId && String(dealCompanyId) !== String(session.companyId)) {
-          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied." }) }
-        }
+  const session = verifySession(event)
+
+  // ── Require valid session for all file downloads ──────────────────────────
+  if (!session) {
+    return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Unauthorized" }) }
+  }
+
+  // ── Ownership check ───────────────────────────────────────────────────────
+  if (dealId && session.companyId) {
+    const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
+    if (!isStaff) {
+      const dealCompanyId = await getDealCompanyId(dealId)
+      if (dealCompanyId && String(dealCompanyId) !== String(session.companyId)) {
+        return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied." }) }
       }
     }
   }
