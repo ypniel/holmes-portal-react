@@ -10,7 +10,7 @@ import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
 
-type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "dateAdded" | "lastModified"
+type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
 type SortDir  = "asc" | "desc"
 
 
@@ -115,10 +115,7 @@ export default function ApplicationsPage() {
     }).sort((a, b) => {
       let av: any = a[sortKey as keyof Deal]
       let bv: any = b[sortKey as keyof Deal]
-      if (sortKey === "dateAdded") {
-        av = new Date(a.createdAt || 0).getTime()
-        bv = new Date(b.createdAt || 0).getTime()
-      } else if (sortKey === "lastModified") {
+      if (sortKey === "lastModified") {
         // Date sort — always reliable
         av = av ? new Date(av).getTime() : 0
         bv = bv ? new Date(bv).getTime() : 0
@@ -160,13 +157,23 @@ export default function ApplicationsPage() {
     if (!pageRows.length) return
     const missing = pageRows.filter(d => !(d.id in contactEmails))
     if (!missing.length) return
+
+    const sessionToken = sessionStorage.getItem("holmes_session_token") || ""
+    const hubspotUrl = (path: string) =>
+      `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}${sessionToken ? `&sessionToken=${encodeURIComponent(sessionToken)}` : ""}`
+
     missing.forEach(async d => {
       try {
-        const assocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/deals/${d.id}/associations/contacts`)}`)
+        const assocRes = await fetch(hubspotUrl(`/crm/v4/objects/deals/${d.id}/associations/contacts`))
+        if (!assocRes.ok) throw new Error("Failed to load contact association")
+
         const assocData = await assocRes.json()
         const contactId = assocData.results?.[0]?.toObjectId
         if (!contactId) { setContactEmails(prev => ({ ...prev, [d.id]: "" })); return }
-        const cRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/contacts/${contactId}?properties=email`)}`)
+
+        const cRes = await fetch(hubspotUrl(`/crm/v3/objects/contacts/${contactId}?properties=email`))
+        if (!cRes.ok) throw new Error("Failed to load contact email")
+
         const cData = await cRes.json()
         setContactEmails(prev => ({ ...prev, [d.id]: cData.properties?.email || "" }))
       } catch {
@@ -193,10 +200,10 @@ export default function ApplicationsPage() {
 
   function exportXLSX() {
     const rows = [
-      ["Student Name","Country","Residency","Course Name","Intake","Campus","Response Status","Case Status","Last Modified"],
+      ["Student Name","Country","Residency","Course Name","Intake","Campus","Response Status","Case Status","Last Modified","Submitted By"],
       ...filtered.map(d => [
         d.studentName, d.nationality, d.residencyStatus, d.courseName,
-        d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.createdAt), formatDate(d.lastModified), d.agentEmail || ""
+        d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.lastModified), d.agentEmail || contactEmails[d.id] || ""
       ])
     ]
     // Add UTF-8 BOM so Excel renders accented characters correctly
@@ -336,7 +343,6 @@ export default function ApplicationsPage() {
                     { key: "campus" as SortKey, label: "Campus" },
                     { key: null, label: "Response Status" },
                     { key: "stageLabel" as SortKey, label: "Case Status" },
-                    { key: "dateAdded" as SortKey, label: "Date Added" },
                     { key: "lastModified" as SortKey, label: "Last Modified" },
                     { key: null, label: "Submitted By" },
                   ].map(col => (
@@ -392,12 +398,14 @@ export default function ApplicationsPage() {
                           {deal.stageLabel}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-sm text-stone-500">{formatDate(deal.createdAt)}</td>
                       <td className="px-4 py-3.5 text-sm text-stone-500">{formatDate(deal.lastModified)}</td>
                       <td className="px-4 py-3.5">
-                        {contactEmails[deal.id]
-                          ? <span className="text-xs text-stone-500 bg-stone-50 px-2 py-0.5 rounded border border-stone-200 truncate max-w-[160px] block" title={contactEmails[deal.id]}>{contactEmails[deal.id]}</span>
-                          : <span className="text-stone-300 text-xs">—</span>}
+                        {(() => {
+                          const submittedBy = deal.agentEmail || contactEmails[deal.id]
+                          return submittedBy
+                            ? <span className="text-xs text-stone-500 bg-stone-50 px-2 py-0.5 rounded border border-stone-200 truncate max-w-[160px] block" title={submittedBy}>{submittedBy}</span>
+                            : <span className="text-stone-300 text-xs">—</span>
+                        })()}
                       </td>
                     </tr>
                   )
