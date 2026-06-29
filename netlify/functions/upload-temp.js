@@ -5,6 +5,18 @@ const TOKEN = process.env.HUBSPOT_TOKEN
 const ALLOWED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"]
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
+function getHeader(event, name) {
+  const headers = event.headers || {}
+  return headers[name] || headers[name.toLowerCase()] || headers[name.toUpperCase()] || ""
+}
+
+function mimeFromExtension(ext) {
+  if (ext === "pdf") return "application/pdf"
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg"
+  if (ext === "png") return "image/png"
+  return "application/octet-stream"
+}
+
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
@@ -21,7 +33,7 @@ function makeRequest(options, body) {
 exports.handler = async (event) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, X-File-Name, X-File-Size",
+    "Access-Control-Allow-Headers": "Content-Type, X-File-Name, X-File-Size, X-File-Type, X-File-Base64",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json",
   }
@@ -30,10 +42,9 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: corsHeaders, body: "Method not allowed" }
 
   try {
-    const rawFileName = event.headers?.["x-file-name"] || "upload"
+    const rawFileName = getHeader(event, "x-file-name") || "upload"
     const fileName = decodeURIComponent(rawFileName)
     const ext = fileName.split(".").pop()?.toLowerCase() || ""
-    const declaredSize = parseInt(event.headers?.["x-file-size"] || "0")
 
     // ── Validate extension ────────────────────────────────────────────────────
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
@@ -45,9 +56,10 @@ exports.handler = async (event) => {
     }
 
     // ── Validate file size ────────────────────────────────────────────────────
-    const fileBuffer = event.isBase64Encoded
-      ? Buffer.from(event.body, "base64")
-      : Buffer.from(event.body || "", "utf8")
+    const sentAsBase64 = String(getHeader(event, "x-file-base64")).toLowerCase() === "true"
+    const fileBuffer = sentAsBase64 || event.isBase64Encoded
+      ? Buffer.from(event.body || "", "base64")
+      : Buffer.from(event.body || "", "binary")
 
     if (fileBuffer.length > MAX_FILE_SIZE) {
       return {
@@ -57,7 +69,7 @@ exports.handler = async (event) => {
       }
     }
 
-    const contentType = event.headers?.["content-type"] || "application/octet-stream"
+    const contentType = getHeader(event, "x-file-type") || mimeFromExtension(ext)
     const boundary = `----FormBoundary${Date.now()}`
     const CRLF = "\r\n"
 
