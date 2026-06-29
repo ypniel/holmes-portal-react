@@ -89,6 +89,7 @@ export default function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const DIRECT_STUDENT_EMAILS = ["leticia.fernansilva@gmail.com"]
+  const isStaff = !!user && isHolmesStaff(user.email)
   const isDirectStudent = !!user && (
     DIRECT_STUDENT_EMAILS.includes(user.email) ||
     user.companyName?.toLowerCase() === "direct student"
@@ -397,6 +398,11 @@ export default function ApplicationDetailPage() {
 
                   {/* Message input */}
                   <div className="border-t border-stone-100 pt-4">
+                    {isStaff ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 text-center">
+                        ⚠️ Holmes staff are in view-only mode. Messaging is disabled.
+                      </div>
+                    ) : (
                     <div className="bg-stone-50 rounded-xl border border-stone-200 focus-within:border-red-400 focus-within:ring-2 focus-within:ring-red-100 transition-all">
                       <textarea
                         value={comment}
@@ -418,6 +424,7 @@ export default function ApplicationDetailPage() {
                         </button>
                       </div>
                     </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -434,9 +441,15 @@ export default function ApplicationDetailPage() {
                     </div>
                   </div>
                   {/* Upload area */}
+                  {isStaff ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 text-center">
+                      ⚠️ Holmes staff are in view-only mode. Document upload is disabled.
+                    </div>
+                  ) : (
                   <DocumentUploader dealId={deal.id} onUploaded={() => {
                     fetchFiles(deal.id).then(setFiles)
                   }} onOptimisticFile={(f) => setFiles(prev => [f, ...prev])} />
+                  )}
 
                   <div className="mt-4">
                     {files.length === 0 ? (
