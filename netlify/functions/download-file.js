@@ -1,61 +1,19 @@
 const https = require("https")
 const jwt = require("jsonwebtoken")
+
+const FILE_TOKEN = process.env.HUBSPOT_TOKEN
+const SENSITIVE_TOKEN = process.env.HUBSPOT_TOKEN_WRITE || FILE_TOKEN
 const JWT_SECRET = process.env.JWT_SECRET
 const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
 
-function verifySession(event) {
-  const token = event.queryStringParameters?.sessionToken || ""
-  if (!token || !JWT_SECRET) return null
-  try { return jwt.verify(token, JWT_SECRET) } catch { return null }
-}
-
-async function getDealCompanyId(dealId) {
-  return new Promise((resolve) => {
-    const req = https.request({
-      hostname: "api.hubapi.com",
-      path: `/crm/v4/objects/deals/${dealId}/associations/companies`,
-      method: "GET",
-      headers: { "Authorization": `Bearer ${FILE_TOKEN}`, "Content-Type": "application/json" },
-    }, (res) => {
-      const chunks = []
-      res.on("data", c => chunks.push(c))
-      res.on("end", () => {
-        try {
-          const data = JSON.parse(Buffer.concat(chunks).toString())
-          resolve(data.results?.[0]?.toObjectId ? String(data.results[0].toObjectId) : null)
-        } catch { resolve(null) }
-      })
-    })
-    req.on("error", () => resolve(null))
-    req.end()
-  })
-}
-
-
-const FILE_TOKEN = process.env.HUBSPOT_TOKEN
-
-const SENSITIVE_TOKEN =
-  process.env.HUBSPOT_TOKEN_WRITE ||
-  FILE_TOKEN
-
+// ── HTTP helper ───────────────────────────────────────────────────────────────
 function makeRequest(options) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
       const chunks = []
-
-      res.on("data", (chunk) => {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-      })
-
-      res.on("end", () => {
-        resolve({
-          status: res.statusCode,
-          headers: res.headers,
-          body: Buffer.concat(chunks),
-        })
-      })
+      res.on("data", (chunk) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)) })
+      res.on("end", () => { resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }) })
     })
-
     req.on("error", reject)
     req.end()
   })
@@ -63,172 +21,149 @@ function makeRequest(options) {
 
 function getContentType(meta, fileResult) {
   const ext = String(meta.extension || "").toLowerCase()
-
-  if (ext === "pdf") return "application/pdf"
+  if (ext === "pdf")  return "application/pdf"
   if (ext === "jpg" || ext === "jpeg") return "image/jpeg"
-  if (ext === "png") return "image/png"
-  if (ext === "gif") return "image/gif"
+  if (ext === "png")  return "image/png"
+  if (ext === "gif")  return "image/gif"
   if (ext === "webp") return "image/webp"
-  if (ext === "svg") return "image/svg+xml"
-
-  return (
-    meta.mimeType ||
-    fileResult.headers["content-type"] ||
-    "application/octet-stream"
-  )
+  if (ext === "svg")  return "image/svg+xml"
+  return meta.mimeType || fileResult.headers["content-type"] || "application/octet-stream"
 }
 
 exports.handler = async (event) => {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
+  const corsHeaders = { "Access-Control-Allow-Origin": "*" }
+
+  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
+
+  // ── 1. Verify session token from Authorization header ─────────────────────
+  const authHeader = event.headers?.authorization || event.headers?.Authorization || ""
+  const token = authHeader.replace("Bearer ", "").trim()
+
+  if (!token) {
+    return { statusCode: 401, headers: corsHeaders, body: "Unauthorised" }
   }
 
+  let session
+  try {
+    session = jwt.verify(token, JWT_SECRET)
+  } catch {
+    return { statusCode: 401, headers: corsHeaders, body: "Invalid session" }
+  }
+
+  // ── 2. Require dealId ─────────────────────────────────────────────────────
   const fileId = event.queryStringParameters?.fileId
+  const dealId = event.queryStringParameters?.dealId
 
+  if (!fileId) return { statusCode: 400, headers: corsHeaders, body: "Missing fileId" }
+  if (!dealId) return { statusCode: 400, headers: corsHeaders, body: "Missing dealId" }
 
-  const dealId = event.queryStringParameters?.dealId || ""
-  const session = verifySession(event)
+  // ── 3. Check deal ownership (skip for Holmes staff) ───────────────────────
+  const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
+  const isStudent = session.type === "student_otp" || session.companyName === "Direct Student"
 
-  // ── Require valid session for all file downloads ──────────────────────────
-  if (!session) {
-    return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Unauthorized" }) }
+  if (!isStaff && session.companyId) {
+    const assocResult = await makeRequest({
+      hostname: "api.hubapi.com",
+      path: `/crm/v4/objects/deals/${dealId}/associations/companies`,
+      method: "GET",
+      headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
+    })
+
+    let dealCompanyId = null
+    try {
+      const assocBody = JSON.parse(assocResult.body.toString() || "{}")
+      dealCompanyId = assocBody.results?.[0]?.toObjectId
+    } catch {}
+
+    if (!dealCompanyId || String(dealCompanyId) !== String(session.companyId)) {
+      return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
+    }
   }
 
-  // ── Ownership check ───────────────────────────────────────────────────────
-  if (dealId) {
-    const isStaff = session.companyId && HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
-    if (!isStaff && session.companyId) {
-      // Check deal belongs to agent company
-      const dealCompanyId = await getDealCompanyId(dealId)
-      if (dealCompanyId && String(dealCompanyId) !== String(session.companyId)) {
-        return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied." }) }
+  // ── 4. Verify fileId belongs to this deal ─────────────────────────────────
+  if (!isStaff) {
+    const engResult = await makeRequest({
+      hostname: "api.hubapi.com",
+      path: `/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=200`,
+      method: "GET",
+      headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
+    })
+
+    let validFileIds = new Set()
+    try {
+      const engBody = JSON.parse(engResult.body.toString() || "{}")
+      for (const eng of engBody.results || []) {
+        // Attachments
+        for (const att of eng.attachments || []) {
+          validFileIds.add(String(att.id))
+        }
+        // FileIds embedded in body
+        const body = eng.engagement?.bodyPreview || ""
+        for (const match of body.matchAll(/fileId=(\d+)/g)) {
+          validFileIds.add(match[1])
+        }
+        // FileIds in metadata
+        for (const m of eng.metadata?.attachments || []) {
+          if (m.id) validFileIds.add(String(m.id))
+        }
       }
-    }
-    // Verify fileId actually belongs to this dealId via engagements
-    const engRes = await new Promise((resolve) => {
-      const req = require("https").request({
-        hostname: "api.hubapi.com",
-        path: `/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100`,
-        method: "GET",
-        headers: { "Authorization": `Bearer ${FILE_TOKEN}`, "Content-Type": "application/json" },
-      }, (res) => {
-        const chunks = []
-        res.on("data", c => chunks.push(c))
-        res.on("end", () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString())) } catch { resolve({}) } })
-      })
-      req.on("error", () => resolve({}))
-      req.end()
-    })
-    const allAttachments = (engRes.results || []).flatMap(e => e.attachments || []).map(a => String(a.id))
-    const allFileIds = (engRes.results || []).flatMap(e => {
-      const body = e.engagement?.bodyPreview || ""
-      const matches = [...body.matchAll(/fileId=(\d+)/g)].map(m => m[1])
-      return matches
-    })
-    const validIds = new Set([...allAttachments, ...allFileIds])
-    if (validIds.size > 0 && !validIds.has(String(fileId))) {
-      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied." }) }
+    } catch {}
+
+    if (validFileIds.size > 0 && !validFileIds.has(String(fileId))) {
+      return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
     }
   }
 
-  if (!fileId) {
-    return {
-      statusCode: 400,
-      headers: corsHeaders,
-      body: "Missing fileId",
-    }
-  }
-
+  // ── 5. Fetch and serve the file ───────────────────────────────────────────
   try {
     const metaResult = await makeRequest({
       hostname: "api.hubapi.com",
       path: `/files/v3/files/${fileId}`,
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${FILE_TOKEN}`,
-      },
+      headers: { "Authorization": `Bearer ${FILE_TOKEN}` },
     })
 
     if (metaResult.status < 200 || metaResult.status >= 300) {
-      console.error("HubSpot file metadata failed", {
-        fileId,
-        status: metaResult.status,
-        body: metaResult.body.toString(),
-      })
-
-      return {
-        statusCode: metaResult.status || 500,
-        headers: corsHeaders,
-        body: "File metadata not found",
-      }
+      return { statusCode: metaResult.status || 500, headers: corsHeaders, body: "File not found" }
     }
 
     const meta = JSON.parse(metaResult.body.toString())
+    const fileUrl = meta.url || meta.defaultHostingUrl || meta.default_hosting_url || meta.s3Url || meta.s3_url || ""
+    if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
 
-    let fileResult = await makeRequest({
-      hostname: "api.hubapi.com",
-      path: `/files/v3/files/${fileId}/download`,
+    const parsedUrl = new URL(fileUrl)
+    const shouldAuthorize = parsedUrl.hostname.includes("hubspot.com") || parsedUrl.hostname.includes("hubapi.com")
+    const fileResult = await makeRequest({
+      hostname: parsedUrl.hostname,
+      path: `${parsedUrl.pathname}${parsedUrl.search}`,
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${SENSITIVE_TOKEN}`,
-      },
+      headers: { ...(shouldAuthorize ? { "Authorization": `Bearer ${FILE_TOKEN}` } : {}) },
     })
 
-    if (
-      fileResult.status >= 300 &&
-      fileResult.status < 400 &&
-      fileResult.headers.location
-    ) {
-      const redirectUrl = new URL(fileResult.headers.location)
-
-      fileResult = await makeRequest({
-        hostname: redirectUrl.hostname,
-        path: `${redirectUrl.pathname}${redirectUrl.search}`,
-        method: "GET",
-        headers: {},
-      })
+    if (fileResult.status >= 300 && fileResult.status < 400 && fileResult.headers.location) {
+      return { statusCode: 302, headers: { ...corsHeaders, "Location": fileResult.headers.location }, body: "" }
     }
-
     if (fileResult.status < 200 || fileResult.status >= 300) {
-      console.error("HubSpot file download failed", {
-        fileId,
-        status: fileResult.status,
-        body: fileResult.body.toString(),
-      })
-
-      return {
-        statusCode: fileResult.status || 500,
-        headers: corsHeaders,
-        body: "Unable to download file",
-      }
+      return { statusCode: fileResult.status, headers: corsHeaders, body: "Unable to download file" }
     }
 
-    const extension = String(meta.extension || "").toLowerCase()
-    const baseName = meta.name ? String(meta.name) : "document"
-
-    const fileName =
-      extension && !baseName.toLowerCase().endsWith(`.${extension}`)
-        ? `${baseName}.${extension}`
-        : baseName
+    const contentType = getContentType(meta, fileResult)
+    const cleanName = `${meta.name || "document"}${meta.extension && !(meta.name || "").toLowerCase().endsWith(`.${String(meta.extension).toLowerCase()}`) ? `.${meta.extension}` : ""}`
 
     return {
       statusCode: 200,
       headers: {
         ...corsHeaders,
-        "Content-Type": getContentType(meta, fileResult),
-        "Content-Disposition": `inline; filename="${fileName.replace(/"/g, "")}"`,
-        "Cache-Control": "private, max-age=300",
+        "Content-Type": contentType,
+        "Content-Disposition": `inline; filename="${cleanName}"`,
+        "Content-Length": String(fileResult.body.length),
+        "Cache-Control": "private, no-store",
       },
       body: fileResult.body.toString("base64"),
       isBase64Encoded: true,
     }
   } catch (err) {
-    console.error("download-file crashed", err)
-
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: "Unable to download file",
-    }
+    console.error("download-file error:", err.message)
+    return { statusCode: 500, headers: corsHeaders, body: "Server error" }
   }
 }
