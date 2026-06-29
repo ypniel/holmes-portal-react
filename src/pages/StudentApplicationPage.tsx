@@ -452,7 +452,7 @@ export default function StudentApplicationPage() {
         {/* Need Help box */}
         <div className="mt-4 bg-white rounded-xl border border-stone-200 p-5">
           <h3 className="font-semibold text-gray-800 text-sm mb-1">Need Help?</h3>
-          <p className="text-xs text-gray-500 mb-4">You can reach out to other teams at:</p>
+          <p className="text-xs text-gray-500 mb-4">You can reach out to us at:</p>
           <div className="space-y-2 mb-4">
             <p className="text-sm text-gray-600">📞 <span className="font-medium">+61 3 9662 2055 </span></p>
             <p className="text-xs text-gray-400">Monday – Friday, 9:00 AM – 5:00 PM AEST</p>
