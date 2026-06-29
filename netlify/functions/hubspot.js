@@ -88,6 +88,20 @@ exports.handler = async (event) => {
       }
 
       const meta = JSON.parse(metaResult.body.toString())
+
+      // ── File ownership check ────────────────────────────────────────────────
+      // Files are stored in /portal-uploads/HubSpot-Deals/{dealId}/filename
+      // Extract dealId from the folder path and verify company ownership
+      const folderPath = meta.folder_path || meta.folder?.path || meta.path || ""
+      const dealIdFromPath = folderPath.match(/HubSpot-Deals\/(\d+)/)?.[1] ||
+                             (meta.name || "").match(/^(\d{10,})-/)?.[1]
+      if (dealIdFromPath && session && session.companyId && !isStaff) {
+        const dealCompanyId = await getDealCompanyId(dealIdFromPath)
+        if (dealCompanyId && String(dealCompanyId) !== String(session.companyId)) {
+          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied." }) }
+        }
+      }
+
       const fileUrl = meta.url || meta.defaultHostingUrl || meta.default_hosting_url || meta.s3Url || meta.s3_url || ""
       if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
 
