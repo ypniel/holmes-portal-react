@@ -7,9 +7,22 @@ const JWT_SECRET = process.env.JWT_SECRET
 const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
-function makeRequest(options) {
+function makeRequest(options, followRedirects = false, depth = 0) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
+      // Follow redirects server-side (for file CDN URLs)
+      if (followRedirects && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && depth < 5) {
+        try {
+          const redirectUrl = new URL(res.headers.location, `https://${options.hostname}`)
+          resolve(makeRequest({
+            hostname: redirectUrl.hostname,
+            path: `${redirectUrl.pathname}${redirectUrl.search}`,
+            method: "GET",
+            headers: {},
+          }, true, depth + 1))
+          return
+        } catch (e) { /* fall through */ }
+      }
       const chunks = []
       res.on("data", (chunk) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)) })
       res.on("end", () => { resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }) })
@@ -138,11 +151,8 @@ exports.handler = async (event) => {
       path: `${parsedUrl.pathname}${parsedUrl.search}`,
       method: "GET",
       headers: { ...(shouldAuthorize ? { "Authorization": `Bearer ${FILE_TOKEN}` } : {}) },
-    })
+    }, true)  // follow redirects server-side — never return 302 to browser
 
-    if (fileResult.status >= 300 && fileResult.status < 400 && fileResult.headers.location) {
-      return { statusCode: 302, headers: { ...corsHeaders, "Location": fileResult.headers.location }, body: "" }
-    }
     if (fileResult.status < 200 || fileResult.status >= 300) {
       return { statusCode: fileResult.status, headers: corsHeaders, body: "Unable to download file" }
     }
