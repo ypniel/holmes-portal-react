@@ -469,15 +469,21 @@ export default function StudentApplicationPage() {
                           {file.createdAt && <p className="text-xs text-gray-400">{formatDateTime(new Date(file.createdAt).toISOString())}</p>}
                         </div>
                         {file.url && (
-                          <a
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            {...isViewable ? {} : { download: file.name }}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const token = sessionStorage.getItem("holmes_student_token") || sessionStorage.getItem("holmes_session_token") || ""
+                              const base = file.url.split("?")[0]
+                              const params = new URLSearchParams(file.url.split("?")[1] || "")
+                              params.set("sessionToken", token)
+                              const url = `${base}?${params.toString()}`
+                              if (isViewable) { window.open(url, "_blank") }
+                              else { const a = document.createElement("a"); a.href = url; a.download = file.name; a.click() }
+                            }}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:border-red-200 transition-colors opacity-0 group-hover:opacity-100"
                           >
                             {isViewable ? <><ExternalLink className="h-3 w-3" />View</> : <><Download className="h-3 w-3" />Download</>}
-                          </a>
+                          </button>
                         )}
                       </div>
                     )
