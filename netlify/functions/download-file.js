@@ -1,4 +1,36 @@
 const https = require("https")
+const jwt = require("jsonwebtoken")
+const JWT_SECRET = process.env.JWT_SECRET
+const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
+
+function verifySession(event) {
+  const token = event.queryStringParameters?.sessionToken || ""
+  if (!token || !JWT_SECRET) return null
+  try { return jwt.verify(token, JWT_SECRET) } catch { return null }
+}
+
+async function getDealCompanyId(dealId) {
+  return new Promise((resolve) => {
+    const req = https.request({
+      hostname: "api.hubapi.com",
+      path: `/crm/v4/objects/deals/${dealId}/associations/companies`,
+      method: "GET",
+      headers: { "Authorization": `Bearer ${FILE_TOKEN}`, "Content-Type": "application/json" },
+    }, (res) => {
+      const chunks = []
+      res.on("data", c => chunks.push(c))
+      res.on("end", () => {
+        try {
+          const data = JSON.parse(Buffer.concat(chunks).toString())
+          resolve(data.results?.[0]?.toObjectId ? String(data.results[0].toObjectId) : null)
+        } catch { resolve(null) }
+      })
+    })
+    req.on("error", () => resolve(null))
+    req.end()
+  })
+}
+
 
 const FILE_TOKEN = process.env.HUBSPOT_TOKEN
 
@@ -52,6 +84,21 @@ exports.handler = async (event) => {
   }
 
   const fileId = event.queryStringParameters?.fileId
+
+
+  const dealId = event.queryStringParameters?.dealId || ""
+  if (dealId) {
+    const session = verifySession(event)
+    if (session && session.companyId) {
+      const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
+      if (!isStaff) {
+        const dealCompanyId = await getDealCompanyId(dealId)
+        if (dealCompanyId && String(dealCompanyId) !== String(session.companyId)) {
+          return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied." }) }
+        }
+      }
+    }
+  }
 
   if (!fileId) {
     return {
