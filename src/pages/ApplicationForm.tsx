@@ -352,7 +352,7 @@ function FileUploaderPost({ dealId }: { dealId: string }) {
       for (const file of Array.from(files)) {
         const ext = getFileExt(file.name)
         if (!PORTAL_ALLOWED_FILE_EXT.includes(ext)) {
-          setMsg(`❌ ${file.name}: only PDF, JPG, JPEG and PNG files are supported.`)
+          setMsg(`❌ ${file.name}: only PDF, JPG, and JPEG files are supported.`)
           continue
         }
         if (file.size > PORTAL_MAX_FILE_SIZE) {
