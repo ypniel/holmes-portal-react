@@ -19,6 +19,32 @@ const TEAMS = [
   { name: "Early Childhood Placement",email: "ecplacement@holmes.edu.au",      description: "Work placement for GDEC / Master of Teaching students enquiries" },
 ]
 
+const PORTAL_ALLOWED_FILE_EXT = ["pdf", "jpg", "jpeg", "png"]
+const PORTAL_MAX_FILE_SIZE = 5 * 1024 * 1024
+
+function getFileExt(fileName: string) {
+  return fileName.split(".").pop()?.toLowerCase() || ""
+}
+
+function contentTypeForFile(file: File, ext: string) {
+  if (file.type) return file.type
+  if (ext === "pdf") return "application/pdf"
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg"
+  if (ext === "png") return "image/png"
+  return "application/octet-stream"
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result || "")
+      resolve(result.includes(",") ? result.split(",")[1] : result)
+    }
+    reader.onerror = () => reject(reader.error || new Error("Could not read file"))
+    reader.readAsDataURL(file)
+  })
+}
 
 function formatIntake(value: string): string {
   if (!value) return value
@@ -121,22 +147,38 @@ export default function StudentApplicationPage() {
     if (!fileList || fileList.length === 0 || !id) return
     setUploading(true)
     setUploadMsg(null)
+    let uploadedCount = 0
     try {
       for (const file of Array.from(fileList)) {
+        const ext = getFileExt(file.name)
+        if (!PORTAL_ALLOWED_FILE_EXT.includes(ext)) {
+          setUploadMsg(`❌ ${file.name}: only PDF, JPG, JPEG and PNG files are supported.`)
+          continue
+        }
+        if (file.size > PORTAL_MAX_FILE_SIZE) {
+          setUploadMsg(`❌ ${file.name} exceeds 5MB.`)
+          continue
+        }
+
+        const base64 = await fileToBase64(file)
         const res = await fetch(`/.netlify/functions/upload?dealId=${id}`, {
           method: "POST",
           headers: {
-            "Content-Type": file.type || "application/octet-stream",
+            "Content-Type": "text/plain",
+            "X-File-Type": contentTypeForFile(file, ext),
             "X-File-Name": encodeURIComponent(file.name),
+            "X-File-Size": String(file.size),
+            "X-File-Base64": "true",
             "X-Deal-Id": id,
           },
-          body: file,
+          body: base64,
         })
         if (!res.ok) throw new Error("Upload failed")
         const url = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${id}/${encodeURIComponent(file.name)}`
         setFiles(prev => [{ name: file.name, id: url, url, createdAt: Date.now() }, ...prev])
+        uploadedCount += 1
       }
-      setUploadMsg(`✅ ${fileList.length} file${fileList.length > 1 ? "s" : ""} uploaded successfully`)
+      if (uploadedCount > 0) setUploadMsg(`✅ ${uploadedCount} file${uploadedCount > 1 ? "s" : ""} uploaded successfully`)
     } catch {
       setUploadMsg("❌ Upload failed. Please try again.")
     } finally {
@@ -428,6 +470,7 @@ export default function StudentApplicationPage() {
                   ref={fileInputRef}
                   type="file"
                   multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
                   className="hidden"
                   onChange={e => handleUpload(e.target.files)}
                 />
