@@ -1,6 +1,31 @@
 const https = require("https")
+const jwt = require("jsonwebtoken")
 const TOKEN = process.env.HUBSPOT_TOKEN
+const JWT_SECRET = process.env.JWT_SECRET
 const PIPELINE_ID = "789344406"
+
+const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
+
+function verifySession(event) {
+  const auth = event.headers?.authorization || event.headers?.Authorization || ""
+  const token = auth.replace("Bearer ", "").trim() ||
+    event.queryStringParameters?.sessionToken || ""
+  if (!token) return null
+  try { return jwt.verify(token, JWT_SECRET) } catch { return null }
+}
+
+async function getDealCompanyId(dealId) {
+  const res = await makeRequest({
+    hostname: "api.hubapi.com",
+    path: `/crm/v4/objects/deals/${dealId}/associations/companies`,
+    method: "GET",
+    headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+  })
+  try {
+    const data = JSON.parse(res.body)
+    return data.results?.[0]?.toObjectId ? String(data.results[0].toObjectId) : null
+  } catch { return null }
+}
 function makeRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
@@ -24,6 +49,15 @@ exports.handler = async (event) => {
     "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
   }
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
+
+  // ── Session verification ───────────────────────────────────────────────────
+  const session = verifySession(event)
+  if (!session) {
+    return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Unauthorized" }) }
+  }
+  const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
+  const isStudent = session.type === "student_otp" || session.companyName === "Direct Student"
+
   const path = event.queryStringParameters?.path || ""
   const isDownload = event.queryStringParameters?.download === "true"
   const fileId = event.queryStringParameters?.fileId || ""
@@ -95,6 +129,16 @@ exports.handler = async (event) => {
       }
     } catch (err) {
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
+    }
+  }
+
+  // ── Deal ownership check for agent deal access ───────────────────────────
+  const dealMatch = path.match(/\/crm\/v3\/objects\/deals\/(\d+)($|\?)/)
+  if (dealMatch && !isStaff && !isStudent && session.companyId) {
+    const dealId = dealMatch[1]
+    const dealCompanyId = await getDealCompanyId(dealId)
+    if (dealCompanyId && String(dealCompanyId) !== String(session.companyId)) {
+      return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ error: "Access denied. This application does not belong to your agency." }) }
     }
   }
 
