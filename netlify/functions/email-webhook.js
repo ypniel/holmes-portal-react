@@ -1,15 +1,13 @@
-// Called by a HubSpot Workflow "Send a webhook" action.
-// Workflow trigger: notes_last_contacted is known (re-enrollable), Australia pipeline.
-// Payload from HubSpot workflow includes the deal's objectId.
+// Called by HubSpot Workflow (0CodeTools API Webhook Connector).
+// Payload: { "objectId": "<dealId>" }
 //
-// Logic: look at the latest email on the deal.
-//   From portal     → Holmes_Received
-//   From anyone else → Waiting_on_Agent
+// Looks at the latest email on the deal:
+//   Contains [PORTAL_MSG] marker → portal/agent message → Holmes_Received
+//   No marker                    → Holmes staff reply    → Waiting_on_Agent
 
 const https = require("https")
 
 const TOKEN = process.env.HUBSPOT_TOKEN_WRITE || process.env.HUBSPOT_TOKEN
-const PORTAL_EMAIL = "portal@holmes.edu.au"
 
 function hs(path, method = "GET", body = null) {
   return new Promise((resolve, reject) => {
@@ -36,24 +34,13 @@ function hs(path, method = "GET", body = null) {
   })
 }
 
-function extractDealId(payload) {
-  // HubSpot workflow webhook sends different shapes; cover the common ones.
-  return (
-    payload?.objectId ||
-    payload?.hs_object_id ||
-    payload?.properties?.hs_object_id?.value ||
-    payload?.dealId ||
-    null
-  )
-}
-
 exports.handler = async (event) => {
   try {
     const payload = JSON.parse(event.body || "{}")
-    const dealId = extractDealId(payload)
+    const dealId = payload.objectId || payload.dealId
     if (!dealId) return { statusCode: 200, body: "no deal id" }
 
-    // Get latest EMAIL engagement on the deal
+    // Latest EMAIL engagement on the deal
     const engRes = await hs(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
     const emails = (engRes.results || [])
       .filter(e => e.engagement?.type === "EMAIL")
@@ -61,8 +48,14 @@ exports.handler = async (event) => {
 
     if (emails.length === 0) return { statusCode: 200, body: "no email" }
 
-    const from = (emails[0].metadata?.from?.email || "").toLowerCase()
-    const newStatus = from === PORTAL_EMAIL ? "Holmes_Received" : "Waiting_on_Agent"
+    const latest = emails[0]
+    const bodyText = (latest.engagement?.bodyPreview || "") +
+                     (latest.engagement?.bodyPreviewHtml || "") +
+                     (latest.metadata?.html || "") +
+                     (latest.metadata?.body || "")
+
+    const isPortal = bodyText.includes("PORTAL_MSG")
+    const newStatus = isPortal ? "Holmes_Received" : "Waiting_on_Agent"
 
     await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", {
       properties: { response_status: newStatus },
