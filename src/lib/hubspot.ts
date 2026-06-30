@@ -53,7 +53,7 @@ export const DEAL_PROPS = [
   "agent_company","agency_name_import_use_only","branch_office",
   "agent_email","agent_company_name","agent_mobile_number","agent_contact_name",
   "contact_person_name","name",
-  "student_id","student_number","jupiter_id","hs_object_id",
+  "student_id","student_number","jupiter_id","hs_object_id","portal_application_reference",
   "ohc_english","wwcc_blue_card_number","email","mobile_phone_number","street_name","city","post_code",
 ]
 
@@ -504,6 +504,7 @@ function mapDeal(raw: any): Deal {
     agentContact: g("agent_contact_name", "contact_person_name"),
     branchOffice: g("branch_office"),
     studentId: g("student_number") || g("student_id"),
+    applicationReference: g("portal_application_reference"),
     jupiterId: g("jupiter_id"),
     dealId: raw.id,
     ohcEnglish: g("ohc_english"),
@@ -525,7 +526,7 @@ export interface Deal {
   ownerId: string; createdAt: string; lastModified: string; nationality: string; residencyStatus: string
   dob: string; passport: string; agentCompany: string; agentEmail: string
   agentPhone: string; agentContact: string; branchOffice: string
-  studentId: string; jupiterId: string; dealId: string
+  studentId: string; jupiterId: string; dealId: string; applicationReference: string
   ohcEnglish: string; wwcc: string; studentEmail: string; studentPhone: string
   streetName: string; city: string; postCode: string
 }
