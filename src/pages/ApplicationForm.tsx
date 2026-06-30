@@ -816,6 +816,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
           <div className="col-span-full">
             <Sel label="Placement Type" name="placement_type" value={f.placement_type} onChange={set("placement_type")} required options={[
               { value: "Holmes_Institute_Placement", label: "Holmes Institute Placement" },
+              { value: "Self-Placement_Only_for_Early_Childhood_Teaching_Applicant", label: "Self-Placement" },
             ]} />
           </div>
         )}
@@ -843,7 +844,13 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
 
         {/* ── Additional Information ── */}
         <Section title="Additional Information" />
-        <Sel label="Do you intend to apply for FEE HELP?" name="do_you_intend_to_apply_for_fee_help_" value={f.do_you_intend_to_apply_for_fee_help_} onChange={set("do_you_intend_to_apply_for_fee_help_")} options={YES_NO} />
+        <div className="col-span-full">
+          <Sel label="Do you intend to apply for FEE HELP?" name="do_you_intend_to_apply_for_fee_help_" value={f.do_you_intend_to_apply_for_fee_help_} onChange={set("do_you_intend_to_apply_for_fee_help_")} options={YES_NO} />
+          <p className="text-xs text-gray-500 mt-1.5 flex items-start gap-1.5">
+            <span className="text-amber-500 flex-shrink-0">ℹ️</span>
+            <span>FEE-HELP is available to Australian citizens only.</span>
+          </p>
+        </div>
 
       </div>
 
