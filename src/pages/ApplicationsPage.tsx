@@ -10,7 +10,7 @@ import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
 
-type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "lastModified"
+type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "dateAdded" | "lastModified"
 type SortDir  = "asc" | "desc"
 
 
@@ -115,7 +115,10 @@ export default function ApplicationsPage() {
     }).sort((a, b) => {
       let av: any = a[sortKey as keyof Deal]
       let bv: any = b[sortKey as keyof Deal]
-      if (sortKey === "lastModified") {
+      if (sortKey === "dateAdded") {
+        av = new Date(a.createdAt || 0).getTime()
+        bv = new Date(b.createdAt || 0).getTime()
+      } else if (sortKey === "lastModified") {
         // Date sort — always reliable
         av = av ? new Date(av).getTime() : 0
         bv = bv ? new Date(bv).getTime() : 0
@@ -157,23 +160,13 @@ export default function ApplicationsPage() {
     if (!pageRows.length) return
     const missing = pageRows.filter(d => !(d.id in contactEmails))
     if (!missing.length) return
-
-    const sessionToken = sessionStorage.getItem("holmes_session_token") || ""
-    const hubspotUrl = (path: string) =>
-      `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}${sessionToken ? `&sessionToken=${encodeURIComponent(sessionToken)}` : ""}`
-
     missing.forEach(async d => {
       try {
-        const assocRes = await fetch(hubspotUrl(`/crm/v4/objects/deals/${d.id}/associations/contacts`))
-        if (!assocRes.ok) throw new Error("Failed to load contact association")
-
+        const assocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/deals/${d.id}/associations/contacts`)}`)
         const assocData = await assocRes.json()
         const contactId = assocData.results?.[0]?.toObjectId
         if (!contactId) { setContactEmails(prev => ({ ...prev, [d.id]: "" })); return }
-
-        const cRes = await fetch(hubspotUrl(`/crm/v3/objects/contacts/${contactId}?properties=email`))
-        if (!cRes.ok) throw new Error("Failed to load contact email")
-
+        const cRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/contacts/${contactId}?properties=email`)}`)
         const cData = await cRes.json()
         setContactEmails(prev => ({ ...prev, [d.id]: cData.properties?.email || "" }))
       } catch {
@@ -200,10 +193,10 @@ export default function ApplicationsPage() {
 
   function exportXLSX() {
     const rows = [
-      ["Student Name","Country","Residency","Course Name","Intake","Campus","Response Status","Case Status","Last Modified","Submitted By"],
+      ["Reference","Student Name","Country","Residency","Course Name","Intake","Campus","Response Status","Case Status","Date Added","Last Modified"],
       ...filtered.map(d => [
-        d.studentName, d.nationality, d.residencyStatus, d.courseName,
-        d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.lastModified), d.agentEmail || contactEmails[d.id] || ""
+        d.applicationReference || d.dealId, d.studentName, d.nationality, d.residencyStatus, d.courseName,
+        d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.createdAt), formatDate(d.lastModified)
       ])
     ]
     // Add UTF-8 BOM so Excel renders accented characters correctly
@@ -334,7 +327,7 @@ export default function ApplicationsPage() {
                 <tr className="border-b border-stone-200 bg-stone-50/50">
                   {[
                     { key: "studentName" as SortKey, label: "Student Name" },
-                    { key: null, label: "Deal ID" },
+                    { key: null, label: "Reference" },
                     { key: null, label: "Passport" },
                     { key: null, label: "Country" },
                     { key: null, label: "Residency" },
@@ -343,6 +336,7 @@ export default function ApplicationsPage() {
                     { key: "campus" as SortKey, label: "Campus" },
                     { key: null, label: "Response Status" },
                     { key: "stageLabel" as SortKey, label: "Case Status" },
+                    { key: "dateAdded" as SortKey, label: "Date Added" },
                     { key: "lastModified" as SortKey, label: "Last Modified" },
                     { key: null, label: "Submitted By" },
                   ].map(col => (
@@ -377,7 +371,7 @@ export default function ApplicationsPage() {
                           <span className="font-medium text-gray-700 group-hover:text-red-600 transition-colors">{deal.studentName}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5"><span className="text-xs text-stone-500 bg-stone-50 px-2 py-0.5 rounded">{deal.dealId}</span></td>
+                      <td className="px-4 py-3.5"><span className="text-xs font-semibold text-red-700 bg-red-50 px-2 py-0.5 rounded">{deal.applicationReference || deal.dealId}</span></td>
                       <td className="px-4 py-3.5"><span className="text-xs text-stone-600">{deal.passport || "—"}</span></td>
                       <td className="px-4 py-3.5 text-sm text-stone-600"><span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-stone-400" />{deal.nationality || "—"}</span></td>
                       <td className="px-4 py-3.5">
@@ -398,14 +392,12 @@ export default function ApplicationsPage() {
                           {deal.stageLabel}
                         </span>
                       </td>
+                      <td className="px-4 py-3.5 text-sm text-stone-500">{formatDate(deal.createdAt)}</td>
                       <td className="px-4 py-3.5 text-sm text-stone-500">{formatDate(deal.lastModified)}</td>
                       <td className="px-4 py-3.5">
-                        {(() => {
-                          const submittedBy = deal.agentEmail || contactEmails[deal.id]
-                          return submittedBy
-                            ? <span className="text-xs text-stone-500 bg-stone-50 px-2 py-0.5 rounded border border-stone-200 truncate max-w-[160px] block" title={submittedBy}>{submittedBy}</span>
-                            : <span className="text-stone-300 text-xs">—</span>
-                        })()}
+                        {contactEmails[deal.id]
+                          ? <span className="text-xs text-stone-500 bg-stone-50 px-2 py-0.5 rounded border border-stone-200 truncate max-w-[160px] block" title={contactEmails[deal.id]}>{contactEmails[deal.id]}</span>
+                          : <span className="text-stone-300 text-xs">—</span>}
                       </td>
                     </tr>
                   )
