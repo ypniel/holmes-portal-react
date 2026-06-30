@@ -51,10 +51,9 @@ exports.handler = async (event) => {
     const latest = emails[0]
     const bodyText = (latest.engagement?.bodyPreview || "") +
                      (latest.engagement?.bodyPreviewHtml || "") +
-                     (latest.metadata?.html || "") +
-                     (latest.metadata?.body || "")
-
-    const isPortal = bodyText.includes("PORTAL_MSG")
+                     (latest.metadata?.body || "") +
+                     (latest.metadata?.html || "")
+    const isPortal = bodyText.includes("Comment by Agent")
     const newStatus = isPortal ? "Holmes_Received" : "Waiting_on_Agent"
 
     await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", {
