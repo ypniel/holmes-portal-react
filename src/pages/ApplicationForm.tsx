@@ -487,6 +487,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [dealId, setDealId] = useState<string | null>(null)
+  const [appRef, setAppRef] = useState<string | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [passportWarning, setPassportWarning] = useState<{ studentName: string; status: string; applicationUrl: string } | null>(null)
   const [corWarning, setCorWarning] = useState(false)
@@ -657,7 +658,8 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         return
       }
       onSuccess?.(data.dealId)
-      window.location.href = mode === "agent" ? `/applications/${data.dealId}?tab=documents` : `/student/application/${data.dealId}?tab=documents`
+      setAppRef(data.applicationReference || null)
+      setDealId(data.dealId)
     } catch {
       setError("Something went wrong. Please try again.")
       setSubmitting(false)
@@ -668,6 +670,19 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   if (dealId) {
     return (
       <div className="text-center py-8 px-4">
+        <div className="max-w-lg mx-auto mb-6">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
+              <span className="text-green-600 text-2xl">✓</span>
+            </div>
+            <p className="text-lg font-semibold text-gray-800">Application submitted successfully</p>
+            {appRef && (
+              <p className="text-sm text-gray-600 mt-2">
+                Application Reference: <span className="font-bold text-red-700 text-base">{appRef}</span>
+              </p>
+            )}
+          </div>
+        </div>
         <div className="text-left max-w-lg mx-auto mb-6">
           <p className="text-xs font-semibold text-gray-600 mb-2">Upload Supporting Documents</p>
           <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
