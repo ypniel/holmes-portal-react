@@ -141,16 +141,31 @@ exports.handler = async (event) => {
     }
 
     const meta = JSON.parse(metaResult.body.toString())
-    const fileUrl = meta.url || meta.defaultHostingUrl || meta.default_hosting_url || meta.s3Url || meta.s3_url || ""
-    if (!fileUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
 
-    const parsedUrl = new URL(fileUrl)
-    const shouldAuthorize = parsedUrl.hostname.includes("hubspot.com") || parsedUrl.hostname.includes("hubapi.com")
+    // Get a signed, temporary direct download URL from HubSpot
+    const signedResult = await makeRequest({
+      hostname: "api.hubapi.com",
+      path: `/files/v3/files/${fileId}/signed-url`,
+      method: "GET",
+      headers: { "Authorization": `Bearer ${FILE_TOKEN}` },
+    })
+
+    let downloadUrl = ""
+    if (signedResult.status >= 200 && signedResult.status < 300) {
+      try { downloadUrl = JSON.parse(signedResult.body.toString()).url || "" } catch {}
+    }
+    // Fallback to meta.url if signed-url unavailable
+    if (!downloadUrl) {
+      downloadUrl = meta.url || meta.defaultHostingUrl || meta.default_hosting_url || ""
+    }
+    if (!downloadUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
+
+    const parsedUrl = new URL(downloadUrl)
     const fileResult = await makeRequest({
       hostname: parsedUrl.hostname,
       path: `${parsedUrl.pathname}${parsedUrl.search}`,
       method: "GET",
-      headers: { ...(shouldAuthorize ? { "Authorization": `Bearer ${FILE_TOKEN}` } : {}) },
+      headers: {},
     }, true)  // follow redirects server-side — never return 302 to browser
 
     if (fileResult.status < 200 || fileResult.status >= 300) {
