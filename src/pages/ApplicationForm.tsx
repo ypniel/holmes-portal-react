@@ -18,6 +18,18 @@ const WWCC_COURSES = [
   "Master of Teaching (Early Childhood)",
 ]
 
+const AVIATION_COURSES = [
+  "Bachelor of Aviation (Flight)",
+  "Bachelor of Aviation (Management)",
+]
+
+// Teaching courses with no September intake
+const NO_SEPT_COURSES = [
+  "Graduate Diploma of Early Childhood",
+  "Graduate Diploma of Early Childhood with Master of Teaching",
+  "Master of Teaching (Early Childhood)",
+]
+
 const COURSES = [
   "Bachelor of Aviation (Flight)",
   "Bachelor of Aviation (Management)",
@@ -532,15 +544,23 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   const set = (k: string) => (v: string) => setF(prev => {
     const next = { ...prev, [k]: v }
     // If course changes to Aviation Flight and campus isn't Melbourne, reset campus
-    if (k === "course_name_australia" && v === "Bachelor of Aviation (Flight)" && prev.campus_australia !== "Melbourne") {
+    if (k === "course_name_australia" && ["Bachelor of Aviation (Flight)", "Bachelor of Aviation (Management)"].includes(v) && prev.campus_australia !== "Melbourne") {
       next.campus_australia = "Melbourne"
+    }
+    // Reset September intake if switching to a teaching course that has no September
+    if (k === "course_name_australia" && NO_SEPT_COURSES.includes(v) && (prev.intake_australia || "").startsWith("September")) {
+      next.intake_australia = ""
     }
     return next
   })
 
   // ── Derived logic flags ───────────────────────────────────────────────────
   const showWWCC = WWCC_COURSES.includes(f.course_name_australia)
-  const isAviation = f.course_name_australia === "Bachelor of Aviation (Flight)"
+  const hideSeptember = NO_SEPT_COURSES.includes(f.course_name_australia)
+  const AVAILABLE_INTAKES = hideSeptember
+    ? INTAKES.filter(i => !i.label.startsWith("September"))
+    : INTAKES
+  const isAviation = AVIATION_COURSES.includes(f.course_name_australia)
   const CAMPUSES_FILTERED = isAviation ? ["Melbourne"] : CAMPUSES
   const showPlacementType = WWCC_COURSES.includes(f.course_name_australia)
   const showOHCWeeks = f.ohc_english === "Yes"
@@ -784,7 +804,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
           <Sel label="Course Name (Australia)" name="course_name_australia" value={f.course_name_australia} onChange={set("course_name_australia")} options={COURSES} required />
         </div>
         <Sel label="Campus (Australia)" name="campus_australia" value={f.campus_australia} onChange={v => { set("campus_australia")(v) }} options={isAviation ? ["Melbourne"] : CAMPUSES} required />
-        <Sel label="Intake (Australia)" name="intake_australia" value={f.intake_australia} onChange={set("intake_australia")} options={INTAKES} required />
+        <Sel label="Intake (Australia)" name="intake_australia" value={f.intake_australia} onChange={set("intake_australia")} options={AVAILABLE_INTAKES} required />
         <Sel label="Advanced Standing" name="advanced_standing" value={f.advanced_standing} onChange={set("advanced_standing")} options={YES_NO} required />
         <Sel label="Do you require OSHC from us?" name="oshc" value={f.oshc} onChange={set("oshc")} options={YES_NO} />
         {showWWCC && (
@@ -796,7 +816,6 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
           <div className="col-span-full">
             <Sel label="Placement Type" name="placement_type" value={f.placement_type} onChange={set("placement_type")} required options={[
               { value: "Holmes_Institute_Placement", label: "Holmes Institute Placement" },
-              { value: "Self-Placement_Only_for_Early_Childhood_Teaching_Applicant", label: "Self-Placement (Only for Early Childhood/Teaching Applicant)" },
             ]} />
           </div>
         )}
