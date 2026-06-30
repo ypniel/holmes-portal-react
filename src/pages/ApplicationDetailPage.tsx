@@ -150,6 +150,15 @@ export default function ApplicationDetailPage() {
       fetchFiles(id),
       fetchDealCompany(id),
     ]).then(([d, n, o, f, c]) => {
+      // Block access if deal doesn't belong to agent's company
+      if (!isStaff && !isDirectStudent) {
+        const agentCompanyId = user?.companyId || sessionStorage.getItem("holmes_company_id")
+        const dealCompanyId = c?.id ? String(c.id) : null
+        if (agentCompanyId && dealCompanyId && dealCompanyId !== String(agentCompanyId)) {
+          navigate("/applications", { replace: true })
+          return
+        }
+      }
       setDeal(d); setNotes(n); setOwners(o); setFiles(f); setCompany(c)
     }).finally(() => setLoading(false))
   }, [id])
@@ -251,8 +260,8 @@ export default function ApplicationDetailPage() {
               {/* ID pills */}
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
-                  <span className="text-white/50 text-[10px] uppercase tracking-widest">Deal</span>
-                  <span>{deal.dealId}</span>
+                  <span className="text-white/50 text-[10px] uppercase tracking-widest">Reference</span>
+                  <span>{deal.applicationReference || deal.dealId}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
                   <span className="text-white/50 text-[10px] uppercase tracking-widest">Student ID</span>
