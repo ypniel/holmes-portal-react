@@ -421,7 +421,7 @@ export default function StudentApplicationPage() {
                           <span className="text-sm font-semibold text-gray-800">{author}</span>
                           <span className="text-xs text-gray-400">{formatDateTime(note.createdAt)}</span>
                         </div>
-                        <div className="bg-stone-50 rounded-xl rounded-tl-none px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border border-stone-100">
+                        <div className="bg-stone-50 rounded-xl rounded-tl-none px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words border border-stone-100 max-w-full overflow-hidden">
                           {note.body}
                         </div>
                       </div>
