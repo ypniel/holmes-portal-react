@@ -162,11 +162,11 @@ export default function ApplicationsPage() {
     if (!missing.length) return
     missing.forEach(async d => {
       try {
-        const assocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/deals/${d.id}/associations/contacts`)}`)
+        const assocRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/deals/${d.id}/associations/contacts`)}&sessionToken=${encodeURIComponent(sessionStorage.getItem("holmes_session_token") || "")}`)
         const assocData = await assocRes.json()
         const contactId = assocData.results?.[0]?.toObjectId
         if (!contactId) { setContactEmails(prev => ({ ...prev, [d.id]: "" })); return }
-        const cRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/contacts/${contactId}?properties=email`)}`)
+        const cRes = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v3/objects/contacts/${contactId}?properties=email`)}&sessionToken=${encodeURIComponent(sessionStorage.getItem("holmes_session_token") || "")}`)
         const cData = await cRes.json()
         setContactEmails(prev => ({ ...prev, [d.id]: cData.properties?.email || "" }))
       } catch {
