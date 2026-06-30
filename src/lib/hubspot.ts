@@ -151,7 +151,7 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
       if (allNotes.find(n => n.id === id)) continue
 
       let body = ""
-      body = e.metadata?.body || e.metadata?.html || ""
+      body = (e.metadata?.body || e.metadata?.html || "").replace(/\s*(<br>)*\s*— Comment by Agent \(via Portal\)\s*/g, "")
       body = body
         .replace(/<img[^>]*>/gi, "")
         .replace(/<br\s*\/?>/gi, "\n")
@@ -198,8 +198,8 @@ export async function createNote(dealId: string, body: string, authorName?: stri
         from: { email: "portal@holmes.edu.au", firstName: authorName || "Agent" },
         to: [{ email: "admissions@holmes.edu.au" }],
         subject,
-        body: body + "\n\n[PORTAL_MSG]",
-        html: body + "<!--PORTAL_MSG-->",
+        body: body + "\n\n— Comment by Agent (via Portal)",
+        html: body + "<br><br>— Comment by Agent (via Portal)",
       }
     })
     await hsFetch("/engagements/v1/engagements", { method: "POST", body: engBody })
