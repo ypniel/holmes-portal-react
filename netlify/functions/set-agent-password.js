@@ -8,7 +8,7 @@ const SENDGRID_TEMPLATE_ID = process.env.SENDGRID_TEMPLATE_ID
 const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "noreply@holmeseducation.group"
 const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME || "Holmes Admissions"
 const PORTAL_URL = "https://aportal.holmes.edu.au"
-const SALT_ROUNDS = 10
+const SALT_ROUNDS = 12
 
 function hubspotRequest(path, method, body) {
   return new Promise((resolve, reject) => {
@@ -60,7 +60,7 @@ function sendgridRequest(body) {
 
 function generatePassword(contactId) {
   const last4 = String(contactId).slice(-4)
-  return `H0lmesv2_${last4}HI`
+  return `HI@${last4}`
 }
 
 exports.handler = async (event) => {
