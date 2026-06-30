@@ -414,7 +414,7 @@ export default function ApplicationDetailPage() {
                               {isEmail && <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium">Portal</span>}
                               {!isEmail && <span className="text-xs bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded font-medium">Internal</span>}
                             </div>
-                            <div className="bg-stone-50 rounded-xl rounded-tl-none px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border border-stone-100">
+                            <div className="bg-stone-50 rounded-xl rounded-tl-none px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words border border-stone-100 max-w-full overflow-hidden">
                               {note.body}
                             </div>
                           </div>
