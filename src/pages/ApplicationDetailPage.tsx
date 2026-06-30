@@ -688,8 +688,8 @@ export default function ApplicationDetailPage() {
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 py-3 border-b border-stone-100 last:border-0">
-      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider sm:w-1/3">{label}</span>
-      <span className="text-sm text-gray-800">{value || "—"}</span>
+      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider sm:w-1/3 sm:flex-shrink-0">{label}</span>
+      <span className="text-sm text-gray-800 sm:w-2/3 break-words">{value || "—"}</span>
     </div>
   )
 }
