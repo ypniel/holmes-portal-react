@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken")
 const https = require("https")
+const crypto = require("crypto")
 
 const JWT_SECRET = process.env.JWT_SECRET
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN
@@ -10,6 +11,25 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+}
+
+
+// ── Generate a unique 5-digit application reference: HIA-48291 ───────────────
+async function generateUniqueReference() {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const num = crypto.randomInt(10000, 100000)  // 5 digits, 10000–99999
+    const ref = `HIA-${num}`
+    // Check HubSpot for an existing deal with this reference
+    const search = await hs("/crm/v3/objects/deals/search", "POST", {
+      filterGroups: [{ filters: [{ propertyName: "portal_application_reference", operator: "EQ", value: ref }] }],
+      properties: ["portal_application_reference"],
+      limit: 1,
+    })
+    const exists = (search.body?.total || 0) > 0
+    if (!exists) return ref
+  }
+  // Extremely unlikely fallback — add extra entropy
+  return `HIA-${crypto.randomInt(10000, 100000)}`
 }
 
 function hs(path, method, body) {
@@ -201,6 +221,10 @@ exports.handler = async (event) => {
     dealProps.dealstage = STAGE_ID
     dealProps.response_status = "Holmes_Received"
 
+    // ── Generate unique application reference ───────────────────────────────
+    const applicationReference = await generateUniqueReference()
+    dealProps.portal_application_reference = applicationReference
+
     // ── Create deal ─────────────────────────────────────────────────────────
     const dealRes = await hs("/crm/v3/objects/deals", "POST", { properties: dealProps })
     if (dealRes.status !== 201) {
@@ -239,7 +263,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ ok: true, dealId }),
+      body: JSON.stringify({ ok: true, dealId, applicationReference }),
     }
   } catch (err) {
     return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) }
