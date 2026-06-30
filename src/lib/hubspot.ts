@@ -198,8 +198,8 @@ export async function createNote(dealId: string, body: string, authorName?: stri
         from: { email: "portal@holmes.edu.au", firstName: authorName || "Agent" },
         to: [{ email: "admissions@holmes.edu.au" }],
         subject,
-        body,
-        html: body,
+        body: body + "\n\n[PORTAL_MSG]",
+        html: body + "<!--PORTAL_MSG-->",
       }
     })
     await hsFetch("/engagements/v1/engagements", { method: "POST", body: engBody })
