@@ -46,13 +46,11 @@ exports.handler = async (event) => {
       const emailId = evt.objectId
       if (!emailId) continue
 
-      // Fetch the email engagement (legacy engagements API gives associations + body)
-      const eng = await hs(`/engagements/v1/engagements/${emailId}`)
-      console.log(`email ${emailId}: type=${eng?.engagement?.type}, dealIds=${JSON.stringify(eng?.associations?.dealIds)}`)
-      if (eng?.engagement?.type !== "EMAIL") continue
-
-      // Find associated deal
-      const dealId = eng.associations?.dealIds?.[0]
+      // Fetch the email via v3 CRM object API (objectTypeId 0-49) with body + deal associations
+      const emailRes = await hs(`/crm/v3/objects/emails/${emailId}?properties=hs_email_text,hs_email_html,hs_email_subject&associations=deals`)
+      const props = emailRes.body?.properties || {}
+      const dealId = emailRes.body?.associations?.deals?.results?.[0]?.id
+      console.log(`email ${emailId}: dealId=${dealId}`)
       if (!dealId) { console.log(`email ${emailId}: no associated deal`); continue }
 
       // Confirm it's an Australia pipeline deal
@@ -61,9 +59,7 @@ exports.handler = async (event) => {
       if (dealRes.body?.properties?.pipeline !== PIPELINE_ID) continue
 
       // Detect portal message via the "Comment by Agent" marker in the body
-      const bodyText = (eng.engagement?.bodyPreview || "") +
-                       (eng.metadata?.html || "") +
-                       (eng.metadata?.body || "")
+      const bodyText = (props.hs_email_text || "") + (props.hs_email_html || "") + (props.hs_email_subject || "")
       const isPortal = bodyText.includes("Comment by Agent")
       const newStatus = isPortal ? "Holmes_Received" : "Waiting_on_Agent"
 
