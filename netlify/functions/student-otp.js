@@ -1,5 +1,11 @@
 const https = require("https")
 const jwt = require("jsonwebtoken")
+const crypto = require("crypto")
+
+// Hash the OTP with HMAC so the token never contains the plaintext code.
+function hashOtp(otp, email) {
+  return crypto.createHmac("sha256", JWT_SECRET).update(`${email}:${otp}`).digest("hex")
+}
 
 const JWT_SECRET = process.env.JWT_SECRET
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN
@@ -99,9 +105,11 @@ exports.handler = async (event) => {
     const firstName = contact.properties?.firstname || ""
     const otp = String(Math.floor(100000 + Math.random() * 900000))
 
-    // Student token — no company association needed
+    // Student token — stores a HASH of the OTP, never the plaintext (JWTs are
+    // signed but not encrypted, so the payload is publicly readable).
+    const otpHash = hashOtp(otp, email)
     const token = jwt.sign(
-      { email, otp, contactId: contact.id, type: "student_otp" },
+      { email, otpHash, contactId: contact.id, type: "student_otp" },
       JWT_SECRET,
       { expiresIn: "10m" }
     )
@@ -159,7 +167,8 @@ exports.handler = async (event) => {
     if (payload.email !== email) {
       return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Email mismatch." }) }
     }
-    if (payload.otp !== code) {
+    // Compare hashes — the token never held the plaintext OTP.
+    if (payload.otpHash !== hashOtp(code, email)) {
       return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Incorrect code. Please try again." }) }
     }
 
