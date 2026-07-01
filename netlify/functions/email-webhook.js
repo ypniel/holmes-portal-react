@@ -1,11 +1,10 @@
-// HubSpot native webhook — subscribed to Email "created" events.
-// HubSpot POSTs an array: [{ objectId, subscriptionType, ... }, ...]
-// objectId = the email engagement ID.
+// HubSpot native webhook — subscribed to Deal "Association Changed" events.
+// When an email (or other activity) is associated to a deal, HubSpot POSTs:
+//   [{ objectId: <dealId>, subscriptionType: "object.associationChange", ... }]
 //
-// For each new email:
-//   - Find its associated deal
-//   - If body has "Comment by Agent" marker → portal/agent → Holmes_Received
-//   - Otherwise → Holmes staff reply → Waiting_on_Agent
+// We start from the deal, look at its latest email, and set response_status:
+//   Latest email has "Comment by Agent" marker → portal/agent → Holmes_Received
+//   Otherwise → Holmes staff reply → Waiting_on_Agent
 
 const https = require("https")
 
@@ -40,53 +39,46 @@ function hs(path, method = "GET", body = null) {
 exports.handler = async (event) => {
   try {
     const events = JSON.parse(event.body || "[]")
-    console.log("email-webhook received:", JSON.stringify(events).substring(0, 500))
+    console.log("email-webhook received:", JSON.stringify(events).substring(0, 400))
 
-    for (const evt of events) {
-      const emailId = evt.objectId
-      if (!emailId) continue
+    // De-dupe deal IDs (an association change can produce multiple events)
+    const dealIds = [...new Set(events.map(e => e.objectId).filter(Boolean).map(String))]
 
-      // Get email body properties
-      const emailRes = await hs(`/crm/v3/objects/emails/${emailId}?properties=hs_email_text,hs_email_html,hs_email_subject`)
-      const props = emailRes.body?.properties || {}
+    for (const dealId of dealIds) {
+      // Confirm Australia pipeline
+      const dealRes = await hs(`/crm/v3/objects/deals/${dealId}?properties=pipeline,response_status`)
+      const pipeline = dealRes.body?.properties?.pipeline
+      if (pipeline !== PIPELINE_ID) { console.log(`deal ${dealId}: pipeline=${pipeline}, skip`); continue }
 
-      // Get deal association via dedicated v4 endpoint
-      let dealId = null
-      const dealAssoc = await hs(`/crm/v4/objects/emails/${emailId}/associations/deals`)
-      console.log(`email ${emailId} deal assoc:`, JSON.stringify(dealAssoc.body).substring(0, 300))
-      dealId = dealAssoc.body?.results?.[0]?.toObjectId
+      // Get latest EMAIL engagement on this deal (legacy engagements works for deal→emails)
+      const engRes = await hs(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
+      const emails = (engRes.body.results || [])
+        .filter(e => e.engagement?.type === "EMAIL")
+        .sort((a, b) => (b.engagement.timestamp || 0) - (a.engagement.timestamp || 0))
 
-      // Fallback: via associated contact
-      if (!dealId) {
-        const contactAssoc = await hs(`/crm/v4/objects/emails/${emailId}/associations/contacts`)
-        console.log(`email ${emailId} contact assoc:`, JSON.stringify(contactAssoc.body).substring(0, 300))
-        const contactId = contactAssoc.body?.results?.[0]?.toObjectId
-        if (contactId) {
-          const cAssoc = await hs(`/crm/v4/objects/contacts/${contactId}/associations/deals`)
-          dealId = cAssoc.body?.results?.[0]?.toObjectId
-          console.log(`email ${emailId}: dealId via contact=${dealId}`)
-        }
-      }
-      if (!dealId) { console.log(`email ${emailId}: no associated deal`); continue }
+      if (emails.length === 0) { console.log(`deal ${dealId}: no emails`); continue }
 
-      // Confirm it's an Australia pipeline deal
-      const dealRes = await hs(`/crm/v3/objects/deals/${dealId}?properties=pipeline`)
-      console.log(`deal ${dealId}: pipeline=${dealRes.body?.properties?.pipeline}`)
-      if (dealRes.body?.properties?.pipeline !== PIPELINE_ID) continue
-
-      // Detect portal message via the "Comment by Agent" marker in the body
-      const bodyText = (props.hs_email_text || "") + (props.hs_email_html || "") + (props.hs_email_subject || "")
+      const latest = emails[0]
+      const bodyText = (latest.engagement?.bodyPreview || "") +
+                       (latest.engagement?.bodyPreviewHtml || "") +
+                       (latest.metadata?.html || "") +
+                       (latest.metadata?.body || "")
       const isPortal = bodyText.includes("Comment by Agent")
       const newStatus = isPortal ? "Holmes_Received" : "Waiting_on_Agent"
 
-      await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", {
-        properties: { response_status: newStatus },
-      })
-      console.log(`email-webhook: deal ${dealId} → ${newStatus} (isPortal=${isPortal})`)
+      if (dealRes.body.properties.response_status !== newStatus) {
+        await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", {
+          properties: { response_status: newStatus },
+        })
+        console.log(`deal ${dealId} → ${newStatus} (isPortal=${isPortal})`)
+      } else {
+        console.log(`deal ${dealId}: already ${newStatus}`)
+      }
     }
 
     return { statusCode: 200, body: "ok" }
   } catch (err) {
-    return { statusCode: 200, body: "ok" }  // 200 so HubSpot doesn't retry-storm
+    console.error("email-webhook error:", err.message)
+    return { statusCode: 200, body: "ok" }
   }
 }
