@@ -46,8 +46,10 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: corsHeaders, body: "Method not allowed" }
 
   // ── 1. Verify session token from Authorization header ─────────────────────
+  console.log("upload headers:", JSON.stringify(Object.keys(event.headers || {})))
   const authHeader = event.headers?.authorization || event.headers?.Authorization || ""
-  const token = authHeader.replace("Bearer ", "").trim()
+  console.log("authHeader present:", !!authHeader, "len:", authHeader.length)
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim()
   if (!token) return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Unauthorised" }) }
 
   let session
