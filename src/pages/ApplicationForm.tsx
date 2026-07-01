@@ -376,7 +376,7 @@ function FileUploaderPost({ dealId }: { dealId: string }) {
         const res = await fetch(`/.netlify/functions/upload?dealId=${dealId}`, {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${sessionToken || sessionStorage.getItem("holmes_session_token") || ""}`,
+            "Authorization": `Bearer ${sessionStorage.getItem("holmes_session_token") || ""}`,
             "Content-Type": "text/plain",
             "X-File-Type": contentTypeForFile(file, ext),
             "X-File-Name": encodeURIComponent(file.name),
