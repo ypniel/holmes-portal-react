@@ -408,10 +408,9 @@ export default function ApplicationDetailPage() {
                       </div>
                     ) : notes.map(note => {
                       const isEmail = note.type === "email"
-                      // Holmes-side messages always show as "Holmes Admissions" — never an individual staff name.
-                      // Agent (portal) messages carry note.author set to the agent/company name.
-                      const isAgentMsg = note.author && note.author !== "Holmes Admissions" && note.author !== "Agent"
-                      const author = isAgentMsg ? note.author : "Holmes Admissions"
+                      // Agent (portal) messages → "Agent"; Holmes (HubSpot) messages → "Holmes Admissions".
+                      // note.author is set by fetchNotes based on the portal marker.
+                      const author = note.author === "Holmes Admissions" ? "Holmes Admissions" : "Agent"
                       const authorInitials = initials(author)
                       return (
                         <div key={note.id} className="flex gap-3">
@@ -422,8 +421,6 @@ export default function ApplicationDetailPage() {
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-sm font-semibold text-gray-800">{author}</span>
                               <span className="text-xs text-gray-400">{formatDateTime(note.createdAt)}</span>
-                              {isEmail && <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium">Portal</span>}
-                              {!isEmail && <span className="text-xs bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded font-medium">Internal</span>}
                             </div>
                             <div className="bg-stone-50 rounded-xl rounded-tl-none px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words border border-stone-100 max-w-full overflow-hidden">
                               {note.body}
