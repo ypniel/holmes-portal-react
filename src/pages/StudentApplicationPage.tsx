@@ -175,8 +175,16 @@ export default function StudentApplicationPage() {
           body: base64,
         })
         if (!res.ok) throw new Error("Upload failed")
-        const url = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${id}/${encodeURIComponent(file.name)}`
-        setFiles(prev => [{ name: file.name, id: url, url, createdAt: Date.now() }, ...prev])
+        const uploadData = await res.json().catch(() => ({}))
+        if (uploadData.fileId) {
+          const fid = String(uploadData.fileId)
+          setFiles(prev => [{
+            name: file.name,
+            id: fid,
+            url: `/.netlify/functions/download-file?fileId=${fid}&dealId=${id}`,
+            createdAt: Date.now(),
+          }, ...prev])
+        }
         uploadedCount += 1
       }
       if (uploadedCount > 0) setUploadMsg(`✅ ${uploadedCount} file${uploadedCount > 1 ? "s" : ""} uploaded successfully`)
