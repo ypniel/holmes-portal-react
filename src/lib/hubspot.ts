@@ -381,10 +381,11 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
     const files: FileItem[] = []
 
     for (const eng of data.results || []) {
-      // Skip NOTE engagements — attachments on internal notes must not appear in the portal
-      if (eng.engagement?.type === "NOTE") continue
-
       const body = eng.metadata?.body || ""
+
+      // Skip internal NOTE engagements — but ALLOW notes created by portal uploads
+      // (portal uploads are stored as notes tagged with [PORTAL_UPLOAD]).
+      if (eng.engagement?.type === "NOTE" && !body.includes("[PORTAL_UPLOAD]")) continue
 
       // Method 1 — extract file IDs from HTML links
       const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
