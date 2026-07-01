@@ -381,7 +381,23 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
 // ── Fetch Files ───────────────────────────────────────────────────────────────
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
-    const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
+    // Page through ALL engagements — the legacy endpoint returns ~10-100 per page,
+    // and attachments can be on any page, so we must follow offset/hasMore to the end.
+    const allEngagements: any[] = []
+    let offset = 0
+    let hasMore = true
+    let guard = 0
+    while (hasMore && guard < 30) {
+      guard++
+      const page = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100&offset=${offset}`)
+      const results = page?.results || []
+      allEngagements.push(...results)
+      hasMore = !!page?.hasMore && results.length > 0
+      offset = page?.offset ?? (offset + results.length)
+      if (results.length === 0) break
+    }
+
+    const data = { results: allEngagements }
     const files: FileItem[] = []
 
     for (const eng of data.results || []) {
@@ -427,30 +443,29 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         }
       }
 
-      // Method 2 — attachment IDs → fetch metadata in parallel
-      const newAtts = (eng.attachments || [])
-        .filter((att: any) => att.id && att.id !== 0 && !files.find(f => f.id === String(att.id)))
-        .map((att: any) => String(att.id))
+      // Method 2 — attachment IDs (the reliable source). Use the ID directly and
+      // derive the name from the note body, avoiding a metadata fetch that the
+      // fail-closed proxy may block.
+      const noteName = body
+        .replace(/📎\s*File uploaded via portal\s*/i, "")
+        .replace(/\[PORTAL_UPLOAD\]/g, "")
+        .replace(/\[FID:\d+\]/g, "")
+        .replace(/<[^>]+>/g, m => m.replace(/<\/?a[^>]*>/g, ""))
+        .replace(/<[^>]+>/g, "")
+        .replace(/^[:\s]+/, "")
+        .trim()
 
-      const metaResults = await Promise.all(
-        newAtts.map((attId: string) =>
-          hsFetch(`/filemanager/api/v3/files/${attId}`)
-            .then((fileData: any) => {
-              let name = fileData.name || "Document"
-              name = name.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/, "")
-              name = name.replace(/^file_upload_\d+-/, "")
-              name = name.replace(/-[a-f0-9]{6}$/, "")
-              name = name.replace(/^[a-f0-9]{13}-/, "")
-              name = name.replace(/_/g, " ")
-              if (fileData.extension && !name.toLowerCase().endsWith("."+fileData.extension.toLowerCase())) {
-                name = name + "." + fileData.extension
-              }
-              return { name, id: attId, url: `/.netlify/functions/download-file?fileId=${attId}&dealId=${dealId}`, createdAt: eng.engagement?.createdAt }
-            })
-            .catch(() => ({ name: "Document", id: attId, url: `/.netlify/functions/download-file?fileId=${attId}&dealId=${dealId}`, createdAt: eng.engagement?.createdAt }))
-        )
-      )
-      files.push(...metaResults)
+      for (const att of eng.attachments || []) {
+        const attId = String(att.id)
+        if (!att.id || att.id === 0) continue
+        if (files.find(f => f.id === attId)) continue
+        files.push({
+          name: noteName || "Document",
+          id: attId,
+          url: `/.netlify/functions/download-file?fileId=${attId}&dealId=${dealId}`,
+          createdAt: eng.engagement?.createdAt,
+        })
+      }
     }
 
     const seen = new Set<string>()
