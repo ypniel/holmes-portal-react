@@ -89,6 +89,15 @@ export default function ApplicationsPage() {
   const residencies   = useMemo(() => [...new Set(deals.map(d => d.residencyStatus).filter(Boolean))].sort(), [deals])
   const courses       = useMemo(() => [...new Set(deals.map(d => d.courseName).filter(Boolean))].sort(), [deals])
   const intakes       = useMemo(() => [...new Set(deals.map(d => d.intake).filter(Boolean))].sort(), [deals])
+  // Passports that appear on more than one of the agent's own deals → duplicates
+  const duplicatePassports = useMemo(() => {
+    const counts: Record<string, number> = {}
+    deals.forEach(d => {
+      const p = (d.passport || "").trim().toLowerCase()
+      if (p) counts[p] = (counts[p] || 0) + 1
+    })
+    return new Set(Object.keys(counts).filter(p => counts[p] > 1))
+  }, [deals])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -369,6 +378,11 @@ export default function ApplicationsPage() {
                             {initials(deal.studentName)}
                           </div>
                           <span className="font-medium text-gray-700 group-hover:text-red-600 transition-colors">{deal.studentName}</span>
+                          {deal.passport && duplicatePassports.has(deal.passport.trim().toLowerCase()) && (
+                            <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full flex-shrink-0" title="Another application with the same passport exists">
+                              Duplicate
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3.5"><span className="text-xs font-semibold text-red-700 bg-red-50 px-2 py-0.5 rounded">{deal.applicationReference || deal.dealId}</span></td>
