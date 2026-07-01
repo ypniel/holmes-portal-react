@@ -41,8 +41,15 @@ exports.handler = async (event) => {
     const events = JSON.parse(event.body || "[]")
     console.log("email-webhook received:", JSON.stringify(events).substring(0, 400))
 
-    // De-dupe deal IDs (an association change can produce multiple events)
-    const dealIds = [...new Set(events.map(e => e.objectId).filter(Boolean).map(String))]
+    // De-dupe deal IDs. For EMAIL_TO_DEAL association events, the deal is toObjectId.
+    // Fall back to objectId for other event shapes.
+    const dealIds = [...new Set(
+      events
+        .filter(e => !e.associationType || e.associationType === "EMAIL_TO_DEAL")
+        .map(e => e.toObjectId || e.objectId)
+        .filter(Boolean)
+        .map(String)
+    )]
 
     for (const dealId of dealIds) {
       // Confirm Australia pipeline
