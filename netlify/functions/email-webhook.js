@@ -46,16 +46,21 @@ exports.handler = async (event) => {
       const emailId = evt.objectId
       if (!emailId) continue
 
-      // Fetch the email via v3 CRM object API (objectTypeId 0-49) with body + associations
-      const emailRes = await hs(`/crm/v3/objects/emails/${emailId}?properties=hs_email_text,hs_email_html,hs_email_subject&associations=deals,contacts`)
+      // Get email body properties
+      const emailRes = await hs(`/crm/v3/objects/emails/${emailId}?properties=hs_email_text,hs_email_html,hs_email_subject`)
       const props = emailRes.body?.properties || {}
-      let dealId = emailRes.body?.associations?.deals?.results?.[0]?.id
-      console.log(`email ${emailId}: direct dealId=${dealId}`)
 
-      // Fallback: if no direct deal association, find deal via associated contact
+      // Get deal association via dedicated v4 endpoint
+      let dealId = null
+      const dealAssoc = await hs(`/crm/v4/objects/emails/${emailId}/associations/deals`)
+      console.log(`email ${emailId} deal assoc:`, JSON.stringify(dealAssoc.body).substring(0, 300))
+      dealId = dealAssoc.body?.results?.[0]?.toObjectId
+
+      // Fallback: via associated contact
       if (!dealId) {
-        const contactId = emailRes.body?.associations?.contacts?.results?.[0]?.id
-        console.log(`email ${emailId}: contactId=${contactId}`)
+        const contactAssoc = await hs(`/crm/v4/objects/emails/${emailId}/associations/contacts`)
+        console.log(`email ${emailId} contact assoc:`, JSON.stringify(contactAssoc.body).substring(0, 300))
+        const contactId = contactAssoc.body?.results?.[0]?.toObjectId
         if (contactId) {
           const cAssoc = await hs(`/crm/v4/objects/contacts/${contactId}/associations/deals`)
           dealId = cAssoc.body?.results?.[0]?.toObjectId
