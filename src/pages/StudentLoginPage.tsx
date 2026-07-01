@@ -59,7 +59,7 @@ export default function StudentLoginPage() {
       let dealId = null
       try {
         const assocRes = await fetch(
-          "/.netlify/functions/hubspot?path=" + encodeURIComponent(`/crm/v4/objects/contacts/${contactId}/associations/deals`)
+          "/.netlify/functions/hubspot?path=" + encodeURIComponent(`/crm/v4/objects/contacts/${contactId}/associations/deals`) + "&sessionToken=" + encodeURIComponent(sessionToken)
         )
         const assocData = await assocRes.json()
         dealId = assocData.results?.[0]?.toObjectId ? String(assocData.results[0].toObjectId) : null
@@ -72,6 +72,8 @@ export default function StudentLoginPage() {
         sessionToken,
         contactId,
       }))
+      // hsFetch reads holmes_session_token — store it there too so API calls authenticate
+      sessionStorage.setItem("holmes_session_token", sessionToken)
 
       if (dealId) {
         navigate(`/student/application/${dealId}`, { replace: true })
