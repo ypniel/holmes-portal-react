@@ -293,10 +293,10 @@ export default function StudentApplicationPage() {
                 <p className="text-sm font-medium mt-0.5">{deal.studentId}</p>
               </div>
             )}
-            {deal.dealId && (
+            {(deal.applicationReference || deal.dealId) && (
               <div className="bg-white/10 rounded-lg p-3">
-                <p className="text-xs text-red-300">Deal ID</p>
-                <p className="text-sm font-medium mt-0.5">{deal.dealId}</p>
+                <p className="text-xs text-red-300">Reference</p>
+                <p className="text-sm font-medium mt-0.5">{deal.applicationReference || deal.dealId}</p>
               </div>
             )}
           </div>
