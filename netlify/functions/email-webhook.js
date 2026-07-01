@@ -40,24 +40,24 @@ function hs(path, method = "GET", body = null) {
 exports.handler = async (event) => {
   try {
     const events = JSON.parse(event.body || "[]")
+    console.log("email-webhook received:", JSON.stringify(events).substring(0, 500))
 
     for (const evt of events) {
-      // Only handle email creation events
-      if (evt.subscriptionType && !evt.subscriptionType.toLowerCase().includes("email")) continue
-
       const emailId = evt.objectId
       if (!emailId) continue
 
       // Fetch the email engagement (legacy engagements API gives associations + body)
       const eng = await hs(`/engagements/v1/engagements/${emailId}`)
+      console.log(`email ${emailId}: type=${eng?.engagement?.type}, dealIds=${JSON.stringify(eng?.associations?.dealIds)}`)
       if (eng?.engagement?.type !== "EMAIL") continue
 
       // Find associated deal
       const dealId = eng.associations?.dealIds?.[0]
-      if (!dealId) continue
+      if (!dealId) { console.log(`email ${emailId}: no associated deal`); continue }
 
       // Confirm it's an Australia pipeline deal
       const dealRes = await hs(`/crm/v3/objects/deals/${dealId}?properties=pipeline`)
+      console.log(`deal ${dealId}: pipeline=${dealRes.body?.properties?.pipeline}`)
       if (dealRes.body?.properties?.pipeline !== PIPELINE_ID) continue
 
       // Detect portal message via the "Comment by Agent" marker in the body
@@ -70,6 +70,7 @@ exports.handler = async (event) => {
       await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", {
         properties: { response_status: newStatus },
       })
+      console.log(`email-webhook: deal ${dealId} → ${newStatus} (isPortal=${isPortal})`)
     }
 
     return { statusCode: 200, body: "ok" }
