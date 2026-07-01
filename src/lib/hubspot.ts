@@ -381,6 +381,9 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
     const files: FileItem[] = []
 
     for (const eng of data.results || []) {
+      // Skip NOTE engagements — attachments on internal notes must not appear in the portal
+      if (eng.engagement?.type === "NOTE") continue
+
       const body = eng.metadata?.body || ""
 
       // Method 1 — extract file IDs from HTML links
