@@ -18,7 +18,7 @@ export default function StudentApplyPage() {
     // Check HubSpot for existing deal via contact associations
     if (parsed.contactId) {
       try {
-        const res = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${parsed.contactId}/associations/deals`)}`)
+        const res = await fetch(`/.netlify/functions/hubspot?path=${encodeURIComponent(`/crm/v4/objects/contacts/${parsed.contactId}/associations/deals`)}&sessionToken=${encodeURIComponent(parsed.sessionToken)}`)
         const data = await res.json()
         if (data.results?.length > 0) {
           const existingDealId = String(data.results[0].toObjectId)
