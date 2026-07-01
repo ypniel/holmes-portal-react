@@ -151,7 +151,11 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
       if (allNotes.find(n => n.id === id)) continue
 
       let body = ""
-      body = (e.metadata?.body || e.metadata?.html || "").replace(/\s*(<br>)*\s*— Comment by Agent \(via Portal\)\s*/g, "")
+      const rawBody = e.metadata?.body || e.metadata?.html || ""
+      // The "Comment by Agent" marker identifies portal (agent) messages.
+      // No marker = message came from Holmes (HubSpot) side.
+      const isAgentMessage = rawBody.includes("Comment by Agent")
+      body = rawBody.replace(/\s*(<br>)*\s*— Comment by Agent \(via Portal\)\s*/g, "")
       body = body
         .replace(/<img[^>]*>/gi, "")
         .replace(/<br\s*\/?>/gi, "\n")
@@ -175,7 +179,7 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
         body,
         createdAt: new Date(e.engagement.createdAt).toISOString(),
         ownerId: String(e.engagement.ownerId || ""),
-        author: "Agent",
+        author: isAgentMessage ? "Agent" : "Holmes Admissions",
         type: "email",
       })
     }
