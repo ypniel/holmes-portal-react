@@ -137,6 +137,7 @@ exports.handler = async (event) => {
                        (latest.metadata?.html || "") +
                        (latest.metadata?.body || "")
       const isPortal = bodyText.includes("Comment by Agent")
+      console.log(`deal ${dealId}: latest email id=${latest.engagement?.id} ts=${latest.engagement?.timestamp} isPortal=${isPortal} preview="${(latest.engagement?.bodyPreview||"").substring(0,60)}"`)
       const newStatus = isPortal ? "Holmes_Received" : "Waiting_on_Agent"
 
       if (dealRes.body.properties.response_status !== newStatus) {
