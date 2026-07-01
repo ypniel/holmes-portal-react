@@ -391,6 +391,25 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
       // (portal uploads are stored as notes tagged with [PORTAL_UPLOAD]).
       if (eng.engagement?.type === "NOTE" && !body.includes("[PORTAL_UPLOAD]")) continue
 
+      // Method 0 — plain-text [FID:xxx] marker (survives HubSpot stripping the <a> tag).
+      // Portal uploads embed the fileId as plain text so it's recoverable even when
+      // HubSpot removes the anchor tag from the note body.
+      const fidMatches = [...body.matchAll(/\[FID:(\d+)\]/g)]
+      for (const fm of fidMatches) {
+        const fileId = fm[1]
+        if (files.find(f => f.id === fileId)) continue
+        // Derive a display name from the note text (strip the markers)
+        let nm = body
+          .replace(/📎\s*File uploaded via portal\s*/i, "")
+          .replace(/\[PORTAL_UPLOAD\]/g, "")
+          .replace(/\[FID:\d+\]/g, "")
+          .replace(/<[^>]+>/g, "")
+          .replace(/^[:\s]+/, "")
+          .trim()
+        if (!nm) nm = "Document"
+        files.push({ name: nm, id: fileId, url: `/.netlify/functions/download-file?fileId=${fileId}&dealId=${dealId}`, createdAt: eng.engagement?.createdAt })
+      }
+
       // Method 1 — extract file IDs from HTML links
       const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
       for (const match of linkMatches) {
