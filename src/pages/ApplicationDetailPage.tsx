@@ -774,9 +774,17 @@ function DocumentUploader({ dealId, onUploaded, onOptimisticFile }: {
           body: base64,
         })
         if (!res.ok) throw new Error("Upload failed")
-        // Optimistically add file to list immediately
-        const cdnUrl = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${dealId}/${encodeURIComponent(file.name)}`
-        onOptimisticFile({ name: file.name, id: cdnUrl, url: cdnUrl, createdAt: Date.now() })
+        // Optimistically add the file using the real fileId + secure download URL
+        const uploadData = await res.json().catch(() => ({}))
+        if (uploadData.fileId) {
+          const fid = String(uploadData.fileId)
+          onOptimisticFile({
+            name: file.name,
+            id: fid,
+            url: `/.netlify/functions/download-file?fileId=${fid}&dealId=${dealId}`,
+            createdAt: Date.now(),
+          })
+        }
         uploadedCount += 1
       }
       if (uploadedCount > 0) {
