@@ -408,8 +408,10 @@ export default function ApplicationDetailPage() {
                       </div>
                     ) : notes.map(note => {
                       const isEmail = note.type === "email"
-                      const isHolmes = note.author === "Holmes Admissions" || (!isEmail && !note.author)
-                      const author = note.author || (isHolmes ? "Holmes Admissions" : owners[note.ownerId] || "Holmes Admissions")
+                      // Holmes-side messages always show as "Holmes Admissions" — never an individual staff name.
+                      // Agent (portal) messages carry note.author set to the agent/company name.
+                      const isAgentMsg = note.author && note.author !== "Holmes Admissions" && note.author !== "Agent"
+                      const author = isAgentMsg ? note.author : "Holmes Admissions"
                       const authorInitials = initials(author)
                       return (
                         <div key={note.id} className="flex gap-3">
