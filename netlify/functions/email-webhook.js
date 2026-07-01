@@ -46,11 +46,22 @@ exports.handler = async (event) => {
       const emailId = evt.objectId
       if (!emailId) continue
 
-      // Fetch the email via v3 CRM object API (objectTypeId 0-49) with body + deal associations
-      const emailRes = await hs(`/crm/v3/objects/emails/${emailId}?properties=hs_email_text,hs_email_html,hs_email_subject&associations=deals`)
+      // Fetch the email via v3 CRM object API (objectTypeId 0-49) with body + associations
+      const emailRes = await hs(`/crm/v3/objects/emails/${emailId}?properties=hs_email_text,hs_email_html,hs_email_subject&associations=deals,contacts`)
       const props = emailRes.body?.properties || {}
-      const dealId = emailRes.body?.associations?.deals?.results?.[0]?.id
-      console.log(`email ${emailId}: dealId=${dealId}`)
+      let dealId = emailRes.body?.associations?.deals?.results?.[0]?.id
+      console.log(`email ${emailId}: direct dealId=${dealId}`)
+
+      // Fallback: if no direct deal association, find deal via associated contact
+      if (!dealId) {
+        const contactId = emailRes.body?.associations?.contacts?.results?.[0]?.id
+        console.log(`email ${emailId}: contactId=${contactId}`)
+        if (contactId) {
+          const cAssoc = await hs(`/crm/v4/objects/contacts/${contactId}/associations/deals`)
+          dealId = cAssoc.body?.results?.[0]?.toObjectId
+          console.log(`email ${emailId}: dealId via contact=${dealId}`)
+        }
+      }
       if (!dealId) { console.log(`email ${emailId}: no associated deal`); continue }
 
       // Confirm it's an Australia pipeline deal
