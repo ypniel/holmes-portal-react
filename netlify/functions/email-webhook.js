@@ -107,37 +107,49 @@ exports.handler = async (event) => {
     const events = JSON.parse(event.body || "[]")
     console.log("email-webhook received:", JSON.stringify(events).substring(0, 400))
 
-    // De-dupe deal IDs. For EMAIL_TO_DEAL association events, the deal is toObjectId.
-    // Fall back to objectId for other event shapes.
-    const dealIds = [...new Set(
-      events
-        .filter(e => !e.associationType || e.associationType === "EMAIL_TO_DEAL")
-        .map(e => e.toObjectId || e.objectId)
-        .filter(Boolean)
-        .map(String)
-    )]
+    // Extract (dealId, emailId) pairs from association events.
+    //   EMAIL_TO_DEAL: fromObjectId=email, toObjectId=deal
+    //   DEAL_TO_EMAIL: fromObjectId=deal,  toObjectId=email
+    // We read the SPECIFIC triggering email (not "latest"), because the legacy
+    // deal→emails list lags and returns stale results right after an email is sent.
+    const pairs = []
+    for (const e of events) {
+      if (e.associationType === "EMAIL_TO_DEAL") {
+        pairs.push({ dealId: String(e.toObjectId), emailId: String(e.fromObjectId) })
+      } else if (e.associationType === "DEAL_TO_EMAIL") {
+        pairs.push({ dealId: String(e.fromObjectId), emailId: String(e.toObjectId) })
+      }
+    }
+    // De-dupe by emailId
+    const seen = new Set()
+    const uniquePairs = pairs.filter(p => {
+      if (seen.has(p.emailId)) return false
+      seen.add(p.emailId)
+      return true
+    })
 
-    for (const dealId of dealIds) {
+    for (const { dealId, emailId } of uniquePairs) {
       // Confirm Australia pipeline
       const dealRes = await hs(`/crm/v3/objects/deals/${dealId}?properties=pipeline,response_status`)
       const pipeline = dealRes.body?.properties?.pipeline
       if (pipeline !== PIPELINE_ID) { console.log(`deal ${dealId}: pipeline=${pipeline}, skip`); continue }
 
-      // Get latest EMAIL engagement on this deal (legacy engagements works for deal→emails)
-      const engRes = await hs(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
-      const emails = (engRes.body.results || [])
-        .filter(e => e.engagement?.type === "EMAIL")
-        .sort((a, b) => (b.engagement.timestamp || 0) - (a.engagement.timestamp || 0))
+      // Read the SPECIFIC triggering email via v3 emails object API (objectTypeId 0-49)
+      const emailRes = await hs(`/crm/v3/objects/emails/${emailId}?properties=hs_email_text,hs_email_html,hs_email_subject,hs_email_direction`)
+      const p = emailRes.body?.properties || {}
+      let bodyText = (p.hs_email_text || "") + (p.hs_email_html || "") + (p.hs_email_subject || "")
 
-      if (emails.length === 0) { console.log(`deal ${dealId}: no emails`); continue }
+      // Fallback: if v3 props are empty, try the legacy engagement body
+      if (!bodyText.trim()) {
+        const legacy = await hs(`/engagements/v1/engagements/${emailId}`)
+        bodyText = (legacy.body?.engagement?.bodyPreview || "") +
+                   (legacy.body?.metadata?.html || "") +
+                   (legacy.body?.metadata?.body || "")
+      }
 
-      const latest = emails[0]
-      const bodyText = (latest.engagement?.bodyPreview || "") +
-                       (latest.engagement?.bodyPreviewHtml || "") +
-                       (latest.metadata?.html || "") +
-                       (latest.metadata?.body || "")
       const isPortal = bodyText.includes("Comment by Agent")
-      console.log(`deal ${dealId}: latest email id=${latest.engagement?.id} ts=${latest.engagement?.timestamp} isPortal=${isPortal} preview="${(latest.engagement?.bodyPreview||"").substring(0,60)}"`)
+      console.log(`deal ${dealId}: email ${emailId} isPortal=${isPortal} dir=${p.hs_email_direction} preview="${bodyText.substring(0,60)}"`)
+
       const newStatus = isPortal ? "Holmes_Received" : "Waiting_on_Agent"
 
       if (dealRes.body.properties.response_status !== newStatus) {
