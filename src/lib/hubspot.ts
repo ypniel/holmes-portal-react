@@ -450,7 +450,6 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
         .replace(/📎\s*File uploaded via portal\s*/i, "")
         .replace(/\[PORTAL_UPLOAD\]/g, "")
         .replace(/\[FID:\d+\]/g, "")
-        .replace(/<[^>]+>/g, m => m.replace(/<\/?a[^>]*>/g, ""))
         .replace(/<[^>]+>/g, "")
         .replace(/^[:\s]+/, "")
         .trim()
