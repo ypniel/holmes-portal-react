@@ -395,40 +395,8 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
 // ── Fetch Files ───────────────────────────────────────────────────────────────
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
-    const files: FileItem[] = []
-    const addFile = (fileId: string, name: string, createdAt?: number) => {
-      const id = String(fileId || "").trim()
-      if (!id || files.find(f => f.id === id)) return
-      files.push({
-        name: name?.trim() || "Document",
-        id,
-        url: `/.netlify/functions/download-file?fileId=${id}&dealId=${dealId}`,
-        createdAt,
-      })
-    }
-
-    const cleanNameFromBody = (body: string) => {
-      const cleaned = String(body || "")
-        .replace(/📎\s*File uploaded via portal\s*/i, "")
-        .replace(/\[PORTAL_UPLOAD\]/g, "")
-        .replace(/\[FID:\d+\]/g, "")
-        .replace(/<[^>]+>/g, "")
-        .replace(/^[:\s]+/, "")
-        .trim()
-      return cleaned || "Document"
-    }
-
-    const extractIdsFromText = (text: string) => {
-      const ids = new Set<string>()
-      const raw = String(text || "")
-      for (const match of raw.matchAll(/\[FID:(\d+)\]/g)) ids.add(match[1])
-      for (const match of raw.matchAll(/fileId=(\d+)/g)) ids.add(match[1])
-      for (const match of raw.matchAll(/\/files\/(\d+)/g)) ids.add(match[1])
-      for (const match of raw.matchAll(/\/files\/v3\/files\/(\d+)/g)) ids.add(match[1])
-      return Array.from(ids)
-    }
-
-    // 1) Legacy engagements. This catches portal upload notes and many logged email attachments.
+    // Page through ALL engagements — the legacy endpoint returns ~10-100 per page,
+    // and attachments can be on any page, so we must follow offset/hasMore to the end.
     const allEngagements: any[] = []
     let offset = 0
     let hasMore = true
@@ -443,45 +411,80 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
       if (results.length === 0) break
     }
 
-    for (const eng of allEngagements) {
-      const type = eng.engagement?.type
-      const body = String(eng.metadata?.body || eng.metadata?.html || eng.metadata?.text || eng.engagement?.bodyPreview || "")
+    const data = { results: allEngagements }
+    const files: FileItem[] = []
 
-      // Do not show ordinary internal notes as documents. Show portal upload notes and email attachments.
-      if (type === "NOTE" && !body.includes("[PORTAL_UPLOAD]") && !(eng.attachments || []).length) continue
-      if (type !== "NOTE" && type !== "EMAIL") continue
+    for (const eng of data.results || []) {
+      const body = eng.metadata?.body || ""
 
-      const fallbackName = cleanNameFromBody(body)
+      // Skip internal NOTE engagements — but ALLOW notes created by portal uploads
+      // (portal uploads are stored as notes tagged with [PORTAL_UPLOAD]).
+      if (eng.engagement?.type === "NOTE" && !body.includes("[PORTAL_UPLOAD]")) continue
 
-      for (const id of extractIdsFromText(body)) addFile(id, fallbackName, eng.engagement?.createdAt)
-
-      for (const att of eng.attachments || []) {
-        if (att.id) addFile(String(att.id), att.name || fallbackName, eng.engagement?.createdAt)
-        if (att.fileId) addFile(String(att.fileId), att.name || fallbackName, eng.engagement?.createdAt)
+      // Method 0 — plain-text [FID:xxx] marker (survives HubSpot stripping the <a> tag).
+      // Portal uploads embed the fileId as plain text so it's recoverable even when
+      // HubSpot removes the anchor tag from the note body.
+      const fidMatches = [...body.matchAll(/\[FID:(\d+)\]/g)]
+      for (const fm of fidMatches) {
+        const fileId = fm[1]
+        if (files.find(f => f.id === fileId)) continue
+        // Derive a display name from the note text (strip the markers)
+        let nm = body
+          .replace(/📎\s*File uploaded via portal\s*/i, "")
+          .replace(/\[PORTAL_UPLOAD\]/g, "")
+          .replace(/\[FID:\d+\]/g, "")
+          .replace(/<[^>]+>/g, "")
+          .replace(/^[:\s]+/, "")
+          .trim()
+        if (!nm) nm = "Document"
+        files.push({ name: nm, id: fileId, url: `/.netlify/functions/download-file?fileId=${fileId}&dealId=${dealId}`, createdAt: eng.engagement?.createdAt })
       }
 
-      for (const att of eng.metadata?.attachments || []) {
-        if (att.id) addFile(String(att.id), att.name || att.fileName || fallbackName, eng.engagement?.createdAt)
-        if (att.fileId) addFile(String(att.fileId), att.name || att.fileName || fallbackName, eng.engagement?.createdAt)
+      // Method 1 — extract file IDs from HTML links
+      const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
+      for (const match of linkMatches) {
+        const hrefUrl = match[1]
+        let name = match[2].trim()
+        name = name.replace(/^[a-f0-9]{13}-/, "")
+        name = name.replace(/_/g, " ")
+        if (!name) continue
+        if (hrefUrl.includes("hubspotusercontent")) continue
+        const fileIdMatch = hrefUrl.match(/\/files\/(\d+)\//) || hrefUrl.match(/fileId=(\d+)/)
+        if (fileIdMatch) {
+          const fileId = fileIdMatch[1]
+          if (files.find(f => f.id === fileId)) continue
+          files.push({ name, id: fileId, url: `/.netlify/functions/download-file?fileId=${fileId}&dealId=${dealId}`, createdAt: eng.engagement?.createdAt })
+        }
+      }
+
+      // Method 2 — attachment IDs (the reliable source). Use the ID directly and
+      // derive the name from the note body, avoiding a metadata fetch that the
+      // fail-closed proxy may block.
+      const noteName = body
+        .replace(/📎\s*File uploaded via portal\s*/i, "")
+        .replace(/\[PORTAL_UPLOAD\]/g, "")
+        .replace(/\[FID:\d+\]/g, "")
+        .replace(/<[^>]+>/g, "")
+        .replace(/^[:\s]+/, "")
+        .trim()
+
+      for (const att of eng.attachments || []) {
+        const attId = String(att.id)
+        if (!att.id || att.id === 0) continue
+        if (files.find(f => f.id === attId)) continue
+        files.push({
+          name: noteName || "Document",
+          id: attId,
+          url: `/.netlify/functions/download-file?fileId=${attId}&dealId=${dealId}`,
+          createdAt: eng.engagement?.createdAt,
+        })
       }
     }
 
-    // 2) CRM email objects. Manually logged HubSpot emails can store attachments in hs_attachment_ids.
-    try {
-      const emailAssoc = await hsFetchSafe(`/crm/v4/objects/deals/${dealId}/associations/emails`)
-      const emailIds = (emailAssoc?.results || []).map((r: any) => String(r.toObjectId)).filter(Boolean).slice(0, 50)
-      for (const emailId of emailIds) {
-        const email = await hsFetchSafe(`/crm/v3/objects/emails/${emailId}?properties=hs_attachment_ids,hs_email_subject,hs_timestamp,hs_createdate`)
-        const ids = String(email?.properties?.hs_attachment_ids || "").split(";").map(s => s.trim()).filter(Boolean)
-        const subject = email?.properties?.hs_email_subject || "Email attachment"
-        const created = Date.parse(email?.properties?.hs_timestamp || email?.properties?.hs_createdate || "") || undefined
-        for (const id of ids) addFile(id, subject, created)
-      }
-    } catch {}
 
     const seen = new Set<string>()
     return files
-      .filter(f => { const key = f.id || f.url || f.name; if (seen.has(key)) return false; seen.add(key); return true })
+      .filter(f => { const key = f.url || f.name; if (seen.has(key)) return false; seen.add(key); return true })
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
   } catch { return [] }
 }
