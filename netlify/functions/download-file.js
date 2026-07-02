@@ -136,6 +136,7 @@ exports.handler = async (event) => {
       headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
 
+    console.log(`download-file ${fileId}: meta status=${metaResult.status}`)
     if (metaResult.status < 200 || metaResult.status >= 300) {
       return { statusCode: metaResult.status || 500, headers: corsHeaders, body: "File not found" }
     }
@@ -150,14 +151,18 @@ exports.handler = async (event) => {
       headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
 
+    console.log(`download-file ${fileId}: signed-url status=${signedResult.status} body=${signedResult.body.toString().substring(0, 150)}`)
     let downloadUrl = ""
+    let urlSource = "none"
     if (signedResult.status >= 200 && signedResult.status < 300) {
-      try { downloadUrl = JSON.parse(signedResult.body.toString()).url || "" } catch {}
+      try { downloadUrl = JSON.parse(signedResult.body.toString()).url || "" ; urlSource = "signed" } catch {}
     }
     // Fallback to meta.url if signed-url unavailable
     if (!downloadUrl) {
       downloadUrl = meta.url || meta.defaultHostingUrl || meta.default_hosting_url || ""
+      urlSource = "meta-fallback"
     }
+    console.log(`download-file ${fileId}: urlSource=${urlSource} host=${downloadUrl ? new URL(downloadUrl).hostname : "none"}`)
     if (!downloadUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
 
     const parsedUrl = new URL(downloadUrl)
@@ -168,6 +173,7 @@ exports.handler = async (event) => {
       headers: {},
     }, true)  // follow redirects server-side — never return 302 to browser
 
+    console.log(`download-file ${fileId}: final fetch status=${fileResult.status}`)
     if (fileResult.status < 200 || fileResult.status >= 300) {
       return { statusCode: fileResult.status, headers: corsHeaders, body: "Unable to download file" }
     }
