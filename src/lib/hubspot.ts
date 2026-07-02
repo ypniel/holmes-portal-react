@@ -467,6 +467,32 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
       }
     }
 
+    // Resolve logged-email attachments via the deal's associated email objects.
+    try {
+      const emailAssoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/emails`)
+      const emailIds = (emailAssoc?.results || []).map((r: any) => String(r.toObjectId)).filter(Boolean)
+      const emailMetas = await Promise.all(
+        emailIds.slice(0, 50).map((eid: string) =>
+          hsFetch(`/crm/v3/objects/emails/${eid}?properties=hs_attachment_ids,hs_email_subject`)
+            .then((em: any) => ({ eid, props: em?.properties || {} }))
+            .catch(() => ({ eid, props: {} }))
+        )
+      )
+      for (const { props } of emailMetas) {
+        const ids = String(props.hs_attachment_ids || "").split(";").map(s => s.trim()).filter(Boolean)
+        const subj = props.hs_email_subject || "Email attachment"
+        for (const attId of ids) {
+          if (files.find(f => f.id === attId)) continue
+          files.push({
+            name: subj,
+            id: attId,
+            url: `/.netlify/functions/download-file?fileId=${attId}&dealId=${dealId}`,
+            createdAt: Date.now(),
+          })
+        }
+      }
+    } catch { /* email attachments are best-effort */ }
+
     const seen = new Set<string>()
     return files
       .filter(f => { const key = f.url || f.name; if (seen.has(key)) return false; seen.add(key); return true })
