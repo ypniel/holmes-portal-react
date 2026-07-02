@@ -48,6 +48,10 @@ exports.handler = async (event) => {
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
 
+  if (!JWT_SECRET) {
+    return { statusCode: 500, headers: corsHeaders, body: "Server not configured" }
+  }
+
   // ── 1. Verify session token from Authorization header ─────────────────────
   const authHeader = event.headers?.authorization || event.headers?.Authorization || ""
   const token = authHeader.replace("Bearer ", "").trim()
@@ -70,59 +74,110 @@ exports.handler = async (event) => {
   if (!fileId) return { statusCode: 400, headers: corsHeaders, body: "Missing fileId" }
   if (!dealId) return { statusCode: 400, headers: corsHeaders, body: "Missing dealId" }
 
-  // ── 3. Check deal ownership (skip for Holmes staff) ───────────────────────
+  // ── 3. Check deal ownership — Staff: allow; Student: contact-based; Agent: company-based ──
   const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
-  const isStudent = session.type === "student_otp" || session.companyName === "Direct Student"
+  const isStudent = session.type === "student_otp" || session.type === "student" || session.companyName === "Direct Student"
 
-  if (!isStaff && session.companyId) {
+  if (!isStaff && isStudent) {
+    // Student: the deal must be associated with the student's contact
+    const contactId = session.contactId
+    if (!contactId) {
+      return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
+    }
+    const contactAssocResult = await makeRequest({
+      hostname: "api.hubapi.com",
+      path: `/crm/v4/objects/deals/${dealId}/associations/contacts`,
+      method: "GET",
+      headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
+    })
+    let contactIds = []
+    try {
+      const contactAssocBody = JSON.parse(contactAssocResult.body.toString() || "{}")
+      contactIds = (contactAssocBody.results || []).map((r) => String(r.toObjectId))
+    } catch {}
+    if (!contactIds.includes(String(contactId))) {
+      return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
+    }
+  }
+
+  if (!isStaff && !isStudent) {
+    // Agent: the deal's company must match the agent's company
+    if (!session.companyId) {
+      return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
+    }
     const assocResult = await makeRequest({
       hostname: "api.hubapi.com",
       path: `/crm/v4/objects/deals/${dealId}/associations/companies`,
       method: "GET",
       headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
-
     let dealCompanyId = null
     try {
       const assocBody = JSON.parse(assocResult.body.toString() || "{}")
       dealCompanyId = assocBody.results?.[0]?.toObjectId
     } catch {}
-
     if (!dealCompanyId || String(dealCompanyId) !== String(session.companyId)) {
       return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
     }
   }
 
-  // ── 4. Verify fileId belongs to this deal ─────────────────────────────────
+  // ── 4. Verify fileId belongs to this deal (FAIL CLOSED) ───────────────────
+  // Build the full set of file IDs legitimately attached to this deal: engagement
+  // attachments, fileIds in note bodies, AND attachments on the deal's email objects
+  // (hs_attachment_ids). If the requested fileId is not provably in that set, block.
   if (!isStaff) {
-    const engResult = await makeRequest({
-      hostname: "api.hubapi.com",
-      path: `/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=200`,
-      method: "GET",
-      headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
-    })
-
     let validFileIds = new Set()
+
+    // (a) Engagement attachments + body fileIds
     try {
+      const engResult = await makeRequest({
+        hostname: "api.hubapi.com",
+        path: `/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=200`,
+        method: "GET",
+        headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
+      })
       const engBody = JSON.parse(engResult.body.toString() || "{}")
       for (const eng of engBody.results || []) {
-        // Attachments
         for (const att of eng.attachments || []) {
-          validFileIds.add(String(att.id))
+          if (att.id) validFileIds.add(String(att.id))
         }
-        // FileIds embedded in body
         const body = eng.engagement?.bodyPreview || ""
         for (const match of body.matchAll(/fileId=(\d+)/g)) {
           validFileIds.add(match[1])
         }
-        // FileIds in metadata
         for (const m of eng.metadata?.attachments || []) {
           if (m.id) validFileIds.add(String(m.id))
         }
       }
     } catch {}
 
-    if (validFileIds.size > 0 && !validFileIds.has(String(fileId))) {
+    // (b) Attachments on the deal's email objects (logged-email / form-upload files)
+    try {
+      const emailAssoc = await makeRequest({
+        hostname: "api.hubapi.com",
+        path: `/crm/v4/objects/deals/${dealId}/associations/emails`,
+        method: "GET",
+        headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
+      })
+      const emailAssocBody = JSON.parse(emailAssoc.body.toString() || "{}")
+      const emailIds = (emailAssocBody.results || []).map((r) => String(r.toObjectId)).filter(Boolean).slice(0, 50)
+      for (const eid of emailIds) {
+        try {
+          const em = await makeRequest({
+            hostname: "api.hubapi.com",
+            path: `/crm/v3/objects/emails/${eid}?properties=hs_attachment_ids`,
+            method: "GET",
+            headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
+          })
+          const emBody = JSON.parse(em.body.toString() || "{}")
+          const ids = String(emBody.properties?.hs_attachment_ids || "").split(";").map(s => s.trim()).filter(Boolean)
+          for (const id of ids) validFileIds.add(String(id))
+        } catch {}
+      }
+    } catch {}
+
+    // FAIL CLOSED — if we cannot prove the file belongs to this deal, block.
+    if (!validFileIds.has(String(fileId))) {
       return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
     }
   }
@@ -174,13 +229,14 @@ exports.handler = async (event) => {
 
     const contentType = getContentType(meta, fileResult)
     const cleanName = `${meta.name || "document"}${meta.extension && !(meta.name || "").toLowerCase().endsWith(`.${String(meta.extension).toLowerCase()}`) ? `.${meta.extension}` : ""}`
+    const safeFileName = cleanName.replace(/["\r\n]/g, "")
 
     return {
       statusCode: 200,
       headers: {
         ...corsHeaders,
         "Content-Type": contentType,
-        "Content-Disposition": `inline; filename="${cleanName}"`,
+        "Content-Disposition": `inline; filename="${safeFileName}"`,
         "Content-Length": String(fileResult.body.length),
         "Cache-Control": "private, no-store",
       },
