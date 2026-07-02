@@ -381,7 +381,22 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
 // ── Fetch Files ───────────────────────────────────────────────────────────────
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
-    const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
+    // Page through ALL engagements — attachments (incl. #portal_visible notes) can be
+    // on any page. A single limited page silently drops recent/older files.
+    const allResults: any[] = []
+    let offset = 0
+    let hasMore = true
+    let guard = 0
+    while (hasMore && guard < 20) {
+      guard++
+      const page = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100&offset=${offset}`)
+      const results = page?.results || []
+      allResults.push(...results)
+      hasMore = !!page?.hasMore && results.length > 0
+      offset = page?.offset ?? (offset + results.length)
+      if (results.length === 0) break
+    }
+    const data = { results: allResults }
     const files: FileItem[] = []
 
     for (const eng of data.results || []) {
