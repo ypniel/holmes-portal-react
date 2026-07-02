@@ -93,8 +93,8 @@ exports.handler = async (event) => {
     const CRLF = "\r\n"
 
     const preamble = Buffer.from(
-      `--${boundary}${CRLF}Content-Disposition: form-data; name="folderPath"${CRLF}${CRLF}/portal-uploads/pending${CRLF}` +
-      `--${boundary}${CRLF}Content-Disposition: form-data; name="options"${CRLF}Content-Type: application/json${CRLF}${CRLF}{"access":"PRIVATE","overwrite":false,"duplicateValidationStrategy":"NONE"}${CRLF}` +
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="folderPath"${CRLF}${CRLF}/portal-uploads${CRLF}` +
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="options"${CRLF}Content-Type: application/json${CRLF}${CRLF}{"access":"PUBLIC_NOT_INDEXABLE","overwrite":false,"duplicateValidationStrategy":"NONE"}${CRLF}` +
       `--${boundary}${CRLF}Content-Disposition: form-data; name="file"; filename="${fileName}"${CRLF}Content-Type: ${contentType}${CRLF}${CRLF}`
     )
     const epilogue = Buffer.from(`${CRLF}--${boundary}--${CRLF}`)
