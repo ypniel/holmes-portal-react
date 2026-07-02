@@ -164,7 +164,6 @@ export default function StudentApplicationPage() {
         const res = await fetch(`/.netlify/functions/upload?dealId=${id}`, {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${sessionStorage.getItem("holmes_session_token") || ""}`,
             "Content-Type": "text/plain",
             "X-File-Type": contentTypeForFile(file, ext),
             "X-File-Name": encodeURIComponent(file.name),
@@ -175,16 +174,8 @@ export default function StudentApplicationPage() {
           body: base64,
         })
         if (!res.ok) throw new Error("Upload failed")
-        const uploadData = await res.json().catch(() => ({}))
-        if (uploadData.fileId) {
-          const fid = String(uploadData.fileId)
-          setFiles(prev => [{
-            name: file.name,
-            id: fid,
-            url: `/.netlify/functions/download-file?fileId=${fid}&dealId=${id}`,
-            createdAt: Date.now(),
-          }, ...prev])
-        }
+        const url = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${id}/${encodeURIComponent(file.name)}`
+        setFiles(prev => [{ name: file.name, id: url, url, createdAt: Date.now() }, ...prev])
         uploadedCount += 1
       }
       if (uploadedCount > 0) setUploadMsg(`✅ ${uploadedCount} file${uploadedCount > 1 ? "s" : ""} uploaded successfully`)
