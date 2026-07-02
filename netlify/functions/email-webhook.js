@@ -78,11 +78,26 @@ async function notifyAgent(dealId) {
     const agentName = contactRes.body?.properties?.firstname || "there"
     if (!agentEmail) { console.log(`notifyAgent: no email for contact ${contactId}`); return }
 
+    // Fetch the deal name and application reference to include in the notification
+    const dealInfo = await hs(`/crm/v3/objects/deals/${dealId}?properties=dealname,portal_application_reference`)
+    const dealName = dealInfo.body?.properties?.dealname || ""
+    const appRef = dealInfo.body?.properties?.portal_application_reference || dealId
+
     const link = `${PORTAL_URL}/applications/${dealId}`
     const html = `
       <div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #333; max-width: 480px;">
         <p>Hi ${agentName},</p>
-        <p>You have a new message from Holmes Admissions regarding one of your applications.</p>
+        <p>You have a new message from Holmes Admissions regarding the following application:</p>
+        <table style="border-collapse: collapse; font-size: 13px; color: #444; margin: 12px 0;">
+          <tr>
+            <td style="padding: 3px 12px 3px 0; color: #888;">Application Reference</td>
+            <td style="padding: 3px 0; font-weight: 700; color: #991b1b;">${appRef}</td>
+          </tr>
+          <tr>
+            <td style="padding: 3px 12px 3px 0; color: #888;">Application</td>
+            <td style="padding: 3px 0;">${dealName}</td>
+          </tr>
+        </table>
         <p style="margin: 20px 0;">
           <a href="${link}" style="display: inline-block; padding: 10px 24px; background: #991b1b; color: #ffffff; font-weight: 700; text-decoration: none; border-radius: 4px;">View message in the portal →</a>
         </p>
@@ -93,7 +108,7 @@ async function notifyAgent(dealId) {
       personalizations: [{ to: [{ email: agentEmail }] }],
       from: { email: SENDGRID_FROM_EMAIL, name: SENDGRID_FROM_NAME },
       reply_to: { email: SENDGRID_FROM_EMAIL, name: SENDGRID_FROM_NAME },
-      subject: "You have a new message in the Holmes Admissions Portal",
+      subject: `New message in the Holmes Admissions Portal — ${appRef}`,
       content: [{ type: "text/html", value: html }],
     })
     console.log(`notifyAgent: emailed ${agentEmail} for deal ${dealId}, status ${res.status}`)
