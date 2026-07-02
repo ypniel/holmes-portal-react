@@ -130,10 +130,10 @@ exports.handler = async (event) => {
     const boundary = `----FormBoundary${Date.now()}`
     const CRLF = "\r\n"
 
-    // ── 5. Upload as PRIVATE (not PUBLIC_INDEXABLE) ───────────────────────────
+    // ── 5. Upload as PUBLIC_INDEXABLE ─────────────────────────────────────────
     const preamble = Buffer.from(
       `--${boundary}${CRLF}Content-Disposition: form-data; name="folderPath"${CRLF}${CRLF}/HubSpot-Deals/${dealId}${CRLF}` +
-      `--${boundary}${CRLF}Content-Disposition: form-data; name="options"${CRLF}Content-Type: application/json${CRLF}${CRLF}{"access":"PRIVATE","overwrite":false,"duplicateValidationStrategy":"NONE"}${CRLF}` +
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="options"${CRLF}Content-Type: application/json${CRLF}${CRLF}{"access":"PUBLIC_INDEXABLE","overwrite":false,"duplicateValidationStrategy":"NONE"}${CRLF}` +
       `--${boundary}${CRLF}Content-Disposition: form-data; name="file"; filename="${fileName}"${CRLF}Content-Type: ${contentType}${CRLF}${CRLF}`
     )
     const epilogue = Buffer.from(`${CRLF}--${boundary}--${CRLF}`)
