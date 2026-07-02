@@ -45,10 +45,12 @@ exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: corsHeaders, body: "Method not allowed" }
 
+  if (!JWT_SECRET) {
+    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "Server not configured" }) }
+  }
+
   // ── 1. Verify session token from Authorization header ─────────────────────
-  console.log("upload headers:", JSON.stringify(Object.keys(event.headers || {})))
   const authHeader = event.headers?.authorization || event.headers?.Authorization || ""
-  console.log("authHeader present:", !!authHeader, "len:", authHeader.length)
   const token = authHeader.replace(/^Bearer\s+/i, "").trim()
   if (!token) return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Unauthorised" }) }
 
@@ -130,10 +132,10 @@ exports.handler = async (event) => {
     const boundary = `----FormBoundary${Date.now()}`
     const CRLF = "\r\n"
 
-    // ── 5. Upload as PUBLIC_INDEXABLE ─────────────────────────────────────────
+    // ── 5. Upload as PRIVATE ───────────────────────────────────────────────────
     const preamble = Buffer.from(
       `--${boundary}${CRLF}Content-Disposition: form-data; name="folderPath"${CRLF}${CRLF}/HubSpot-Deals/${dealId}${CRLF}` +
-      `--${boundary}${CRLF}Content-Disposition: form-data; name="options"${CRLF}Content-Type: application/json${CRLF}${CRLF}{"access":"PUBLIC_INDEXABLE","overwrite":false,"duplicateValidationStrategy":"NONE"}${CRLF}` +
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="options"${CRLF}Content-Type: application/json${CRLF}${CRLF}{"access":"PRIVATE","overwrite":false,"duplicateValidationStrategy":"NONE"}${CRLF}` +
       `--${boundary}${CRLF}Content-Disposition: form-data; name="file"; filename="${fileName}"${CRLF}Content-Type: ${contentType}${CRLF}${CRLF}`
     )
     const epilogue = Buffer.from(`${CRLF}--${boundary}--${CRLF}`)
@@ -144,7 +146,7 @@ exports.handler = async (event) => {
       path: "/filemanager/api/v3/files/upload",
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${TOKEN}`,
+        "Authorization": `Bearer ${SENSITIVE_TOKEN}`,
         "Content-Type": `multipart/form-data; boundary=${boundary}`,
         "Content-Length": body.length,
       },
@@ -163,7 +165,7 @@ exports.handler = async (event) => {
       engagement: { active: true, type: "NOTE", timestamp: Date.now() },
       associations: { dealIds: [parseInt(dealId)] },
       attachments: [{ id: parseInt(fileId) }],
-      metadata: { body: `📎 File uploaded via portal [PORTAL_UPLOAD]: <a href="/.netlify/functions/download-file?fileId=${fileId}&dealId=${dealId}">${fileName}</a>` }
+      metadata: { body: `📎 File uploaded via portal [PORTAL_UPLOAD] [FID:${fileId}]: <a href="/.netlify/functions/download-file?fileId=${fileId}&dealId=${dealId}">${fileName}</a>` }
     })
 
     await makeRequest({

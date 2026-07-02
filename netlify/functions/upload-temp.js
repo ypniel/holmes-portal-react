@@ -1,6 +1,8 @@
 const https = require("https")
+const jwt = require("jsonwebtoken")
 
-const TOKEN = process.env.HUBSPOT_TOKEN
+const TOKEN = process.env.HUBSPOT_TOKEN_WRITE || process.env.HUBSPOT_TOKEN
+const JWT_SECRET = process.env.JWT_SECRET
 
 const ALLOWED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"]
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -33,13 +35,30 @@ function makeRequest(options, body) {
 exports.handler = async (event) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, X-File-Name, X-File-Size, X-File-Type, X-File-Base64",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-File-Name, X-File-Size, X-File-Type, X-File-Base64",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json",
   }
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: corsHeaders, body: "Method not allowed" }
+
+  if (!JWT_SECRET) {
+    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "Server not configured" }) }
+  }
+
+  const authHeader = event.headers?.authorization || event.headers?.Authorization || ""
+  const sessionToken = authHeader.replace(/^Bearer\s+/i, "").trim()
+
+  if (!sessionToken) {
+    return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Unauthorised" }) }
+  }
+
+  try {
+    jwt.verify(sessionToken, JWT_SECRET)
+  } catch {
+    return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: "Invalid session" }) }
+  }
 
   try {
     const rawFileName = getHeader(event, "x-file-name") || "upload"
