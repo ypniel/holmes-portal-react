@@ -443,6 +443,7 @@ function PreSubmitUploader({ files, onChange, disabled }: {
           method: "POST",
           headers: {
             "Content-Type": "text/plain",
+            "Authorization": `Bearer ${sessionStorage.getItem("holmes_session_token") || ""}`,
             "X-File-Type": contentTypeForFile(file, ext),
             "X-File-Name": encodeURIComponent(file.name),
             "X-File-Size": String(file.size),
