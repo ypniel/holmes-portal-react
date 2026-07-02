@@ -35,6 +35,20 @@ async function hsFetch(path: string, init: RequestInit = {}): Promise<any> {
   return res.json()
 }
 
+// Non-redirecting fetch for best-effort/optional calls. A failure here (including
+// 403) returns null instead of logging the user out. Use for non-critical reads.
+async function hsFetchSafe(path: string): Promise<any> {
+  try {
+    const token = sessionStorage.getItem("holmes_session_token") || ""
+    const url = `/.netlify/functions/hubspot?path=${encodeURIComponent(path)}${token ? `&sessionToken=${encodeURIComponent(token)}` : ""}`
+    const res = await fetch(url, { headers: { "Content-Type": "application/json" } })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
 // ── Deal Properties ───────────────────────────────────────────────────────────
 export const DEAL_PROPS = [
   "dealname","dealstage","pipeline","response_status",
@@ -469,13 +483,12 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
 
     // Resolve logged-email attachments via the deal's associated email objects.
     try {
-      const emailAssoc = await hsFetch(`/crm/v4/objects/deals/${dealId}/associations/emails`)
+      const emailAssoc = await hsFetchSafe(`/crm/v4/objects/deals/${dealId}/associations/emails`)
       const emailIds = (emailAssoc?.results || []).map((r: any) => String(r.toObjectId)).filter(Boolean)
       const emailMetas = await Promise.all(
         emailIds.slice(0, 50).map((eid: string) =>
-          hsFetch(`/crm/v3/objects/emails/${eid}?properties=hs_attachment_ids,hs_email_subject`)
+          hsFetchSafe(`/crm/v3/objects/emails/${eid}?properties=hs_attachment_ids,hs_email_subject`)
             .then((em: any) => ({ eid, props: em?.properties || {} }))
-            .catch(() => ({ eid, props: {} }))
         )
       )
       for (const { props } of emailMetas) {
