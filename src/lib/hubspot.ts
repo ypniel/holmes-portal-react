@@ -379,187 +379,66 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
 }
 
 // ── Fetch Files ───────────────────────────────────────────────────────────────
-function extractFileIdsFromEngagement(eng: any, allowPortalNote = true): string[] {
-  const ids = new Set<string>()
-  const type = eng.engagement?.type
-  const body = String(eng.metadata?.body || eng.engagement?.bodyPreview || "")
-
-  // Normal notes/comments must not appear as files.
-  // A NOTE is only treated as a file record if it is a portal-upload note.
-  if (type === "NOTE" && allowPortalNote) {
-    const isPortalUploadNote = body.includes("[FID:") || body.includes("[PORTAL_UPLOAD]")
-    if (!isPortalUploadNote) return []
-  }
-
-  // Standard legacy engagement attachments.
-  for (const att of eng.attachments || []) {
-    if (att?.id) ids.add(String(att.id))
-    if (att?.fileId) ids.add(String(att.fileId))
-  }
-
-  // Metadata attachments, used by some HubSpot email/note activities.
-  for (const att of eng.metadata?.attachments || []) {
-    if (att?.id) ids.add(String(att.id))
-    if (att?.fileId) ids.add(String(att.fileId))
-  }
-
-  // HubSpot logged email attachment IDs can appear as semicolon/comma-separated values.
-  const attachmentFields = [
-    eng.metadata?.hs_attachment_ids,
-    eng.metadata?.attachmentIds,
-    eng.metadata?.hs_email_attachment_ids,
-  ]
-
-  for (const field of attachmentFields) {
-    if (!field) continue
-    for (const id of String(field).split(/[;,]/)) {
-      const clean = id.trim()
-      if (/^\d+$/.test(clean)) ids.add(clean)
-    }
-  }
-
-  // Portal upload marker. This is the reliable index for portal-uploaded files.
-  const possibleBodies = [
-    eng.engagement?.bodyPreview,
-    eng.metadata?.body,
-    eng.metadata?.html,
-    eng.metadata?.text,
-  ]
-
-  for (const possibleBody of possibleBodies) {
-    if (!possibleBody) continue
-    const text = String(possibleBody)
-
-    for (const match of text.matchAll(/\[FID:(\d+)\]/g)) ids.add(match[1])
-    for (const match of text.matchAll(/fileId=(\d+)/g)) ids.add(match[1])
-  }
-
-  return Array.from(ids)
-}
-
-function cleanFileName(name: string, extension?: string): string {
-  let cleaned = name || "Document"
-  cleaned = cleaned.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/i, "")
-  cleaned = cleaned.replace(/^file_upload_\d+-/i, "")
-  cleaned = cleaned.replace(/-[a-f0-9]{6}$/i, "")
-  cleaned = cleaned.replace(/^[a-f0-9]{13}-/i, "")
-  cleaned = cleaned.replace(/_/g, " ").trim() || "Document"
-
-  if (extension && !cleaned.toLowerCase().endsWith("." + extension.toLowerCase())) {
-    cleaned = cleaned + "." + extension
-  }
-
-  return cleaned
-}
-
-async function fetchEmailAttachmentIdsFromCrmEmail(emailId: string): Promise<string[]> {
-  try {
-    const email = await hsFetch(
-      `/crm/v3/objects/emails/${emailId}?properties=hs_attachment_ids,hs_email_attachment_ids,hs_timestamp,hs_body_preview,hs_email_subject`
-    )
-
-    const ids = new Set<string>()
-    const fields = [
-      email.properties?.hs_attachment_ids,
-      email.properties?.hs_email_attachment_ids,
-    ]
-
-    for (const field of fields) {
-      if (!field) continue
-      for (const id of String(field).split(/[;,]/)) {
-        const clean = id.trim()
-        if (/^\d+$/.test(clean)) ids.add(clean)
-      }
-    }
-
-    return Array.from(ids)
-  } catch {
-    return []
-  }
-}
-
-async function fetchFileMeta(fileId: string, fallbackCreatedAt?: number): Promise<FileItem> {
-  try {
-    const fileData = await hsFetch(`/filemanager/api/v3/files/${fileId}`)
-    const name = cleanFileName(fileData.name || "Document", fileData.extension)
-    return {
-      name,
-      id: fileId,
-      url: `/.netlify/functions/download-file?fileId=${encodeURIComponent(fileId)}`,
-      createdAt: fallbackCreatedAt,
-    }
-  } catch {
-    return {
-      name: `Document ${fileId}`,
-      id: fileId,
-      url: `/.netlify/functions/download-file?fileId=${encodeURIComponent(fileId)}`,
-      createdAt: fallbackCreatedAt,
-    }
-  }
-}
-
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
-    const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100`)
-    const fileMap = new Map<string, { fileId: string; createdAt?: number }>()
+    const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
+    const files: FileItem[] = []
 
     for (const eng of data.results || []) {
-      const type = eng.engagement?.type
-      const body = String(eng.metadata?.body || eng.engagement?.bodyPreview || "")
-      const isEmail = type === "EMAIL"
-      const isPortalUploadNote = type === "NOTE" && (body.includes("[FID:") || body.includes("[PORTAL_UPLOAD]"))
+      const body = eng.metadata?.body || ""
 
-      // New rule:
-      // - Show EMAIL attachments.
-      // - Show portal-upload NOTE files only when the note has a file marker.
-      // - Ignore all normal notes/comments.
-      if (!isEmail && !isPortalUploadNote) continue
+      // Skip internal NOTE engagements — but ALLOW notes created by portal uploads
+      // (portal uploads are stored as notes tagged with [PORTAL_UPLOAD]).
+      if (eng.engagement?.type === "NOTE" && !body.includes("[PORTAL_UPLOAD]")) continue
 
-      let fileIds = extractFileIdsFromEngagement(eng)
-
-      // HubSpot logged email attachments are sometimes not returned on the legacy engagement payload.
-      // For EMAIL activities, ask the CRM email object for hs_attachment_ids as a fallback.
-      if (isEmail) {
-        const extraIds = await fetchEmailAttachmentIdsFromCrmEmail(String(eng.engagement?.id || ""))
-        fileIds = Array.from(new Set([...fileIds, ...extraIds]))
-      }
-
-      if (fileIds.length === 0) continue
-
-      for (const fileId of fileIds) {
-        if (!/^\d+$/.test(String(fileId))) continue
-        if (!fileMap.has(String(fileId))) {
-          fileMap.set(String(fileId), {
-            fileId: String(fileId),
-            createdAt: eng.engagement?.createdAt || eng.engagement?.timestamp,
-          })
+      // Method 1 — extract file IDs from HTML links
+      const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
+      for (const match of linkMatches) {
+        const hrefUrl = match[1]
+        let name = match[2].trim()
+        name = name.replace(/^[a-f0-9]{13}-/, "")
+        name = name.replace(/_/g, " ")
+        if (!name) continue
+        if (hrefUrl.includes("hubspotusercontent")) continue
+        const fileIdMatch = hrefUrl.match(/\/files\/(\d+)\//) || hrefUrl.match(/fileId=(\d+)/)
+        if (fileIdMatch) {
+          const fileId = fileIdMatch[1]
+          if (files.find(f => f.id === fileId)) continue
+          files.push({ name, id: fileId, url: `/.netlify/functions/download-file?fileId=${fileId}&dealId=${dealId}`, createdAt: eng.engagement?.createdAt })
         }
       }
+
+      // Method 2 — attachment IDs → fetch metadata in parallel
+      const newAtts = (eng.attachments || [])
+        .filter((att: any) => att.id && att.id !== 0 && !files.find(f => f.id === String(att.id)))
+        .map((att: any) => String(att.id))
+
+      const metaResults = await Promise.all(
+        newAtts.map((attId: string) =>
+          hsFetch(`/filemanager/api/v3/files/${attId}`)
+            .then((fileData: any) => {
+              let name = fileData.name || "Document"
+              name = name.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/, "")
+              name = name.replace(/^file_upload_\d+-/, "")
+              name = name.replace(/-[a-f0-9]{6}$/, "")
+              name = name.replace(/^[a-f0-9]{13}-/, "")
+              name = name.replace(/_/g, " ")
+              if (fileData.extension && !name.toLowerCase().endsWith("."+fileData.extension.toLowerCase())) {
+                name = name + "." + fileData.extension
+              }
+              return { name, id: attId, url: `/.netlify/functions/download-file?fileId=${attId}&dealId=${dealId}`, createdAt: eng.engagement?.createdAt }
+            })
+            .catch(() => ({ name: "Document", id: attId, url: `/.netlify/functions/download-file?fileId=${attId}&dealId=${dealId}`, createdAt: eng.engagement?.createdAt }))
+        )
+      )
+      files.push(...metaResults)
     }
-
-    const fileMetas = await Promise.allSettled(
-      Array.from(fileMap.values()).map((f) => fetchFileMeta(f.fileId, f.createdAt))
-    )
-
-    const files = fileMetas
-      .filter((r): r is PromiseFulfilledResult<FileItem> => r.status === "fulfilled")
-      .map((r) => r.value)
-      .map((f) => ({
-        ...f,
-        url: `/.netlify/functions/download-file?fileId=${encodeURIComponent(f.id)}&dealId=${encodeURIComponent(dealId)}`,
-      }))
 
     const seen = new Set<string>()
     return files
-      .filter((f) => {
-        if (seen.has(f.id)) return false
-        seen.add(f.id)
-        return true
-      })
+      .filter(f => { const key = f.url || f.name; if (seen.has(key)) return false; seen.add(key); return true })
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-  } catch {
-    return []
-  }
+  } catch { return [] }
 }
 
 // ── Lookup Contact ────────────────────────────────────────────────────────────
