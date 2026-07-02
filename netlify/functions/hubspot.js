@@ -2,7 +2,6 @@ const https = require("https")
 const jwt = require("jsonwebtoken")
 
 const TOKEN = process.env.HUBSPOT_TOKEN
-const TOKEN_WRITE = process.env.HUBSPOT_TOKEN_WRITE || process.env.HUBSPOT_TOKEN
 const JWT_SECRET = process.env.JWT_SECRET
 const PIPELINE_ID = "789344406"
 const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
@@ -122,14 +121,12 @@ exports.handler = async (event) => {
     }
 
     const bodyBuf = Buffer.from(bodyToSend || "", "utf8")
-    // Email CRM objects require the emails scope, which the write app holds.
-    const useWriteToken = path.includes("/crm/v3/objects/emails/") || path.includes("/crm/v4/objects/emails/")
     const options = {
       hostname: "api.hubapi.com",
       path: path,
       method: isPatch ? "PATCH" : isPost ? "POST" : "GET",
       headers: {
-        "Authorization": `Bearer ${useWriteToken ? TOKEN_WRITE : TOKEN}`,
+        "Authorization": `Bearer ${TOKEN}`,
         "Content-Type": "application/json",
         "Content-Length": bodyBuf.length,
       },
