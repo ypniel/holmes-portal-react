@@ -163,6 +163,16 @@ export default function ApplicationDetailPage() {
     }).finally(() => setLoading(false))
   }, [id])
 
+  // Poll for newly-added files (HubSpot indexes new attachments with a short lag),
+  // so staff-added #portal_visible files and new uploads appear near-immediately.
+  useEffect(() => {
+    if (!id) return
+    const t = setInterval(() => {
+      fetchFiles(id).then(f => { if (Array.isArray(f)) setFiles(f) }).catch(() => {})
+    }, 3000)
+    return () => clearInterval(t)
+  }, [id])
+
   const handlePostComment = async () => {
     if (!comment.trim() || !id) return
     setSending(true)
