@@ -6,7 +6,19 @@ const SENSITIVE_TOKEN = process.env.HUBSPOT_TOKEN_WRITE || FILE_TOKEN
 const JWT_SECRET = process.env.JWT_SECRET
 const HOLMES_DOMAINS = ["holmes.edu.au", "holmeseducation.group"]
 
-// ── HTTP helper ───────────────────────────────────────────────────────────────
+// ── Host classifier ─────────────────────────────────────────────────────────
+// HubSpot API hosts require the Bearer token. Signed CDN hosts must be fetched
+// WITHOUT auth headers (the signature IS the auth; sending a token can break it).
+function needsHubSpotAuth(hostname) {
+  const h = String(hostname || "").toLowerCase()
+  return (
+    h === "api.hubapi.com" ||
+    h.endsWith(".hubapi.com") ||
+    /^api(-[a-z0-9]+)?\.hubspot\.com$/.test(h)   // api.hubspot.com, api-na1.hubspot.com, api-eu1.hubspot.com, ...
+  )
+}
+
+// ── HTTP helper ─────────────────────────────────────────────────────────────
 function makeRequest(options, followRedirects = false, depth = 0) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
@@ -14,14 +26,19 @@ function makeRequest(options, followRedirects = false, depth = 0) {
       if (followRedirects && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && depth < 5) {
         try {
           const redirectUrl = new URL(res.headers.location, `https://${options.hostname}`)
+          // Re-attach auth ONLY if the redirect target is still a HubSpot API host.
+          // A redirect to a signed CDN URL must stay unauthenticated.
+          const redirectHeaders = needsHubSpotAuth(redirectUrl.hostname)
+            ? { "Authorization": `Bearer ${SENSITIVE_TOKEN}` }
+            : {}
           resolve(makeRequest({
             hostname: redirectUrl.hostname,
             path: `${redirectUrl.pathname}${redirectUrl.search}`,
             method: "GET",
-            headers: {},
+            headers: redirectHeaders,
           }, true, depth + 1))
           return
-        } catch (e) { /* fall through */ }
+        } catch (e) { /* fall through and read this response */ }
       }
       const chunks = []
       res.on("data", (chunk) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)) })
@@ -45,17 +62,14 @@ function getContentType(meta, fileResult) {
 
 exports.handler = async (event) => {
   const corsHeaders = { "Access-Control-Allow-Origin": "*" }
-
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" }
 
   // ── 1. Verify session token from Authorization header ─────────────────────
   const authHeader = event.headers?.authorization || event.headers?.Authorization || ""
   const token = authHeader.replace("Bearer ", "").trim()
-
   if (!token) {
     return { statusCode: 401, headers: corsHeaders, body: "Unauthorised" }
   }
-
   let session
   try {
     session = jwt.verify(token, JWT_SECRET)
@@ -63,10 +77,9 @@ exports.handler = async (event) => {
     return { statusCode: 401, headers: corsHeaders, body: "Invalid session" }
   }
 
-  // ── 2. Require dealId ─────────────────────────────────────────────────────
+  // ── 2. Require fileId + dealId ────────────────────────────────────────────
   const fileId = event.queryStringParameters?.fileId
   const dealId = event.queryStringParameters?.dealId
-
   if (!fileId) return { statusCode: 400, headers: corsHeaders, body: "Missing fileId" }
   if (!dealId) return { statusCode: 400, headers: corsHeaders, body: "Missing dealId" }
 
@@ -81,13 +94,11 @@ exports.handler = async (event) => {
       method: "GET",
       headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
-
     let dealCompanyId = null
     try {
       const assocBody = JSON.parse(assocResult.body.toString() || "{}")
       dealCompanyId = assocBody.results?.[0]?.toObjectId
     } catch {}
-
     if (!dealCompanyId || String(dealCompanyId) !== String(session.companyId)) {
       return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
     }
@@ -101,27 +112,22 @@ exports.handler = async (event) => {
       method: "GET",
       headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
-
     let validFileIds = new Set()
     try {
       const engBody = JSON.parse(engResult.body.toString() || "{}")
       for (const eng of engBody.results || []) {
-        // Attachments
         for (const att of eng.attachments || []) {
           validFileIds.add(String(att.id))
         }
-        // FileIds embedded in body
         const body = eng.engagement?.bodyPreview || ""
         for (const match of body.matchAll(/fileId=(\d+)/g)) {
           validFileIds.add(match[1])
         }
-        // FileIds in metadata
         for (const m of eng.metadata?.attachments || []) {
           if (m.id) validFileIds.add(String(m.id))
         }
       }
     } catch {}
-
     if (validFileIds.size > 0 && !validFileIds.has(String(fileId))) {
       return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
     }
@@ -129,49 +135,54 @@ exports.handler = async (event) => {
 
   // ── 5. Fetch and serve the file ───────────────────────────────────────────
   try {
+    // 5a. Metadata (needs the write token — works for sensitive files)
     const metaResult = await makeRequest({
       hostname: "api.hubapi.com",
       path: `/files/v3/files/${fileId}`,
       method: "GET",
       headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
-
     console.log(`download-file ${fileId}: meta status=${metaResult.status}`)
     if (metaResult.status < 200 || metaResult.status >= 300) {
       return { statusCode: metaResult.status || 500, headers: corsHeaders, body: "File not found" }
     }
-
     const meta = JSON.parse(metaResult.body.toString())
 
-    // Get a signed, temporary direct download URL from HubSpot
+    // 5b. Try a signed CDN URL. This 403s for sensitive files ("Cannot generate
+    //     signed URL for sensitive file") — that's expected; we fall back to the
+    //     authenticated API URL below.
+    let downloadUrl = ""
     const signedResult = await makeRequest({
       hostname: "api.hubapi.com",
       path: `/files/v3/files/${fileId}/signed-url`,
       method: "GET",
       headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
-
-    console.log(`download-file ${fileId}: signed-url status=${signedResult.status} body=${signedResult.body.toString().substring(0, 150)}`)
-    let downloadUrl = ""
-    let urlSource = "none"
+    console.log(`download-file ${fileId}: signed-url status=${signedResult.status}`)
     if (signedResult.status >= 200 && signedResult.status < 300) {
-      try { downloadUrl = JSON.parse(signedResult.body.toString()).url || "" ; urlSource = "signed" } catch {}
+      try { downloadUrl = JSON.parse(signedResult.body.toString()).url || "" } catch {}
     }
-    // Fallback to meta.url if signed-url unavailable
+
+    // 5c. Fallback to the API-hosted URL when no signed URL is available.
     if (!downloadUrl) {
       downloadUrl = meta.url || meta.defaultHostingUrl || meta.default_hosting_url || ""
-      urlSource = "meta-fallback"
     }
-    console.log(`download-file ${fileId}: urlSource=${urlSource} host=${downloadUrl ? new URL(downloadUrl).hostname : "none"}`)
     if (!downloadUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
 
     const parsedUrl = new URL(downloadUrl)
+    const useAuth = needsHubSpotAuth(parsedUrl.hostname)
+    console.log(`download-file ${fileId}: urlSource=${downloadUrl ? "resolved" : "none"} host=${parsedUrl.hostname} auth=${useAuth}`)
+
+    // 5d. Fetch the bytes.
+    //     • If the URL is a HubSpot API host → send the Bearer token (this is the fix).
+    //     • If it's a signed CDN host → send NO auth (the signature is the auth).
+    //     • Redirects are handled in makeRequest, which re-applies the same rule per hop.
     const fileResult = await makeRequest({
       hostname: parsedUrl.hostname,
       path: `${parsedUrl.pathname}${parsedUrl.search}`,
       method: "GET",
-      headers: {},
-    }, true)  // follow redirects server-side — never return 302 to browser
+      headers: useAuth ? { "Authorization": `Bearer ${SENSITIVE_TOKEN}` } : {},
+    }, true) // follow redirects server-side — never return 302 to the browser
 
     console.log(`download-file ${fileId}: final fetch status=${fileResult.status}`)
     if (fileResult.status < 200 || fileResult.status >= 300) {
