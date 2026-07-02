@@ -123,8 +123,8 @@ exports.handler = async (event) => {
 
   // ── 4. Verify fileId belongs to this deal (FAIL CLOSED) ───────────────────
   // Build the full set of file IDs legitimately attached to this deal: engagement
-  // attachments, fileIds in note bodies, AND attachments on the deal's email objects
-  // (hs_attachment_ids). If the requested fileId is not provably in that set, block.
+  // attachments, fileIds in note bodies, AND files directly associated with the deal.
+  // If the requested fileId is not provably in that set, block.
   if (!isStaff) {
     let validFileIds = new Set()
 
@@ -151,28 +151,20 @@ exports.handler = async (event) => {
       }
     } catch {}
 
-    // (b) Attachments on the deal's email objects (logged-email / form-upload files)
+    // (b) Files directly associated with the deal (form uploads, attached files).
+    // Reachable with files / forms-uploaded-files scopes; the email object itself
+    // is not readable on this portal, so we rely on deal<->file associations.
     try {
-      const emailAssoc = await makeRequest({
+      const fileAssoc = await makeRequest({
         hostname: "api.hubapi.com",
-        path: `/crm/v4/objects/deals/${dealId}/associations/emails`,
+        path: `/crm/v3/objects/deals/${dealId}/associations/files`,
         method: "GET",
         headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
       })
-      const emailAssocBody = JSON.parse(emailAssoc.body.toString() || "{}")
-      const emailIds = (emailAssocBody.results || []).map((r) => String(r.toObjectId)).filter(Boolean).slice(0, 50)
-      for (const eid of emailIds) {
-        try {
-          const em = await makeRequest({
-            hostname: "api.hubapi.com",
-            path: `/crm/v3/objects/emails/${eid}?properties=hs_attachment_ids`,
-            method: "GET",
-            headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
-          })
-          const emBody = JSON.parse(em.body.toString() || "{}")
-          const ids = String(emBody.properties?.hs_attachment_ids || "").split(";").map(s => s.trim()).filter(Boolean)
-          for (const id of ids) validFileIds.add(String(id))
-        } catch {}
+      const fileAssocBody = JSON.parse(fileAssoc.body.toString() || "{}")
+      for (const r of fileAssocBody.results || []) {
+        const fid = r.id || r.toObjectId
+        if (fid) validFileIds.add(String(fid))
       }
     } catch {}
 
