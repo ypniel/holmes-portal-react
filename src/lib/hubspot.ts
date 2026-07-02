@@ -387,9 +387,15 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
     for (const eng of data.results || []) {
       const body = eng.metadata?.body || ""
 
-      // Skip internal NOTE engagements — but ALLOW notes created by portal uploads
-      // (portal uploads are stored as notes tagged with [PORTAL_UPLOAD]).
-      if (eng.engagement?.type === "NOTE" && !body.includes("[PORTAL_UPLOAD]")) continue
+      // Skip internal NOTE engagements — but ALLOW:
+      //  • portal uploads (tagged [PORTAL_UPLOAD])
+      //  • notes staff explicitly marked visible with #portal_visible
+      // Everything else (unmarked internal notes) is hidden from the portal.
+      if (
+        eng.engagement?.type === "NOTE" &&
+        !body.includes("[PORTAL_UPLOAD]") &&
+        !body.includes("#portal_visible")
+      ) continue
 
       // Method 1 — extract file IDs from HTML links
       const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
