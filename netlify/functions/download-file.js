@@ -133,7 +133,7 @@ exports.handler = async (event) => {
       hostname: "api.hubapi.com",
       path: `/files/v3/files/${fileId}`,
       method: "GET",
-      headers: { "Authorization": `Bearer ${FILE_TOKEN}` },
+      headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
 
     if (metaResult.status < 200 || metaResult.status >= 300) {
@@ -147,7 +147,7 @@ exports.handler = async (event) => {
       hostname: "api.hubapi.com",
       path: `/files/v3/files/${fileId}/signed-url`,
       method: "GET",
-      headers: { "Authorization": `Bearer ${FILE_TOKEN}` },
+      headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
 
     let downloadUrl = ""
