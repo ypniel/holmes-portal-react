@@ -254,7 +254,7 @@ export default function ApplicationsPage() {
                 Thanks for joining the Holmes Admissions Portal. We&rsquo;re still importing existing applications in the background, so it may take some time for all files to upload.
               </p>
               <p style={{ margin: "0 0 14px 0", fontSize: "14px", color: "#333", lineHeight: 1.6 }}>
-                We&rsquo;re importing cases from <strong>May 2026</strong> onwards. If you think some of your cases are missing, please let us know at{" "}
+                If you think some of your cases are missing, please let us know at{" "}
                 <a href="mailto:admissions@holmes.edu.au" style={{ color: "#991b1b", fontWeight: 600, textDecoration: "none" }}>admissions@holmes.edu.au</a>.
               </p>
               <button
