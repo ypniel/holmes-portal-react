@@ -95,6 +95,7 @@ export default function AgentLoginPage() {
       // Log in
       sessionStorage.setItem("holmes_tab_v3", "1")
       sessionStorage.setItem("holmes_session_token", data.sessionToken)
+      sessionStorage.removeItem("holmes_welcome_seen") // show welcome modal on each login
       if (data.user.companyId) sessionStorage.setItem("holmes_company_id", data.user.companyId)
       login({
         id: data.user.contactId || "agent",
@@ -138,6 +139,7 @@ export default function AgentLoginPage() {
       if (data.user.companyId) {
       }
       sessionStorage.setItem("holmes_session_token", data.sessionToken)
+      sessionStorage.removeItem("holmes_welcome_seen") // show welcome modal on each login
 
       // Save companyId to both localStorage (via login) AND sessionStorage (fallback)
       if (data.user.companyId) {
