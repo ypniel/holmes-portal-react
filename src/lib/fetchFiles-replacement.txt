@@ -1,0 +1,1 @@
+Replace only the existing fetchFiles(dealId: string) function in src/lib/hubspot.ts with the version provided in the ChatGPT response.
