@@ -43,11 +43,9 @@ export default function ApplicationsPage() {
   const [showWelcome, setShowWelcome] = useState(false)
   useEffect(() => {
     if (!user?.email || isHolmesStaff(user.email)) return
-    if (sessionStorage.getItem("holmes_welcome_seen") === "1") return
     setShowWelcome(true)
   }, [user])
   const dismissWelcome = () => {
-    sessionStorage.setItem("holmes_welcome_seen", "1")
     setShowWelcome(false)
   }
 
@@ -249,7 +247,7 @@ export default function ApplicationsPage() {
             onClick={e => e.stopPropagation()}
           >
             <div style={{ background: "#991b1b", padding: "18px 24px" }}>
-              <p style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#fff" }}>Welcome to the new portal</p>
+              <p style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#fff" }}>Welcome to the new portal!</p>
             </div>
             <div style={{ padding: "22px 24px" }}>
               <p style={{ margin: "0 0 14px 0", fontSize: "14px", color: "#333", lineHeight: 1.6 }}>
