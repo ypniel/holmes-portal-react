@@ -1,7 +1,7 @@
 const https = require("https")
 
-const TOKEN = process.env.HUBSPOT_TOKEN_WRITE || process.env.HUBSPOT_TOKEN
-const CRM_TOKEN = process.env.HUBSPOT_TOKEN_WRITE || process.env.HUBSPOT_TOKEN
+const TOKEN = process.env.HUBSPOT_TOKEN
+const CRM_TOKEN = process.env.HUBSPOT_TOKEN
 
 const ALLOWED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"]
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -76,8 +76,8 @@ exports.handler = async (event) => {
     const CRLF = "\r\n"
 
     const preamble = Buffer.from(
-      `--${boundary}${CRLF}Content-Disposition: form-data; name="folderPath"${CRLF}${CRLF}/portal-uploads${CRLF}` +
-      `--${boundary}${CRLF}Content-Disposition: form-data; name="options"${CRLF}Content-Type: application/json${CRLF}${CRLF}{"access":"PUBLIC_NOT_INDEXABLE","overwrite":false,"duplicateValidationStrategy":"NONE"}${CRLF}` +
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="folderPath"${CRLF}${CRLF}/HubSpot-Deals/${dealId}${CRLF}` +
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="options"${CRLF}Content-Type: application/json${CRLF}${CRLF}{"access":"PUBLIC_INDEXABLE","overwrite":false,"duplicateValidationStrategy":"NONE"}${CRLF}` +
       `--${boundary}${CRLF}Content-Disposition: form-data; name="file"; filename="${fileName}"${CRLF}Content-Type: ${contentType}${CRLF}${CRLF}`
     )
     const epilogue = Buffer.from(`${CRLF}--${boundary}--${CRLF}`)
@@ -118,7 +118,7 @@ exports.handler = async (event) => {
       engagement: { active: true, type: "NOTE", timestamp: Date.now() },
       associations: { dealIds: [parseInt(dealId)] },
       attachments: [{ id: parseInt(fileId) }],
-      metadata: { body: `📎 File uploaded via portal [PORTAL_UPLOAD]: <a href="/.netlify/functions/download-file?fileId=${fileId}&dealId=${dealId}">${fileName}</a>` }
+      metadata: { body: `📎 File uploaded via portal [PORTAL_UPLOAD]: <a href="/.netlify/functions/download-file?fileId=${fileId}">${fileName}</a>` }
     })
 
     await makeRequest({

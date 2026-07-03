@@ -86,7 +86,6 @@ exports.handler = async (event) => {
   // ── 3. Check deal ownership (skip for Holmes staff) ───────────────────────
   const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
   const isStudent = session.type === "student_otp" || session.companyName === "Direct Student"
-  console.log(`download-file: req fileId=${fileId} dealId=${dealId} isStaff=${isStaff} isStudent=${isStudent} sessCompany=${session.companyId || "none"}`)
 
   if (!isStaff && session.companyId) {
     const assocResult = await makeRequest({
@@ -101,7 +100,6 @@ exports.handler = async (event) => {
       dealCompanyId = assocBody.results?.[0]?.toObjectId
     } catch {}
     if (!dealCompanyId || String(dealCompanyId) !== String(session.companyId)) {
-      console.log(`download-file: STEP3 ownership fail dealCompany=${dealCompanyId} sessCompany=${session.companyId}`)
       return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
     }
   }
@@ -131,10 +129,8 @@ exports.handler = async (event) => {
       }
     } catch {}
     if (validFileIds.size > 0 && !validFileIds.has(String(fileId))) {
-      console.log(`download-file: STEP4 file not in deal set. requested=${fileId} validCount=${validFileIds.size} valid=[${[...validFileIds].join(",")}]`)
       return { statusCode: 403, headers: corsHeaders, body: "You do not have permission to access this file." }
     }
-    console.log(`download-file: STEP4 pass. requested=${fileId} validCount=${validFileIds.size}`)
   }
 
   // ── 5. Fetch and serve the file ───────────────────────────────────────────
