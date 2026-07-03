@@ -105,7 +105,7 @@ export default function AgentLoginPage() {
         companyName: data.user.companyName || "",
         companyId: data.user.companyId ? String(data.user.companyId) : undefined,
       })
-      navigate("/applications")
+      navigate("/")
     } catch {
       setOtpStatus("error")
       setOtpError("Something went wrong. Please try again.")
