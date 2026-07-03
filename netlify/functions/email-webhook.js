@@ -178,6 +178,16 @@ async function collectFileIds(dealId) {
   return [...ids]
 }
 
+// Read a note's attachments DIRECTLY by note ID (no dependence on the lagging
+// engagements-associated-to-deal list). hs_attachment_ids is a semicolon-
+// separated list of file IDs on the note. This is what makes newly-attached
+// files visible immediately.
+async function fileIdsFromNote(noteId) {
+  const res = await hs(`/crm/v3/objects/notes/${noteId}?properties=hs_attachment_ids`)
+  const raw = res.body?.properties?.hs_attachment_ids || ""
+  return String(raw).split(";").map(s => s.trim()).filter(Boolean)
+}
+
 async function copyFileToPortalUploads(fileId) {
   const meta = await hs(`/files/v3/files/${fileId}`)
   if (meta.status < 200 || meta.status >= 300) return "meta_fail"
@@ -327,23 +337,59 @@ exports.handler = async (event) => {
     }
 
     // ── FILE-COPY PASS ────────────────────────────────────────────────────────
-    // Same association events also fire when a file/note is attached to a deal.
-    // Collect every deal touched by this batch and copy its attachments into
-    // /portal-uploads. Isolated in its own try so it can never break the email
+    // The same association events fire when a note/file is attached to a deal.
+    // The event gives us the NOTE id (fromObjectTypeId "0-46") and the DEAL id
+    // ("0-3"). We read the note's attachments DIRECTLY (immediate, no lag) and
+    // copy them into /portal-uploads. Isolated try — can never break the email
     // flow above. Idempotent, so re-fires are harmless.
     try {
-      const fileDealIds = new Set()
+      // Build note→deal pairs from NOTE_TO_DEAL / DEAL_TO_NOTE association events.
+      const notePairs = []
+      const bareDealIds = new Set()
       for (const e of events) {
-        // association events reference the deal as fromObjectId, toObjectId, or objectId
-        for (const cand of [e.objectId, e.fromObjectId, e.toObjectId]) {
-          if (cand) fileDealIds.add(String(cand))
+        const fromIsNote = String(e.fromObjectTypeId) === "0-46"
+        const toIsNote   = String(e.toObjectTypeId) === "0-46"
+        const fromIsDeal = String(e.fromObjectTypeId) === "0-3"
+        const toIsDeal   = String(e.toObjectTypeId) === "0-3"
+
+        if (fromIsNote && toIsDeal) notePairs.push({ noteId: String(e.fromObjectId), dealId: String(e.toObjectId) })
+        else if (toIsNote && fromIsDeal) notePairs.push({ noteId: String(e.toObjectId), dealId: String(e.fromObjectId) })
+        else {
+          // Unknown shape — fall back to treating any id as a possible deal.
+          for (const cand of [e.objectId, e.fromObjectId, e.toObjectId]) {
+            if (cand) bareDealIds.add(String(cand))
+          }
         }
       }
-      for (const dealId of fileDealIds) {
-        // Only Australia-pipeline deals; non-deal IDs return non-matching pipeline.
+
+      // De-dupe notes
+      const seenNotes = new Set()
+      for (const { noteId, dealId } of notePairs) {
+        if (seenNotes.has(noteId)) continue
+        seenNotes.add(noteId)
+
+        // Only Australia-pipeline deals
         const dRes = await hs(`/crm/v3/objects/deals/${dealId}?properties=pipeline`)
-        if (dRes.status !== 200) continue
-        if (dRes.body?.properties?.pipeline !== PIPELINE_ID) continue
+        if (dRes.status !== 200 || dRes.body?.properties?.pipeline !== PIPELINE_ID) continue
+
+        const fileIds = await fileIdsFromNote(noteId)
+        if (fileIds.length === 0) { console.log(`file-copy note ${noteId} (deal ${dealId}): no attachments`); continue }
+
+        const r = { note: noteId, deal: dealId, found: fileIds.length, copied: 0, skipped: 0, sensitive: 0, errors: 0 }
+        for (const fileId of fileIds) {
+          const outcome = await copyFileToPortalUploads(fileId)
+          if (outcome === "copied") r.copied++
+          else if (outcome === "sensitive") { r.sensitive++; console.log(`file-copy: file ${fileId} SENSITIVE — cannot copy`) }
+          else if (outcome === "already_in_folder" || outcome === "already_copy") r.skipped++
+          else { r.errors++; console.log(`file-copy: file ${fileId} outcome=${outcome}`) }
+        }
+        console.log(`file-copy note ${noteId} complete:`, JSON.stringify(r))
+      }
+
+      // Fallback path: any bare deal IDs get the whole-deal scan (backfill-style).
+      for (const dealId of bareDealIds) {
+        const dRes = await hs(`/crm/v3/objects/deals/${dealId}?properties=pipeline`)
+        if (dRes.status !== 200 || dRes.body?.properties?.pipeline !== PIPELINE_ID) continue
         await syncDealFiles(dealId)
       }
     } catch (fileErr) {
