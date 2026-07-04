@@ -11,6 +11,7 @@ import {
   createNote, Deal, Note, FileItem, Company
 } from "../lib/hubspot"
 import { formatDate, formatDateTime, formatIntake, BADGE_CLASSES as BC, initials } from "../lib/utils"
+import { fetchDealAssociatedFiles } from "../lib/dealFiles"
 const titleCase = (s: string) => s
   ? s.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase())
   : s
@@ -149,7 +150,8 @@ export default function ApplicationDetailPage() {
       fetchOwners(),
       fetchFiles(id),
       fetchDealCompany(id),
-    ]).then(([d, n, o, f, c]) => {
+      fetchDealAssociatedFiles(id),
+    ]).then(([d, n, o, f, c, df]) => {
       // Block access if deal doesn't belong to agent's company
       if (!isStaff && !isDirectStudent) {
         const agentCompanyId = user?.companyId || sessionStorage.getItem("holmes_company_id")
@@ -159,7 +161,10 @@ export default function ApplicationDetailPage() {
           return
         }
       }
-      setDeal(d); setNotes(n); setOwners(o); setFiles(f); setCompany(c)
+      // Merge note/upload files with deal-associated files, dedupe by fileId
+      const seenIds = new Set((f || []).map(x => x.id))
+      const mergedFiles = [...(f || []), ...(df || []).filter(x => !seenIds.has(x.id))]
+      setDeal(d); setNotes(n); setOwners(o); setFiles(mergedFiles); setCompany(c)
     }).finally(() => setLoading(false))
   }, [id])
 
@@ -483,7 +488,10 @@ export default function ApplicationDetailPage() {
                     </div>
                   ) : (
                   <DocumentUploader dealId={deal.id} onUploaded={() => {
-                    fetchFiles(deal.id).then(setFiles)
+                    Promise.all([fetchFiles(deal.id), fetchDealAssociatedFiles(deal.id)]).then(([f, df]) => {
+                      const seenIds = new Set((f || []).map(x => x.id))
+                      setFiles([...(f || []), ...(df || []).filter(x => !seenIds.has(x.id))])
+                    })
                   }} onOptimisticFile={(f) => setFiles(prev => [f, ...prev])} />
                   )}
 
