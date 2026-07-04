@@ -394,8 +394,17 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
       const body = eng.metadata?.body || ""
 
       // Skip internal NOTE engagements — but ALLOW notes created by portal uploads
-      // (portal uploads are stored as notes tagged with [PORTAL_UPLOAD]).
-      if (eng.engagement?.type === "NOTE" && !body.includes("[PORTAL_UPLOAD]")) continue
+      // Skip internal NOTE engagements — but ALLOW notes carrying one of the
+      // three recognised file markers:
+      //  • [PORTAL_UPLOAD]              — files uploaded via the portal
+      //  • Jupiter Chatter Import       — files from the Jupiter chatter import
+      //  • Note created via Deal Association API — files from the Python bulk-upload script
+      if (
+        eng.engagement?.type === "NOTE" &&
+        !body.includes("[PORTAL_UPLOAD]") &&
+        !body.includes("Jupiter Chatter Import") &&
+        !body.includes("Note created via Deal Association API")
+      ) continue
 
       // Method 1 — extract file IDs from HTML links
       const linkMatches = [...body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
