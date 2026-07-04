@@ -146,16 +146,21 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
     const eng = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100`)
     for (const e of eng.results || []) {
       const type = e.engagement?.type
-      if (type !== "EMAIL") continue
+      const rawBodyPre = e.metadata?.body || e.metadata?.html || ""
+      // Show EMAIL engagements (portal + Holmes messages) AND imported chatter
+      // history (NOTE engagements tagged "Jupiter Chatter Import" by the import script).
+      const isChatterImport = type === "NOTE" && rawBodyPre.includes("Jupiter Chatter Import")
+      if (type !== "EMAIL" && !isChatterImport) continue
       const id = String(e.engagement.id)
       if (allNotes.find(n => n.id === id)) continue
 
       let body = ""
-      const rawBody = e.metadata?.body || e.metadata?.html || ""
+      const rawBody = rawBodyPre
       // The "Comment by Agent" marker identifies portal (agent) messages.
       // No marker = message came from Holmes (HubSpot) side.
       const isAgentMessage = rawBody.includes("Comment by Agent")
       body = rawBody.replace(/\s*(<br>)*\s*— Comment by Agent \(via Portal\)\s*/g, "")
+      body = body.replace(/Jupiter Chatter Import/gi, "")
       body = body
         .replace(/<img[^>]*>/gi, "")
         .replace(/<br\s*\/?>/gi, "\n")
@@ -172,7 +177,8 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
       const unsubIndex = body.search(/prefer fewer emails|unsubscribe/i)
       if (unsubIndex > 0) body = body.substring(0, unsubIndex).trim()
 
-      if (!body || body.includes("File uploaded")) continue
+      if (!body) continue
+      if (!isChatterImport && body.includes("File uploaded")) continue
 
       allNotes.push({
         id,
@@ -180,7 +186,7 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
         createdAt: new Date(e.engagement.createdAt).toISOString(),
         ownerId: String(e.engagement.ownerId || ""),
         author: isAgentMessage ? "Agent" : "Holmes Admissions",
-        type: "email",
+        type: isChatterImport ? "note" : "email",
       })
     }
   } catch {}
