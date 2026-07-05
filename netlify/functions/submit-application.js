@@ -91,6 +91,9 @@ exports.handler = async (event) => {
 
   try {
     // ── Server-side passport duplicate check (agents only) ──────────────────
+    // duplicatePassportDealIds collects EXISTING deals sharing this passport, so
+    // that after the new deal is created we can flag it + the matches as duplicates.
+    let duplicatePassportDealIds = []
     if (!isStudent && payload.companyId && form.passport_number) {
       const passportSearch = await hs("/crm/v3/objects/deals/search", "POST", {
         filterGroups: [{ filters: [{ propertyName: "passport_number", operator: "EQ", value: form.passport_number }] }],
@@ -98,6 +101,7 @@ exports.handler = async (event) => {
         limit: 5,
       })
       const matchingDeals = passportSearch.body?.results || []
+      duplicatePassportDealIds = matchingDeals.map(d => String(d.id)).filter(Boolean)
       for (const deal of matchingDeals) {
         const assocRes = await hs(`/crm/v4/objects/contacts/${deal.id}/associations/companies`, "GET", null)
         const dealCompanyId = assocRes.body?.results?.[0]?.toObjectId ? String(assocRes.body.results[0].toObjectId) : null
@@ -244,6 +248,27 @@ exports.handler = async (event) => {
       await hs("/crm/v3/associations/deals/companies/batch/create", "POST", {
         inputs: [{ from: { id: String(dealId) }, to: { id: String(payload.companyId) }, type: "deal_to_company" }]
       })
+    }
+
+    // ── Flag duplicates (systemic fix) ──────────────────────────────────────
+    // If this passport already existed on other deals, mark the new deal AND the
+    // existing matches as is_duplicate = true. If it's unique, set the new deal to
+    // false so every portal-created deal has an explicit duplicate status.
+    try {
+      if (duplicatePassportDealIds.length > 0) {
+        // New deal is a duplicate
+        await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", { properties: { is_duplicate: "true" } })
+        // Flag each existing match too
+        for (const matchId of duplicatePassportDealIds) {
+          if (String(matchId) === String(dealId)) continue
+          await hs(`/crm/v3/objects/deals/${matchId}`, "PATCH", { properties: { is_duplicate: "true" } })
+        }
+      } else {
+        // Unique — set explicit false
+        await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", { properties: { is_duplicate: "false" } })
+      }
+    } catch (e) {
+      // Non-fatal: never fail the submission because duplicate-flagging errored.
     }
 
     // ── Attach pre-uploaded files to deal via engagement notes ─────────────
