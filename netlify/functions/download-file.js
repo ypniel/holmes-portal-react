@@ -161,11 +161,17 @@ exports.handler = async (event) => {
     if (!downloadUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
 
     const parsedUrl = new URL(downloadUrl)
+    // Sensitive files can't get a signed URL ("Cannot generate signed URL for
+    // sensitive file"), so the fallback is an authenticated HubSpot API URL — it
+    // must be fetched WITH the token. Signed CDN URLs (S3/hubspotusercontent) must
+    // be fetched WITHOUT auth, and redirect hops already drop headers.
+    const isHubSpotApiHost = /(^|\.)hubapi\.com$/.test(parsedUrl.hostname) ||
+                             (/\.hubspot\.com$/.test(parsedUrl.hostname) && /^api/.test(parsedUrl.hostname))
     const fileResult = await makeRequest({
       hostname: parsedUrl.hostname,
       path: `${parsedUrl.pathname}${parsedUrl.search}`,
       method: "GET",
-      headers: {},
+      headers: isHubSpotApiHost ? { "Authorization": `Bearer ${SENSITIVE_TOKEN}` } : {},
     }, true)  // follow redirects server-side — never return 302 to browser
 
     if (fileResult.status < 200 || fileResult.status >= 300) {
