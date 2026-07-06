@@ -57,6 +57,13 @@ function getFileExt(fileName: string) {
   return fileName.split(".").pop()?.toLowerCase() || ""
 }
 
+// Sorts the merged file list newest-first by createdAt. Files with no
+// createdAt (shouldn't normally happen, but some legacy sources may omit it)
+// sink to the bottom rather than breaking the sort.
+function sortFilesByNewest<T extends { createdAt?: number }>(files: T[]): T[] {
+  return [...files].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+}
+
 function contentTypeForFile(file: File, ext: string) {
   if (file.type) return file.type
   if (ext === "pdf") return "application/pdf"
@@ -164,11 +171,11 @@ export default function ApplicationDetailPage() {
         }
       }
       // Merge note/upload files, deal-associated files, and CloudFiles-native
-      // files, dedupe by fileId
+      // files, dedupe by fileId, then sort newest first
       const seenIds = new Set((f || []).map(x => x.id))
       const withDealFiles = [...(f || []), ...(df || []).filter(x => !seenIds.has(x.id))]
       withDealFiles.forEach(x => seenIds.add(x.id))
-      const mergedFiles = [...withDealFiles, ...(cf || []).filter(x => !seenIds.has(x.id))]
+      const mergedFiles = sortFilesByNewest([...withDealFiles, ...(cf || []).filter(x => !seenIds.has(x.id))])
       setDeal(d); setNotes(n); setOwners(o); setFiles(mergedFiles); setCompany(c)
     }).finally(() => setLoading(false))
   }, [id])
@@ -497,9 +504,9 @@ export default function ApplicationDetailPage() {
                       const seenIds = new Set((f || []).map(x => x.id))
                       const withDealFiles = [...(f || []), ...(df || []).filter(x => !seenIds.has(x.id))]
                       withDealFiles.forEach(x => seenIds.add(x.id))
-                      setFiles([...withDealFiles, ...(cf || []).filter(x => !seenIds.has(x.id))])
+                      setFiles(sortFilesByNewest([...withDealFiles, ...(cf || []).filter(x => !seenIds.has(x.id))]))
                     })
-                  }} onOptimisticFile={(f) => setFiles(prev => [f, ...prev])} />
+                  }} onOptimisticFile={(f) => setFiles(prev => sortFilesByNewest([f, ...prev]))} />
                   )}
 
                   <div className="mt-4">
