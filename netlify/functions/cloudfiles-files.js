@@ -38,11 +38,17 @@ async function getDealCompanyId(dealId) {
 }
 
 // Strip a trailing ".ext" from name if the extension is already appended
-// elsewhere, and otherwise leave the CloudFiles-provided name as-is — it
-// already comes through with the real extension attached (e.g.
-// "Booking.com_ Confirmation.pdf").
-function cleanName(name) {
-  return name || "Document"
+// elsewhere, and otherwise append the real extension from CloudFiles' file
+// metadata — mirrors the convention used in fetchFiles()/fetchDealAssociatedFiles()
+// elsewhere in this codebase. Without this, names like "Booking.com_
+// Confirmation" get misread by the frontend's badge logic (which splits on
+// the last ".") as if "com_ Confirmation" were the extension.
+function buildName(baseName, extension) {
+  const name = baseName || "Document"
+  if (!extension) return name
+  const ext = String(extension).toLowerCase()
+  if (name.toLowerCase().endsWith("." + ext)) return name
+  return `${name}.${extension}`
 }
 
 exports.handler = async (event) => {
@@ -102,14 +108,40 @@ exports.handler = async (event) => {
     // library === "hubspot" are native HubSpot files that CloudFiles is just
     // indexing, and those already show up via fetchFiles()/fetchDealAssociatedFiles()
     // to avoid duplicate entries in the portal's file list.
-    const files = attachments
-      .filter(a => a.resourceType === "file" && a.library !== "hubspot")
-      .map(a => ({
-        name: cleanName(a.name),
-        id: String(a.resourceId),
-        url: `/.netlify/functions/download-file?fileId=${encodeURIComponent(a.resourceId)}&dealId=${encodeURIComponent(dealId)}`,
-        createdAt: a.createdAt ? new Date(a.createdAt).getTime() : Date.now(),
-      }))
+    const cfFiles = attachments.filter(a => a.resourceType === "file" && a.library !== "hubspot")
+
+    // Fetch each file's metadata in parallel to get its real extension —
+    // the /v1/attachments list returns names WITHOUT the extension, which
+    // breaks the frontend's "split on last dot" badge logic for names that
+    // contain a literal "." (e.g. "Booking.com_ Confirmation").
+    const files = await Promise.all(
+      cfFiles.map(async (a) => {
+        const fallback = {
+          name: buildName(a.name, null),
+          id: String(a.resourceId),
+          url: `/.netlify/functions/download-file?fileId=${encodeURIComponent(a.resourceId)}&dealId=${encodeURIComponent(dealId)}`,
+          createdAt: a.createdAt ? new Date(a.createdAt).getTime() : Date.now(),
+        }
+        try {
+          const metaRes = await makeRequest({
+            hostname: "api.cloudfiles.io",
+            path: `/v1/files/${encodeURIComponent(a.resourceId)}`,
+            method: "GET",
+            headers: { "authorization": `Bearer ${CLOUDFILES_API_KEY}` },
+          })
+          if (metaRes.status < 200 || metaRes.status >= 300) return fallback
+          const meta = JSON.parse(metaRes.body.toString() || "{}")
+          return {
+            name: buildName(a.name, meta.extension),
+            id: String(a.resourceId),
+            url: `/.netlify/functions/download-file?fileId=${encodeURIComponent(a.resourceId)}&dealId=${encodeURIComponent(dealId)}`,
+            createdAt: a.createdAt ? new Date(a.createdAt).getTime() : Date.now(),
+          }
+        } catch {
+          return fallback
+        }
+      })
+    )
 
     return {
       statusCode: 200,
