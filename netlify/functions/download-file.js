@@ -175,6 +175,16 @@ exports.handler = async (event) => {
     const isHubSpotApiHost = /(^|\.)hubapi\.com$/.test(parsedUrl.hostname) ||
                              (/\.hubspot\.com$/.test(parsedUrl.hostname) && /^api/.test(parsedUrl.hostname))
 
+    // meta.url sometimes points at a regional host like api-na1.hubspot.com,
+    // which is an internal endpoint that does NOT validate OAuth Bearer tokens
+    // the same way the public gateway does (returns 401 "auth is missing" even
+    // with a valid token attached). Rewrite to the public gateway host, keeping
+    // path/query intact, whenever this needs Bearer auth.
+    if (isHubSpotApiHost && parsedUrl.hostname !== "api.hubapi.com") {
+      console.error("DEBUG rewriting host from", parsedUrl.hostname, "to api.hubapi.com")
+      parsedUrl.hostname = "api.hubapi.com"
+    }
+
     console.error("DEBUG parsedUrl.hostname:", parsedUrl.hostname, "| isHubSpotApiHost:", isHubSpotApiHost)
 
     const fileResult = await makeRequest({
