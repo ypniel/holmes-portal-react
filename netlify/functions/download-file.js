@@ -14,6 +14,7 @@ function makeRequest(options, followRedirects = false, depth = 0) {
       if (followRedirects && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && depth < 5) {
         try {
           const redirectUrl = new URL(res.headers.location, `https://${options.hostname}`)
+          console.error("DEBUG redirect hop:", options.hostname, "->", redirectUrl.hostname, redirectUrl.pathname)
           resolve(makeRequest({
             hostname: redirectUrl.hostname,
             path: `${redirectUrl.pathname}${redirectUrl.search}`,
@@ -137,10 +138,12 @@ exports.handler = async (event) => {
     })
 
     if (metaResult.status < 200 || metaResult.status >= 300) {
+      console.error("DEBUG metaResult failed:", metaResult.status, metaResult.body.toString().slice(0, 300))
       return { statusCode: metaResult.status || 500, headers: corsHeaders, body: "File not found" }
     }
 
     const meta = JSON.parse(metaResult.body.toString())
+    console.error("DEBUG meta.url:", meta.url, "| meta.defaultHostingUrl:", meta.defaultHostingUrl, "| meta.default_hosting_url:", meta.default_hosting_url, "| isUsableInPublicContent:", meta.isUsableInPublicContent)
 
     // Get a signed, temporary direct download URL from HubSpot
     const signedResult = await makeRequest({
@@ -149,6 +152,8 @@ exports.handler = async (event) => {
       method: "GET",
       headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
+
+    console.error("DEBUG signedResult.status:", signedResult.status, "| body:", signedResult.body.toString().slice(0, 300))
 
     let downloadUrl = ""
     if (signedResult.status >= 200 && signedResult.status < 300) {
@@ -160,6 +165,8 @@ exports.handler = async (event) => {
     }
     if (!downloadUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
 
+    console.error("DEBUG downloadUrl chosen:", downloadUrl)
+
     const parsedUrl = new URL(downloadUrl)
     // Sensitive files can't get a signed URL ("Cannot generate signed URL for
     // sensitive file"), so the fallback is an authenticated HubSpot API URL — it
@@ -167,12 +174,17 @@ exports.handler = async (event) => {
     // be fetched WITHOUT auth, and redirect hops already drop headers.
     const isHubSpotApiHost = /(^|\.)hubapi\.com$/.test(parsedUrl.hostname) ||
                              (/\.hubspot\.com$/.test(parsedUrl.hostname) && /^api/.test(parsedUrl.hostname))
+
+    console.error("DEBUG parsedUrl.hostname:", parsedUrl.hostname, "| isHubSpotApiHost:", isHubSpotApiHost)
+
     const fileResult = await makeRequest({
       hostname: parsedUrl.hostname,
       path: `${parsedUrl.pathname}${parsedUrl.search}`,
       method: "GET",
       headers: isHubSpotApiHost ? { "Authorization": `Bearer ${SENSITIVE_TOKEN}` } : {},
     }, true)  // follow redirects server-side — never return 302 to browser
+
+    console.error("DEBUG fileResult.status:", fileResult.status, "| headers:", JSON.stringify(fileResult.headers), "| body preview:", fileResult.body.toString("utf8").slice(0, 300))
 
     if (fileResult.status < 200 || fileResult.status >= 300) {
       return { statusCode: fileResult.status, headers: corsHeaders, body: "Unable to download file" }
