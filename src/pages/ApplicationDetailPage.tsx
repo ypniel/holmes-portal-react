@@ -12,6 +12,7 @@ import {
 } from "../lib/hubspot"
 import { formatDate, formatDateTime, formatIntake, BADGE_CLASSES as BC, initials } from "../lib/utils"
 import { fetchDealAssociatedFiles } from "../lib/dealFiles"
+import { fetchCloudFilesAttachments } from "../lib/cloudFiles"
 const titleCase = (s: string) => s
   ? s.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase())
   : s
@@ -151,7 +152,8 @@ export default function ApplicationDetailPage() {
       fetchFiles(id),
       fetchDealCompany(id),
       fetchDealAssociatedFiles(id),
-    ]).then(([d, n, o, f, c, df]) => {
+      fetchCloudFilesAttachments(id),
+    ]).then(([d, n, o, f, c, df, cf]) => {
       // Block access if deal doesn't belong to agent's company
       if (!isStaff && !isDirectStudent) {
         const agentCompanyId = user?.companyId || sessionStorage.getItem("holmes_company_id")
@@ -161,9 +163,12 @@ export default function ApplicationDetailPage() {
           return
         }
       }
-      // Merge note/upload files with deal-associated files, dedupe by fileId
+      // Merge note/upload files, deal-associated files, and CloudFiles-native
+      // files, dedupe by fileId
       const seenIds = new Set((f || []).map(x => x.id))
-      const mergedFiles = [...(f || []), ...(df || []).filter(x => !seenIds.has(x.id))]
+      const withDealFiles = [...(f || []), ...(df || []).filter(x => !seenIds.has(x.id))]
+      withDealFiles.forEach(x => seenIds.add(x.id))
+      const mergedFiles = [...withDealFiles, ...(cf || []).filter(x => !seenIds.has(x.id))]
       setDeal(d); setNotes(n); setOwners(o); setFiles(mergedFiles); setCompany(c)
     }).finally(() => setLoading(false))
   }, [id])
@@ -488,9 +493,11 @@ export default function ApplicationDetailPage() {
                     </div>
                   ) : (
                   <DocumentUploader dealId={deal.id} onUploaded={() => {
-                    Promise.all([fetchFiles(deal.id), fetchDealAssociatedFiles(deal.id)]).then(([f, df]) => {
+                    Promise.all([fetchFiles(deal.id), fetchDealAssociatedFiles(deal.id), fetchCloudFilesAttachments(deal.id)]).then(([f, df, cf]) => {
                       const seenIds = new Set((f || []).map(x => x.id))
-                      setFiles([...(f || []), ...(df || []).filter(x => !seenIds.has(x.id))])
+                      const withDealFiles = [...(f || []), ...(df || []).filter(x => !seenIds.has(x.id))]
+                      withDealFiles.forEach(x => seenIds.add(x.id))
+                      setFiles([...withDealFiles, ...(cf || []).filter(x => !seenIds.has(x.id))])
                     })
                   }} onOptimisticFile={(f) => setFiles(prev => [f, ...prev])} />
                   )}
