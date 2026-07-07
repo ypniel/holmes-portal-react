@@ -74,11 +74,13 @@ exports.handler = async (event) => {
 
   const isStaff = HOLMES_DOMAINS.some(d => (session.email || "").toLowerCase().endsWith("@" + d))
 
-  // ── 2. Ownership check for agents (mirrors hubspot.js / download-file.js) ──
-  if (!isStaff) {
-    if (!session.companyId) {
-      return { statusCode: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: "[]" }
-    }
+  // ── 2. Ownership check for agents only (mirrors hubspot.js / download-file.js) ──
+  // Matches the existing pattern exactly: the check only runs when session.companyId
+  // is present (agents). Staff have no companyId check at all, and students have
+  // companyId: null (see student-otp.js) — both fall through here with no check,
+  // same as every other function in this codebase. Students are otherwise scoped
+  // to their own dealId by the frontend's routing guard.
+  if (!isStaff && session.companyId) {
     const dealCompanyId = await getDealCompanyId(dealId)
     if (!dealCompanyId || String(dealCompanyId) !== String(session.companyId)) {
       return { statusCode: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }, body: "[]" }
@@ -104,11 +106,14 @@ exports.handler = async (event) => {
 
     const attachments = JSON.parse(result.body.toString() || "[]")
 
-    // Only surface genuinely CloudFiles-native files here — attachments with
-    // library === "hubspot" are native HubSpot files that CloudFiles is just
-    // indexing, and those already show up via fetchFiles()/fetchDealAssociatedFiles()
-    // to avoid duplicate entries in the portal's file list.
-    const cfFiles = attachments.filter(a => a.resourceType === "file" && a.library !== "hubspot")
+    // Show every file CloudFiles knows about for this deal, regardless of
+    // where it actually lives (library: "cloudfiles" vs "hubspot"). This is
+    // simpler and more reliable than trying to guess whether some other part
+    // of the portal will separately catch "library: hubspot" files — CloudFiles
+    // becomes the one source of truth for "what's linked to this deal."
+    // Downstream, download-file.js already knows how to fetch either kind
+    // correctly (CloudFiles-native, or falling through to the HubSpot path).
+    const cfFiles = attachments.filter(a => a.resourceType === "file")
 
     // Fetch each file's metadata in parallel to get its real extension —
     // the /v1/attachments list returns names WITHOUT the extension, which
