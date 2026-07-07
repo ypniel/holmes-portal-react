@@ -395,7 +395,6 @@ export default function ApplicationDetailPage() {
               {activeTab === "agent" && (
                 <div className="grid md:grid-cols-2 gap-x-8">
                   <DetailRow label="Agent Company"  value={company?.name || deal.agentCompany} />
-                  <DetailRow label="Email"          value={company?.email || deal.agentEmail} />
                   <DetailRow label="City"           value={company?.city} />
                   <DetailRow label="Country"        value={company?.country} />
                 </div>
@@ -550,6 +549,15 @@ export default function ApplicationDetailPage() {
                                     try {
                                       const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } })
                                       if (!res.ok) { alert("You do not have permission to access this file."); return }
+                                      const contentType = res.headers.get("content-type") || ""
+                                      if (contentType.includes("application/json")) {
+                                        // CloudFiles-native file: server hands back a signed URL instead of
+                                        // proxying bytes (avoids Netlify's 6MB function response limit).
+                                        const { redirectUrl } = await res.json()
+                                        if (redirectUrl) { window.open(redirectUrl, "_blank"); return }
+                                        alert("Failed to open file.")
+                                        return
+                                      }
                                       const blob = await res.blob()
                                       const blobUrl = URL.createObjectURL(blob)
                                       const a = document.createElement("a")
