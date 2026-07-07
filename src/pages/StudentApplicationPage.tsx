@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import { fetchDeal, fetchNotes, fetchFiles, fetchOwners, createNote } from "../lib/hubspot"
+import { fetchDealAssociatedFiles } from "../lib/dealFiles"
+import { fetchCloudFilesAttachments } from "../lib/cloudFiles"
 import { FileText, MessageSquare, Paperclip, Send, LogOut, ExternalLink, Download } from "lucide-react"
 import { formatDate, formatDateTime } from "../lib/utils"
 
@@ -24,6 +26,12 @@ const PORTAL_MAX_FILE_SIZE = 5 * 1024 * 1024
 
 function getFileExt(fileName: string) {
   return fileName.split(".").pop()?.toLowerCase() || ""
+}
+
+// Sorts the merged file list newest-first by createdAt. Files with no
+// createdAt sink to the bottom rather than breaking the sort.
+function sortFilesByNewest<T extends { createdAt?: number }>(files: T[]): T[] {
+  return [...files].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
 }
 
 function contentTypeForFile(file: File, ext: string) {
@@ -126,8 +134,14 @@ export default function StudentApplicationPage() {
     if (!studentSession.dealId) { navigate("/student"); return }
     if (id !== studentSession.dealId) { navigate(`/student/application/${studentSession.dealId}`); return }
     if (!id) return
-    Promise.all([fetchDeal(id), fetchNotes(id), fetchFiles(id), fetchOwners()])
-      .then(([d, n, f]) => { setDeal(d); setNotes(n); setFiles(f) })
+    Promise.all([fetchDeal(id), fetchNotes(id), fetchFiles(id), fetchOwners(), fetchDealAssociatedFiles(id), fetchCloudFilesAttachments(id)])
+      .then(([d, n, f, , df, cf]) => {
+        setDeal(d); setNotes(n)
+        const seenIds = new Set((f || []).map((x: any) => x.id))
+        const withDealFiles = [...(f || []), ...(df || []).filter((x: any) => !seenIds.has(x.id))]
+        withDealFiles.forEach((x: any) => seenIds.add(x.id))
+        setFiles(sortFilesByNewest([...withDealFiles, ...(cf || []).filter((x: any) => !seenIds.has(x.id))]))
+      })
       .finally(() => setLoading(false))
   }, [id])
 
@@ -175,7 +189,7 @@ export default function StudentApplicationPage() {
         })
         if (!res.ok) throw new Error("Upload failed")
         const url = `https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HubSpot-Deals/${id}/${encodeURIComponent(file.name)}`
-        setFiles(prev => [{ name: file.name, id: url, url, createdAt: Date.now() }, ...prev])
+        setFiles(prev => sortFilesByNewest([{ name: file.name, id: url, url, createdAt: Date.now() }, ...prev]))
         uploadedCount += 1
       }
       if (uploadedCount > 0) setUploadMsg(`✅ ${uploadedCount} file${uploadedCount > 1 ? "s" : ""} uploaded successfully`)
