@@ -66,6 +66,7 @@ async function findCloudFilesAttachment(dealId, fileId) {
       return null
     }
     const attachments = JSON.parse(result.body.toString() || "[]")
+    console.error("DEBUG CloudFiles attachments for deal:", JSON.stringify(attachments.map(a => ({ name: a.name, resourceId: a.resourceId, library: a.library }))))
     return attachments.find(a => String(a.resourceId) === String(fileId)) || null
   } catch (err) {
     console.error("DEBUG CloudFiles attachments lookup error:", err.message)
@@ -167,7 +168,9 @@ exports.handler = async (event) => {
   // native HubSpot attachment), serve it directly — this entirely bypasses
   // HubSpot's Files API and sensitive-data restrictions. Also confirms the
   // file belongs to this deal, since the lookup is scoped by dealId.
+  console.error("DEBUG download-file: dealId=", dealId, "fileId=", fileId, "CLOUDFILES_API_KEY present=", !!CLOUDFILES_API_KEY)
   const cfAttachment = await findCloudFilesAttachment(dealId, fileId)
+  console.error("DEBUG cfAttachment found:", JSON.stringify(cfAttachment))
 
   if (cfAttachment && cfAttachment.library !== "hubspot") {
     const cfResult = await downloadFromCloudFiles(cfAttachment.resourceId)
