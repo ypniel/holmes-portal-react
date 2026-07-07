@@ -232,6 +232,7 @@ exports.handler = async (event) => {
     // ── Create deal ─────────────────────────────────────────────────────────
     const dealRes = await hs("/crm/v3/objects/deals", "POST", { properties: dealProps })
     if (dealRes.status !== 201) {
+      console.error("Deal creation failed. Status:", dealRes.status, "| Body:", JSON.stringify(dealRes.body), "| Properties sent:", JSON.stringify(dealProps))
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "Failed to create deal", detail: dealRes.body }) }
     }
     const dealId = dealRes.body.id
