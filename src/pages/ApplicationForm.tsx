@@ -84,19 +84,19 @@ const RESIDENCY_STATUSES = [
 
 const NATIONALITIES = [
   "Afghan","Albanian","Algerian","American","Argentine","Armenian","Australian","Austrian",
-  "Azerbaijani","Bahamian","Bahraini","Bangladeshi","Belgian","Bolivian","Bosnian","Brazilian",
+  "Azerbaijan","Bahamian","Bahraini","Bangladesh","Belgian","Bolivian","Bosnian","Brazilian",
   "British","Bruneian","Bulgarian","Cambodian","Cameroonian","Canadian","Chilean","Chinese",
   "Chinese (HK)","Colombian","Croatian","Cuban","Czech","Danish","Egyptian","Eritrean",
   "Ethiopian","Filipino","Finnish","French","German","Ghanaian","Greek","Guatemalan",
-  "Honduran","Hong Kong","Hungarian","Indian","Indonesian","Iranian","Iraqi","Irish",
+  "Honduran","Hong Konger","Hungarian","Indian","Indonesian","Iranian","Iraqi","Irish",
   "Israeli","Italian","Jamaican","Japanese","Jordanian","Kenyan","Korean","Kuwaiti","Laotian",
-  "Latvian","Lebanese","Libyan","Lithuanian","Malaysian","Maldivian","Maltese","Mauritian",
-  "Mexican","Moldovan","Mongolian","Moroccan","Mozambican","Namibian","Nepalese",
+  "Latvian","Lebanese","Libyan","Lithuanian","Malaysian","Maldivian","Malta","Mauritian",
+  "Mexican","Moldavian","Mongolian","Moroccan","Mozambican","Namibian","Nepalese",
   "New Zealander","Nigerian","Norwegian","Omani","Pakistani","Peruvian","Polish","Portuguese",
   "Qatari","Romanian","Russian","Saudi","Senegalese","Serbian","Singaporean","South African",
   "Spanish","Sri Lankan","Sudanese","Swedish","Swiss","Syrian","Taiwanese","Tanzanian",
   "Thai","Trinidadian","Tunisian","Turkish","Ukrainian","Uruguayan","Venezuelan","Vietnamese",
-  "Yemeni","Zambian","Zimbabwean","Other"
+  "Yemeni","Zambian","Zimbabwean","Unknown"
 ]
 
 const YES_NO = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]
