@@ -281,7 +281,7 @@ exports.handler = async (event) => {
         engagement: { active: true, type: "NOTE", timestamp: Date.now() },
         associations: { dealIds: [parseInt(dealId)] },
         attachments,
-        metadata: { body: "📎 Documents uploaded via portal: " + fileNames }
+        metadata: { body: "[PORTAL_UPLOAD] 📎 Documents uploaded via portal: " + fileNames }
       })
     }
 
