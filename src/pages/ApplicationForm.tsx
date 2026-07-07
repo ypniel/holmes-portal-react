@@ -82,21 +82,39 @@ const RESIDENCY_STATUSES = [
   { value: "Permanent Visa",                               label: "Permanent Visa" },
 ]
 
+// This list is HubSpot's exact "nationality" picklist values, copied verbatim
+// from the property's allowed options — NOT a hand-picked subset. Do not
+// "clean up" spellings/casing here (e.g. don't change "Bahrani" or "Motswana")
+// without first confirming the change against HubSpot's actual property
+// definition, or submissions will start failing again with INVALID_OPTION.
 const NATIONALITIES = [
-  "Afghan","Albanian","Algerian","American","Argentine","Armenian","Australian","Austrian",
-  "Azerbaijan","Bahamian","Bahraini","Bangladesh","Belgian","Bolivian","Bosnian","Brazilian",
-  "British","Bruneian","Bulgarian","Cambodian","Cameroonian","Canadian","Chilean","Chinese",
-  "Chinese (HK)","Colombian","Croatian","Cuban","Czech","Danish","Egyptian","Eritrean",
-  "Ethiopian","Filipino","Finnish","French","German","Ghanaian","Greek","Guatemalan",
-  "Honduran","Hong Konger","Hungarian","Indian","Indonesian","Iranian","Iraqi","Irish",
-  "Israeli","Italian","Jamaican","Japanese","Jordanian","Kenyan","Korean","Kuwaiti","Laotian",
-  "Latvian","Lebanese","Libyan","Lithuanian","Malaysian","Maldivian","Malta","Mauritian",
-  "Mexican","Moldavian","Mongolian","Moroccan","Mozambican","Namibian","Nepalese",
-  "New Zealander","Nigerian","Norwegian","Omani","Pakistani","Peruvian","Polish","Portuguese",
-  "Qatari","Romanian","Russian","Saudi","Senegalese","Serbian","Singaporean","South African",
-  "Spanish","Sri Lankan","Sudanese","Swedish","Swiss","Syrian","Taiwanese","Tanzanian",
-  "Thai","Trinidadian","Tunisian","Turkish","Ukrainian","Uruguayan","Venezuelan","Vietnamese",
-  "Yemeni","Zambian","Zimbabwean","Unknown"
+  "Afghan","Albanian","Algerian","American","Andorran","Angolan","Argentina","Argentine",
+  "Armenian","Australia","Australian","Austrian","Austrians","Azerbaijan","Azeri","Bahamian",
+  "Bahraini","Bahrani","Bangladesh","Barbadian","Belarusian","Belgian","Belgians","Belizeans",
+  "Beninese","Bhutanese","Bolivian","Bosnian","Botswanan","Brazilian","British","Bruneian",
+  "Bulgarian","Bulgarians","Burkinese","Burmese","Burundian","Cambodian","Cameroonian","Canada",
+  "Canadian","Canadians","Cape Verdean","Catalans","Chadian","Chilean","Chileans","Chinese",
+  "Chinese (HK)","Colombian","Congolese","Costa Rican","Croatian","Cuban","Cypriot","Czech",
+  "Dane","Danish","Djiboutian","Dominican","Dutch","Ecuadorean","Egyptian","English",
+  "Eritrean","Estonian","Ethiopian","European(EU)","Fijian","Filipino","Finn","Finnish",
+  "French","Gabonese","Gambian","Georgia","German","Ghanaian","Greek","Grenadian",
+  "Guatemalan","Guinean","Guyanese","Haitian","Honduran","Hong Konger","Hungarian","Icelandic",
+  "Indian","Indonesian","Iranian","Iraqi","Ireland","Irish","Israeli","Italian",
+  "Italy","Ivorian","Jamaican","Japanese","Jordan","Jordanian","Kazakh","Kenyan",
+  "Korean","Kuwaiti","Kyrgyzstani","Laotian","Latvian","Lebanese","Liberian","Libyan",
+  "Lithuanian","Macao","Macedonian","Madagascan","Malawian","Malaysian","Maldivian","Malian",
+  "Malta","Mauritanian","Mauritian","Mexican","Mixed","Moldavian","Monegasque","Mongolian",
+  "Montenegro","Moroccan","Motswana","Mozambican","Namibian","Native American","Nepalese","Netherlands",
+  "New Zealander","Nicaraguan","Nigerian","Norwegian","Omani","Pakistani","Panamanian","Papua New Guinean",
+  "Paraguayan","Peruvian","Pole","Polish","Portuguese","Puerto Rican","Qatari","Quebecoi",
+  "Romanian","Russian","Rwandan","Saint Lucian","Salvadorean","Sardinian","Saudi","Scot",
+  "Senegalese","Serbian","Seychellois","Sierra Leonian","Singapore","Singaporean","Slav","Slovakian",
+  "Slovene","Somali","Sotho","South African","Spaniard","Spanish","Sri Lankan","St Kitts and Nevis",
+  "Sudanese","Surinamese","Swati","Swazi","Swede","Swedish","Swiss","Syrian",
+  "Taiwanese","Tanzanian","Thai","Thailand","Tobagan","Togolese","Trinidadian","Tunisian",
+  "Turkish","Turkmenistani","Tuvaluan","Ughandan","Ukrainian","Unknown","Uruguayan","Uzbek",
+  "Uzbekistan","Vanuatuan","Venezuelan","Vietnamese","Welsh","Western Samoan","Yemeni","Zambian",
+  "Zimbabwean"
 ]
 
 const YES_NO = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]
