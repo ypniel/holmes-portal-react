@@ -254,7 +254,7 @@ export default function ApplicationsPage() {
                 Thanks for joining the Holmes Admissions Portal. We&rsquo;re still importing existing applications in the background, so it may take some time for all files to upload.
               </p>
               <p style={{ margin: "0 0 14px 0", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "14px", color: "#991b1b", fontWeight: 700, lineHeight: 1.6 }}>
-                Please note: this portal only contains applications for upcoming intakes only.
+                Please note: this portal contains applications for upcoming intakes only.
               </p>
               <p style={{ margin: "0 0 14px 0", fontSize: "14px", color: "#333", lineHeight: 1.6 }}>
                 If you think there are cases that are missing, please let us know at{" "}
