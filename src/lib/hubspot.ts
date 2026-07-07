@@ -393,15 +393,18 @@ export async function fetchFiles(dealId: string): Promise<FileItem[]> {
     for (const eng of data.results || []) {
       const body = eng.metadata?.body || ""
 
-      // Skip internal NOTE engagements — but ALLOW notes created by portal uploads
       // Skip internal NOTE engagements — but ALLOW notes carrying one of the
-      // three recognised file markers:
-      //  • [PORTAL_UPLOAD]         — files uploaded via the portal
-      //  • Jupiter Chatter Import  — files from the Jupiter chatter import
-      //  • File uploaded:          — files from the Python bulk-upload script
+      // four recognised file markers:
+      //  • [PORTAL_UPLOAD]                     — files uploaded via the portal (current)
+      //  • 📎 Documents uploaded via portal     — files uploaded via the portal (legacy,
+      //                                           before [PORTAL_UPLOAD] was added — keeps
+      //                                           pre-existing submissions visible too)
+      //  • Jupiter Chatter Import               — files from the Jupiter chatter import
+      //  • File uploaded:                       — files from the Python bulk-upload script
       if (
         eng.engagement?.type === "NOTE" &&
         !body.includes("[PORTAL_UPLOAD]") &&
+        !body.includes("📎 Documents uploaded via portal") &&
         !body.includes("Jupiter Chatter Import") &&
         !body.includes("File uploaded:")
       ) continue
