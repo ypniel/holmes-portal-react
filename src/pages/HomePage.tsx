@@ -73,6 +73,9 @@ const AGENT_FORMS = [
   { name: "Change of Campus or Course",         url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Change%20of%20Campus%20or%20Course.pdf" },
   { name: "Defer, Cancel and Suspend Request",  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Defer%20Cancel%20and%20Suspend%20Request.pdf" },
   { name: "Request for Course Extension",       url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20course%20extension%20form.pdf" },
+  { name: "GS Declaration Form",                url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Australia%20Deals/HI%20GS%20Declaration%20Form.pdf" },
+  { name: "GS Statement Form",                  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Australia%20Deals/HI%20GS%20Statement%20Form.pdf" },
+  { name: "GS Interview Form",                  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Australia%20Deals/HI%20GS%20Interview%20Form.pdf" },
 ]
 
 export default function HomePage() {
@@ -165,7 +168,7 @@ export default function HomePage() {
                 Thanks for joining the Holmes Admissions Portal. We&rsquo;re still importing existing applications in the background, so it may take some time for all files to upload.
               </p>
               <p style={{ margin: "0 0 14px 0", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "14px", color: "#991b1b", fontWeight: 700, lineHeight: 1.6 }}>
-                Please note: this portal contains applications for upcoming intakes only.
+                Please note: this portal only contains applications for upcoming intakes only.
               </p>
               <p style={{ margin: "0 0 14px 0", fontSize: "14px", color: "#333", lineHeight: 1.6 }}>
                 If you think there are cases that are missing, please let us know at{" "}
@@ -316,7 +319,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="space-y-2 text-sm mb-3">
-              <div><p className="text-gray-500 text-xs">Phone</p><p className="font-medium text-gray-900">+61 3 9945 9500 </p></div>
+              <div><p className="text-gray-500 text-xs">Phone</p><p className="font-medium text-gray-900">+61 3 9662 2055 </p></div>
               <div><p className="text-gray-500 text-gray-900">Email</p><p className="font-medium text-gray-900">admissions@holmes.edu.au</p></div>
             </div>
             <div className="pt-3 border-t border-stone-100">
