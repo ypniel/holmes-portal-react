@@ -143,8 +143,23 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
   const allNotes: Note[] = []
 
   try {
-    const eng = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100`)
-    for (const e of eng.results || []) {
+    // Loop through ALL engagement pages — see fetchFiles() above for why a
+    // single capped fetch silently drops results on deals with lots of history.
+    let allResults: any[] = []
+    let offset: number | undefined = undefined
+    let hasMore = true
+    let guard = 0
+    while (hasMore && guard < 50) {
+      const page: any = await hsFetch(
+        `/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100${offset ? `&offset=${offset}` : ""}`
+      )
+      allResults = allResults.concat(page.results || [])
+      hasMore = !!page.hasMore
+      offset = page.offset
+      guard++
+    }
+
+    for (const e of allResults) {
       const type = e.engagement?.type
       const rawBodyPre = e.metadata?.body || e.metadata?.html || ""
       // Show EMAIL engagements (portal + Holmes messages) AND imported chatter
@@ -387,10 +402,28 @@ export async function fetchDealByAgentEmail(email: string): Promise<Deal | null>
 // ── Fetch Files ───────────────────────────────────────────────────────────────
 export async function fetchFiles(dealId: string): Promise<FileItem[]> {
   try {
-    const data = await hsFetch(`/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=50`)
+    // Loop through ALL engagement pages — a single capped fetch would silently
+    // drop files on deals with lots of history (emails, notes, chatter-import
+    // records, etc. all count toward this limit), since HubSpot's v1
+    // engagements API returns oldest-first: a deal with 50+ total engagements
+    // would push newly uploaded files past page 1 and never surface them.
+    let allResults: any[] = []
+    let offset: number | undefined = undefined
+    let hasMore = true
+    let guard = 0 // safety cap in case HubSpot ever returns hasMore=true forever
+    while (hasMore && guard < 50) {
+      const page: any = await hsFetch(
+        `/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=100${offset ? `&offset=${offset}` : ""}`
+      )
+      allResults = allResults.concat(page.results || [])
+      hasMore = !!page.hasMore
+      offset = page.offset
+      guard++
+    }
+
     const files: FileItem[] = []
 
-    for (const eng of data.results || []) {
+    for (const eng of allResults) {
       const body = eng.metadata?.body || ""
 
       // Skip internal NOTE engagements — but ALLOW notes carrying one of the
