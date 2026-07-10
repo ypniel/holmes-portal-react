@@ -15,7 +15,6 @@ function makeRequest(options, followRedirects = false, depth = 0) {
       if (followRedirects && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && depth < 5) {
         try {
           const redirectUrl = new URL(res.headers.location, `https://${options.hostname}`)
-          console.error("DEBUG redirect hop:", options.hostname, "->", redirectUrl.hostname, redirectUrl.pathname)
           resolve(makeRequest({
             hostname: redirectUrl.hostname,
             path: `${redirectUrl.pathname}${redirectUrl.search}`,
@@ -62,55 +61,15 @@ async function findCloudFilesAttachment(dealId, fileId) {
       headers: { "authorization": `Bearer ${CLOUDFILES_API_KEY}` },
     })
     if (result.status < 200 || result.status >= 300) {
-      console.error("DEBUG CloudFiles attachments lookup failed:", result.status, result.body.toString().slice(0, 300))
+      console.error("CloudFiles attachments lookup failed:", result.status)
       return null
     }
     const attachments = JSON.parse(result.body.toString() || "[]")
-    console.error("DEBUG CloudFiles attachments for deal:", JSON.stringify(attachments.map(a => ({ name: a.name, resourceId: a.resourceId, library: a.library }))))
     return attachments.find(a => String(a.resourceId) === String(fileId)) || null
   } catch (err) {
-    console.error("DEBUG CloudFiles attachments lookup error:", err.message)
+    console.error("CloudFiles attachments lookup error:", err.message)
     return null
   }
-}
-
-async function downloadFromCloudFiles(resourceId) {
-  const downloadMetaResult = await makeRequest({
-    hostname: "api.cloudfiles.io",
-    path: `/v1/files/${encodeURIComponent(resourceId)}/download`,
-    method: "GET",
-    headers: { "authorization": `Bearer ${CLOUDFILES_API_KEY}` },
-  })
-
-  if (downloadMetaResult.status < 200 || downloadMetaResult.status >= 300) {
-    console.error("DEBUG CloudFiles /download failed:", downloadMetaResult.status, downloadMetaResult.body.toString().slice(0, 300))
-    return null
-  }
-
-  let signedUrl = "", fileName = ""
-  try {
-    const parsed = JSON.parse(downloadMetaResult.body.toString())
-    signedUrl = parsed.url || ""
-    fileName = parsed.name || ""
-  } catch {}
-  if (!signedUrl) return null
-
-  // Signed URL is on a separate host (streamapi.cloudfiles.io) and needs no
-  // Authorization header — the "code" query param on it is the auth.
-  const parsedUrl = new URL(signedUrl)
-  const fileResult = await makeRequest({
-    hostname: parsedUrl.hostname,
-    path: `${parsedUrl.pathname}${parsedUrl.search}`,
-    method: "GET",
-    headers: {},
-  }, true)
-
-  if (fileResult.status < 200 || fileResult.status >= 300) {
-    console.error("DEBUG CloudFiles signed URL fetch failed:", fileResult.status)
-    return null
-  }
-
-  return { fileResult, fileName }
 }
 
 exports.handler = async (event) => {
@@ -168,31 +127,36 @@ exports.handler = async (event) => {
   // native HubSpot attachment), serve it directly — this entirely bypasses
   // HubSpot's Files API and sensitive-data restrictions. Also confirms the
   // file belongs to this deal, since the lookup is scoped by dealId.
-  console.error("DEBUG download-file: dealId=", dealId, "fileId=", fileId, "CLOUDFILES_API_KEY present=", !!CLOUDFILES_API_KEY)
   const cfAttachment = await findCloudFilesAttachment(dealId, fileId)
-  console.error("DEBUG cfAttachment found:", JSON.stringify(cfAttachment))
 
   if (cfAttachment && cfAttachment.library !== "hubspot") {
-    const cfResult = await downloadFromCloudFiles(cfAttachment.resourceId)
-    if (cfResult) {
-      const { fileResult, fileName } = cfResult
-      const cleanName = fileName || cfAttachment.name || "document"
-      return {
-        statusCode: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": fileResult.headers["content-type"] || "application/octet-stream",
-          "Content-Disposition": `inline; filename="${cleanName}"`,
-          "Content-Length": String(fileResult.body.length),
-          "Cache-Control": "private, no-store",
-        },
-        body: fileResult.body.toString("base64"),
-        isBase64Encoded: true,
-      }
+    // Get the signed download URL from CloudFiles, but DON'T proxy the bytes
+    // through this function — Netlify Functions have a hard 6MB response
+    // limit, and CloudFiles files (Booking confirmations, LOIs, etc.) can
+    // easily exceed that. Instead, hand the browser the signed URL directly
+    // and let it fetch the file straight from CloudFiles' CDN. This also
+    // sidesteps any cross-origin CORS issues with reading the blob via JS.
+    const downloadMetaResult = await makeRequest({
+      hostname: "api.cloudfiles.io",
+      path: `/v1/files/${encodeURIComponent(cfAttachment.resourceId)}/download`,
+      method: "GET",
+      headers: { "authorization": `Bearer ${CLOUDFILES_API_KEY}` },
+    })
+
+    if (downloadMetaResult.status >= 200 && downloadMetaResult.status < 300) {
+      try {
+        const parsed = JSON.parse(downloadMetaResult.body.toString())
+        if (parsed.url) {
+          return {
+            statusCode: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            body: JSON.stringify({ redirectUrl: parsed.url, name: parsed.name || cfAttachment.name || "document" }),
+          }
+        }
+      } catch {}
     }
-    // CloudFiles said this is a CloudFiles-native file but the download step
-    // failed — don't silently fall through to HubSpot logic for a file that
-    // was never there in the first place.
+
+    console.error("CloudFiles /download failed:", downloadMetaResult.status)
     return { statusCode: 502, headers: corsHeaders, body: "Unable to download file from CloudFiles" }
   }
 
@@ -205,17 +169,36 @@ exports.handler = async (event) => {
 
   // ── 5. Verify fileId belongs to this deal (legacy HubSpot path) ────────────
   if (!isStaff && !cloudFilesConfirmedOwnership) {
-    const engResult = await makeRequest({
-      hostname: "api.hubapi.com",
-      path: `/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=200`,
-      method: "GET",
-      headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
-    })
+    // Loop through ALL engagement pages — a single capped fetch would wrongly
+    // deny access to files on deals with lots of history (emails, notes,
+    // chatter-import records, etc. all count toward this limit), since
+    // HubSpot's v1 engagements API returns oldest-first: a deal with 200+
+    // total engagements would push a newer valid file's Note past page 1.
+    let engResults = []
+    let offset = null
+    let hasMore = true
+    let guard = 0
+    while (hasMore && guard < 50) {
+      const engResult = await makeRequest({
+        hostname: "api.hubapi.com",
+        path: `/engagements/v1/engagements/associated/deal/${dealId}/paged?limit=200${offset ? `&offset=${offset}` : ""}`,
+        method: "GET",
+        headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
+      })
+      try {
+        const page = JSON.parse(engResult.body.toString() || "{}")
+        engResults = engResults.concat(page.results || [])
+        hasMore = !!page.hasMore
+        offset = page.offset
+      } catch {
+        hasMore = false
+      }
+      guard++
+    }
 
     let validFileIds = new Set()
     try {
-      const engBody = JSON.parse(engResult.body.toString() || "{}")
-      for (const eng of engBody.results || []) {
+      for (const eng of engResults) {
         // Attachments
         for (const att of eng.attachments || []) {
           validFileIds.add(String(att.id))
@@ -247,12 +230,10 @@ exports.handler = async (event) => {
     })
 
     if (metaResult.status < 200 || metaResult.status >= 300) {
-      console.error("DEBUG metaResult failed:", metaResult.status, metaResult.body.toString().slice(0, 300))
       return { statusCode: metaResult.status || 500, headers: corsHeaders, body: "File not found" }
     }
 
     const meta = JSON.parse(metaResult.body.toString())
-    console.error("DEBUG meta.url:", meta.url, "| meta.defaultHostingUrl:", meta.defaultHostingUrl, "| meta.default_hosting_url:", meta.default_hosting_url, "| isUsableInPublicContent:", meta.isUsableInPublicContent)
 
     // HubSpot's dedicated download endpoint — the officially documented path for
     // sensitive files. Requires the FILE_MANAGER_SENSITIVE_ACCESS scope on the
@@ -265,8 +246,6 @@ exports.handler = async (event) => {
       method: "GET",
       headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     }, true)
-
-    console.error("DEBUG /download endpoint status:", downloadResult.status, "| content-type:", downloadResult.headers["content-type"], "| body preview (if error):", downloadResult.status >= 300 ? downloadResult.body.toString("utf8").slice(0, 300) : "(binary, skipped)")
 
     if (downloadResult.status >= 200 && downloadResult.status < 300) {
       const contentType = getContentType(meta, downloadResult)
@@ -297,8 +276,6 @@ exports.handler = async (event) => {
       headers: { "Authorization": `Bearer ${SENSITIVE_TOKEN}` },
     })
 
-    console.error("DEBUG signedResult.status:", signedResult.status, "| body:", signedResult.body.toString().slice(0, 300))
-
     let downloadUrl = ""
     if (signedResult.status >= 200 && signedResult.status < 300) {
       try { downloadUrl = JSON.parse(signedResult.body.toString()).url || "" } catch {}
@@ -308,8 +285,6 @@ exports.handler = async (event) => {
       downloadUrl = meta.url || meta.defaultHostingUrl || meta.default_hosting_url || ""
     }
     if (!downloadUrl) return { statusCode: 404, headers: corsHeaders, body: "File URL not found" }
-
-    console.error("DEBUG downloadUrl chosen:", downloadUrl)
 
     const parsedUrl = new URL(downloadUrl)
     // Sensitive files can't get a signed URL ("Cannot generate signed URL for
@@ -325,11 +300,8 @@ exports.handler = async (event) => {
     // with a valid token attached). Rewrite to the public gateway host, keeping
     // path/query intact, whenever this needs Bearer auth.
     if (isHubSpotApiHost && parsedUrl.hostname !== "api.hubapi.com") {
-      console.error("DEBUG rewriting host from", parsedUrl.hostname, "to api.hubapi.com")
       parsedUrl.hostname = "api.hubapi.com"
     }
-
-    console.error("DEBUG parsedUrl.hostname:", parsedUrl.hostname, "| isHubSpotApiHost:", isHubSpotApiHost)
 
     const fileResult = await makeRequest({
       hostname: parsedUrl.hostname,
@@ -337,8 +309,6 @@ exports.handler = async (event) => {
       method: "GET",
       headers: isHubSpotApiHost ? { "Authorization": `Bearer ${SENSITIVE_TOKEN}` } : {},
     }, true)  // follow redirects server-side — never return 302 to browser
-
-    console.error("DEBUG fileResult.status:", fileResult.status, "| headers:", JSON.stringify(fileResult.headers), "| body preview:", fileResult.body.toString("utf8").slice(0, 300))
 
     if (fileResult.status < 200 || fileResult.status >= 300) {
       return { statusCode: fileResult.status, headers: corsHeaders, body: "Unable to download file" }
