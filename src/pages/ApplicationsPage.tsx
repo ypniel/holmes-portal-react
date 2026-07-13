@@ -6,6 +6,7 @@ import {
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
 import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail } from "../lib/hubspot"
+import { isAussizzEmail, getAussizzDeals } from "../lib/aussizz"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
@@ -58,6 +59,15 @@ export default function ApplicationsPage() {
       try {
         // Fix #4: use isHolmesStaff() instead of manual domain check with precedence bug
         if (user?.email && !isHolmesStaff(user.email)) {
+          // Aussizz Group — branch-isolated access, handled entirely in
+          // src/lib/aussizz.ts. Checked first since it's a special case of
+          // the normal agent path below, not a replacement for it.
+          if (isAussizzEmail(user.email)) {
+            const d = await getAussizzDeals(user.email)
+            setDeals(d)
+            return
+          }
+
           // Agent — fetch deals by company association
           let companyId = user?.companyId || sessionStorage.getItem("holmes_company_id")
           // Fallback: if companyId is missing (old session), fetch from HubSpot
