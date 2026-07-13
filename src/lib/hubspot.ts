@@ -366,6 +366,31 @@ export async function fetchAgentByEmail(email: string): Promise<{
 }
 
 // ── Fetch Deals by Company ID ─────────────────────────────────────────────────
+// ── Fetch ALL Deals by Associated Contact Email ───────────────────────────────
+// Finds the contact with this email, then returns every deal associated with
+// that contact. Unlike agent_email (a deal property that's often blank on
+// older/legacy deals), the contact association is reliably present even on
+// historical deals — same signal the "Submitted By" column already uses.
+export async function fetchDealsByContactEmail(email: string): Promise<Deal[]> {
+  try {
+    const contactRes = await hsFetch(`/crm/v3/objects/contacts/search`, {
+      method: "POST",
+      body: JSON.stringify({
+        filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: email }] }],
+        properties: ["email"],
+        limit: 1,
+      })
+    })
+    const contactId = contactRes.results?.[0]?.id
+    if (!contactId) return []
+    const assocRes = await hsFetch(`/crm/v4/objects/contacts/${contactId}/associations/deals`)
+    const dealIds = (assocRes.results || []).map((r: any) => String(r.toObjectId))
+    if (!dealIds.length) return []
+    const all = await fetchDealsByIds(dealIds)
+    return PIPELINE_ID ? all.filter(d => d.pipeline === PIPELINE_ID) : all
+  } catch { return [] }
+}
+
 export async function fetchDealsByCompanyId(companyId: string): Promise<Deal[]> {
   try {
     const assocRes = await hsFetch(`/crm/v4/objects/companies/${companyId}/associations/deals`)
