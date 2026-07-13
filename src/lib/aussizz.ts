@@ -32,6 +32,9 @@ const AUSSIZZ_BRANCH_EMAILS = [
   "teamvic@aussizzgroup.com",
   "admissions.sydney@aussizzgroup.com",
   "admission.qld@aussizzgroup.com",
+  "teamwa@aussizz.com",
+  "tejas.patel@aussizzgroup.com",
+  "offshoreapps@aussizzgroup.com",
 ]
 
 function normalize(email: string): string {
