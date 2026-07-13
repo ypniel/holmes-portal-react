@@ -2,13 +2,18 @@
 // aussizz.ts
 //
 // Self-contained module for Aussizz Group's branch-based access control.
-// Nothing here modifies any other part of the portal, and — importantly —
-// nothing here requires any changes in HubSpot itself (no new companies, no
-// re-associating contacts or deals). It works entirely off the `agent_email`
-// property that already exists directly on every deal.
+// Nothing here modifies any other part of the portal, and nothing here
+// requires any changes in HubSpot itself (no new companies, no
+// re-associating contacts or deals).
 //
-// Rule being encoded: each branch login sees ONLY the deals whose agent_email
-// property exactly matches its own login email.
+// It works off the deal's ASSOCIATED CONTACT'S email — the same signal the
+// portal's "Submitted By" column already relies on — rather than the deal's
+// own agent_email property. This matters because agent_email is often blank
+// on older/legacy deals, but the contact association is reliably present
+// even on historical deals.
+//
+// Rule being encoded: each branch login sees ONLY the deals associated with
+// a contact whose email exactly matches its own login email.
 //
 // Wire-in point (the only change needed elsewhere): in ApplicationsPage.tsx
 // and HomePage.tsx, before falling back to the normal company-based lookup,
@@ -20,7 +25,7 @@
 // just update the list below.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { fetchDealsByAgentEmail, type Deal } from "./hubspot"
+import { fetchDealsByContactEmail, type Deal } from "./hubspot"
 
 // Every Aussizz branch login this module handles. Add/remove emails here only.
 const AUSSIZZ_BRANCH_EMAILS = [
@@ -43,14 +48,14 @@ export function isAussizzEmail(email: string): boolean {
 }
 
 /**
- * Returns only the deals whose agent_email property matches this branch
- * login's own email exactly — i.e. only applications lodged under that
- * specific email address.
+ * Returns only the deals associated with a contact whose email matches this
+ * branch login's own email exactly — i.e. only applications lodged under
+ * that specific email address, including historical/legacy ones.
  */
 export async function getAussizzDeals(email: string): Promise<Deal[]> {
   const e = normalize(email)
   if (!AUSSIZZ_BRANCH_EMAILS.includes(e)) return []
-  return fetchDealsByAgentEmail(e)
+  return fetchDealsByContactEmail(e)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
