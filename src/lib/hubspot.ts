@@ -377,6 +377,35 @@ export async function fetchDealsByCompanyId(companyId: string): Promise<Deal[]> 
 }
 
 // ── Fetch Deal by Agent Email ─────────────────────────────────────────────────
+// ── Fetch ALL Deals by Agent Email ────────────────────────────────────────────
+// Unlike fetchDealByAgentEmail (singular, limit 1), this returns every deal
+// whose agent_email property matches exactly, looping through all result pages.
+export async function fetchDealsByAgentEmail(email: string): Promise<Deal[]> {
+  const payload: any = {
+    filterGroups: [{
+      filters: [
+        ...(PIPELINE_ID ? [{ propertyName: "pipeline", operator: "EQ", value: PIPELINE_ID }] : []),
+        { propertyName: "agent_email", operator: "EQ", value: email },
+      ]
+    }],
+    properties: DEAL_PROPS,
+    limit: 100,
+    sorts: [{ propertyName: "hs_lastmodifieddate", direction: "DESCENDING" }],
+  }
+  const all: Deal[] = []
+  let after: string | undefined
+  try {
+    while (true) {
+      if (after) payload.after = after
+      const data = await hsFetch("/crm/v3/objects/deals/search", { method: "POST", body: JSON.stringify(payload) })
+      all.push(...(data.results || []).map(mapDeal))
+      after = data.paging?.next?.after
+      if (!after) break
+    }
+  } catch { return [] }
+  return all
+}
+
 export async function fetchDealByAgentEmail(email: string): Promise<Deal | null> {
   try {
     const data = await hsFetch(`/crm/v3/objects/deals/search`, {
