@@ -4,6 +4,7 @@ import { Users, FileText, CheckCircle, Clock, ArrowRight, GraduationCap, MapPin,
 import { PageContainer } from "../components/Layout"
 import { useAuth, isHolmesStaff } from "../lib/auth"
 import { fetchDeals, fetchDealsByCompanyId, Deal } from "../lib/hubspot"
+import { isAussizzEmail, getAussizzDeals } from "../lib/aussizz"
 import { initials, formatRelativeTime, BADGE_CLASSES as BC } from "../lib/utils"
 import { StatCardSkeleton, ActivityRowSkeleton } from "../components/Skeleton"
 
@@ -109,6 +110,15 @@ export default function HomePage() {
       try {
         // Fix #4: use isHolmesStaff() instead of manual domain check with precedence bug
         if (user?.email && !isHolmesStaff(user.email)) {
+          // Aussizz Group — branch-isolated access, handled entirely in
+          // src/lib/aussizz.ts. Checked first since it's a special case of
+          // the normal agent path below, not a replacement for it.
+          if (isAussizzEmail(user.email)) {
+            const d = await getAussizzDeals(user.email)
+            setDeals(d)
+            return
+          }
+
           // Agent — fetch deals by company association
           const companyId = sessionStorage.getItem("holmes_company_id")
           if (companyId) {
