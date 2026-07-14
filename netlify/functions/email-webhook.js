@@ -78,11 +78,28 @@ async function notifyAgent(dealId) {
     const agentName = contactRes.body?.properties?.firstname || "there"
     if (!agentEmail) { console.log(`notifyAgent: no email for contact ${contactId}`); return }
 
+    // Pull key identifying details so the agent's team can tell which
+    // student/application this update is about without opening the portal.
+    const dealDetailRes = await hs(
+      `/crm/v3/objects/deals/${dealId}?properties=dealname,passport_number,date_of_birth,course_name_australia`
+    )
+    const dp = dealDetailRes.body?.properties || {}
+    const studentName = dp.dealname || "—"
+    const passport      = dp.passport_number || "—"
+    const dob             = dp.date_of_birth || "—"
+    const course           = dp.course_name_australia || "—"
+
     const link = `${PORTAL_URL}/applications/${dealId}`
     const html = `
       <div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #333; max-width: 480px;">
         <p>Hi ${agentName},</p>
         <p>You have a new message from Holmes Admissions regarding one of your applications.</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px;">
+          <tr><td style="padding: 4px 8px 4px 0; color: #888;">Student Name:</td><td style="padding: 4px 0; font-weight: 600;">${studentName}</td></tr>
+          <tr><td style="padding: 4px 8px 4px 0; color: #888;">Passport Number:</td><td style="padding: 4px 0; font-weight: 600;">${passport}</td></tr>
+          <tr><td style="padding: 4px 8px 4px 0; color: #888;">Date of Birth:</td><td style="padding: 4px 0; font-weight: 600;">${dob}</td></tr>
+          <tr><td style="padding: 4px 8px 4px 0; color: #888;">Course Applied For:</td><td style="padding: 4px 0; font-weight: 600;">${course}</td></tr>
+        </table>
         <p style="margin: 20px 0;">
           <a href="${link}" style="display: inline-block; padding: 10px 24px; background: #991b1b; color: #ffffff; font-weight: 700; text-decoration: none; border-radius: 4px;">View message in the portal →</a>
         </p>
@@ -93,7 +110,7 @@ async function notifyAgent(dealId) {
       personalizations: [{ to: [{ email: agentEmail }] }],
       from: { email: SENDGRID_FROM_EMAIL, name: SENDGRID_FROM_NAME },
       reply_to: { email: SENDGRID_FROM_EMAIL, name: SENDGRID_FROM_NAME },
-      subject: "You have a new message in the Holmes Admissions Portal",
+      subject: `New update for ${studentName} — Holmes Admissions Portal`,
       content: [{ type: "text/html", value: html }],
     })
     console.log(`notifyAgent: emailed ${agentEmail} for deal ${dealId}, status ${res.status}`)
