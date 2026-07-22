@@ -60,7 +60,11 @@ const ALL_INTAKES = [
   { value: "September 2026",           label: "September 2026", date: new Date("2026-09-07") },
   { value: "November_2026_09_11_2026", label: "November 2026", date: new Date("2026-11-09") },
 ]
-const INTAKES = ALL_INTAKES.filter(i => i.date >= new Date())
+// Fixed cutoff: keep a just-passed intake (e.g. July) selectable up until
+// this date, rather than hiding it the moment its own date passes. After
+// this cutoff, an intake only shows if its own date is still upcoming.
+const APPLICATION_CUTOFF_DATE = new Date("2026-08-10")
+const INTAKES = ALL_INTAKES.filter(i => i.date >= new Date() || new Date() <= APPLICATION_CUTOFF_DATE)
 
 const ENGLISH_TESTS = [
   { value: "IELTS", label: "IELTS" },
