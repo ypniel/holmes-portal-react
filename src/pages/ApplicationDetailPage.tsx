@@ -119,7 +119,7 @@ const AGENT_FORMS = [
   { name: "Defer, Cancel and Suspend Request",  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Defer%20Cancel%20and%20Suspend%20Request.pdf" },
   { name: "Request for Course Extension",       url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Holmes%20Admission/Request%20for%20course%20extension%20form.pdf" },
   { name: "GS Declaration Form",                url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Australia%20Deals/HI%20GS%20Declaration%20Form.pdf" },
-  { name: "GS Statement Form",                  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Australia%20Deals/HI%20GS%20Statement%20Form.pdf" },
+  { name: "GS Statement Form",                  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/HI%20GS%20Statement%20Form.pdf" },
   { name: "GS Interview Form",                  url: "https://39917994.fs1.hubspotusercontent-na1.net/hubfs/39917994/Australia%20Deals/HI%20GS%20Interview%20Form.pdf" },
 ]
 
@@ -413,6 +413,14 @@ export default function ApplicationDetailPage() {
                       <span className="font-semibold">Response time: 24–48 hours</span> for standard cases.
                       Cases with credit assessment requests may take up to <span className="font-semibold">72 hours</span>.
                       Please do not chase up before this window has passed.
+                    </p>
+                  </div>
+                  {/* Document submission notice */}
+                  <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-3 w-full">
+                    <span className="text-red-500 mt-0.5 flex-shrink-0">⚠</span>
+                    <p className="text-xs text-red-800 leading-relaxed">
+                      <span className="font-semibold">Every time you submit an additional document, you must also send a message here explaining the context.</span>{" "}
+                      Without an accompanying message, the case will not be processed.
                     </p>
                   </div>
                   {/* Messages list */}
