@@ -132,6 +132,25 @@ exports.handler = async (event) => {
       },
     }, engagementBody)
 
+    // A new document from the agent/student is new activity Holmes needs to
+    // review — flip response_status the same way a new message would.
+    try {
+      const statusBody = JSON.stringify({ properties: { response_status: "Holmes_Received" } })
+      await makeRequest({
+        hostname: "api.hubapi.com",
+        path: `/crm/v3/objects/deals/${dealId}`,
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${CRM_TOKEN}`,
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(statusBody),
+        },
+      }, statusBody)
+    } catch (e) {
+      // Non-fatal — never fail the upload because the status flip errored.
+      console.error("upload.js: response_status flip failed:", e.message)
+    }
+
     return {
       statusCode: 200,
       headers: corsHeaders,
