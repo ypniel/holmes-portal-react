@@ -79,13 +79,14 @@ export const STAGE_LABELS: Record<string, string> = {
   "1363564955": "GTE in Process",
   "1363564956": "Conditional Offer Issued",
   "1363564957": "Application Refused",
+  "1412847149": "COE Conditional",
 }
 
 export const PIPELINE_STAGES = [
   "New Application Received","Documentation Outstanding","Approved for Interview",
   "GS Checking in Process","Credit Assessment Team","English Placement Test",
   "Offer Letter Requested","Offer Issued","Second Agent Application","Receipting",
-  "COE Request","COE Team","Application Complete","Application Closed","Enrolled",
+  "COE Request","COE Team","COE Conditional","Application Complete","Application Closed","Enrolled",
   "Duplicate","Interview","GTE in Process","Conditional Offer Issued","Application Refused",
 ]
 
@@ -110,6 +111,7 @@ export const STAGE_COLORS: Record<string, string> = {
   "1363564955": "amber",
   "1363564956": "indigo",
   "1363564957": "red",
+  "1412847149": "red",
 }
 
 // ── Fetch Deals ────────────────────────────────────────────────────────────────
