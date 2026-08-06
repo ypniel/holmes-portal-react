@@ -827,7 +827,7 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
         </div>
         <Sel label="Campus (Australia)" name="campus_australia" value={f.campus_australia} onChange={v => { set("campus_australia")(v) }} options={isAviation ? ["Melbourne"] : CAMPUSES} required />
         <Sel label="Intake (Australia)" name="intake_australia" value={f.intake_australia} onChange={set("intake_australia")} options={AVAILABLE_INTAKES} required />
-        <Sel label="Advanced Standing" name="advanced_standing" value={f.advanced_standing} onChange={set("advanced_standing")} options={YES_NO} required />
+        <Sel label="Advanced Standing (sometimes called credit or recognition of prior learning (RPL))" name="advanced_standing" value={f.advanced_standing} onChange={set("advanced_standing")} options={YES_NO} required />
         <Sel label="Do you require OSHC from us?" name="oshc" value={f.oshc} onChange={set("oshc")} options={YES_NO} />
         {showWWCC && (
           <div className="col-span-full">
