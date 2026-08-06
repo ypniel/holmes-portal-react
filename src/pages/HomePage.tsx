@@ -85,7 +85,6 @@ export default function HomePage() {
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [showWelcome, setShowWelcome] = useState(false)
   const [formsOpen, setFormsOpen] = useState(false)
   const tip = useRotatingTip()
   const tipIdx = PRO_TIPS.indexOf(tip)
@@ -161,39 +160,7 @@ export default function HomePage() {
 
   return (
     <PageContainer>
-      {showWelcome && (
-        <div
-          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}
-          onClick={dismissWelcome}
-        >
-          <div
-            style={{ background: "#fff", borderRadius: "12px", maxWidth: "460px", width: "100%", overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ background: "#991b1b", padding: "18px 24px" }}>
-              <p style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#fff" }}>Welcome to the new portal!</p>
-            </div>
-            <div style={{ padding: "22px 24px" }}>
-              <p style={{ margin: "0 0 14px 0", fontSize: "14px", color: "#333", lineHeight: 1.6 }}>
-                Thanks for joining the Holmes Admissions Portal. We&rsquo;re still importing existing applications in the background, so it may take some time for all files to upload.
-              </p>
-              <p style={{ margin: "0 0 14px 0", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "6px", fontSize: "14px", color: "#991b1b", fontWeight: 700, lineHeight: 1.6 }}>
-                Please note: this portal only contains applications for upcoming intakes only.
-              </p>
-              <p style={{ margin: "0 0 14px 0", fontSize: "14px", color: "#333", lineHeight: 1.6 }}>
-                If you think there are cases that are missing, please let us know at{" "}
-                <a href="mailto:admissions@holmes.edu.au" style={{ color: "#991b1b", fontWeight: 600, textDecoration: "none" }}>admissions@holmes.edu.au</a>.
-              </p>
-              <button
-                onClick={dismissWelcome}
-                style={{ marginTop: "6px", background: "#991b1b", color: "#fff", border: "none", borderRadius: "6px", padding: "10px 22px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
-              >
-                Got it
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-gray-800">
           Welcome back, {user?.companyName || user?.fullName?.split(" ")[0] || "Agent"}!
@@ -204,6 +171,7 @@ export default function HomePage() {
             : "Here's what's happening with your student applications today."
           }
         </p>
+        <p className="text-xs text-gray-400 mt-0.5">Please note: this portal contains applications for upcoming intakes only.</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
