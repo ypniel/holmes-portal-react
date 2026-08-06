@@ -137,6 +137,12 @@ export default function HomePage() {
     load()
   }, [user])
 
+  // Welcome modal — agents only, once per login session
+  useEffect(() => {
+    if (!user?.email || isHolmesStaff(user.email)) return
+    setShowWelcome(true)
+  }, [user])
+
   const stats = useMemo(() => ({
     total:   deals.length,
     offers:  deals.filter(d => d.stageLabel.includes("Offer")).length,
@@ -147,6 +153,10 @@ export default function HomePage() {
   const recent = [...deals]
     .sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime())
     .slice(0, 5)
+
+  const dismissWelcome = () => {
+    setShowWelcome(false)
+  }
 
   return (
     <PageContainer>
@@ -161,7 +171,6 @@ export default function HomePage() {
             : "Here's what's happening with your student applications today."
           }
         </p>
-        <p className="text-xs text-gray-400 mt-0.5">Please note: this portal contains applications for upcoming intakes only.</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
