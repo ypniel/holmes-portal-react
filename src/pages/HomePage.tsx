@@ -137,12 +137,6 @@ export default function HomePage() {
     load()
   }, [user])
 
-  // Welcome modal — agents only, once per login session
-  useEffect(() => {
-    if (!user?.email || isHolmesStaff(user.email)) return
-    setShowWelcome(true)
-  }, [user])
-
   const stats = useMemo(() => ({
     total:   deals.length,
     offers:  deals.filter(d => d.stageLabel.includes("Offer")).length,
@@ -153,10 +147,6 @@ export default function HomePage() {
   const recent = [...deals]
     .sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime())
     .slice(0, 5)
-
-  const dismissWelcome = () => {
-    setShowWelcome(false)
-  }
 
   return (
     <PageContainer>
