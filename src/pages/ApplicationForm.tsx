@@ -59,6 +59,7 @@ const ALL_INTAKES = [
   { value: "July_2026_20_07_2026",     label: "July 2026",     date: new Date("2026-07-20") },
   { value: "September 2026",           label: "September 2026", date: new Date("2026-09-07") },
   { value: "November_2026_09_11_2026", label: "November 2026", date: new Date("2026-11-09") },
+  { value: "March_2027_08_03_2027",    label: "March 2027",    date: new Date("2027-03-08") },
 ]
 // Fixed cutoff: keep a just-passed intake (e.g. July) selectable up until
 // this date, rather than hiding it the moment its own date passes. After
@@ -579,9 +580,15 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   // ── Derived logic flags ───────────────────────────────────────────────────
   const showWWCC = WWCC_COURSES.includes(f.course_name_australia)
   const hideSeptember = NO_SEPT_COURSES.includes(f.course_name_australia)
-  const AVAILABLE_INTAKES = hideSeptember
+  // March 2027 is only offered to offshore applicants with no Australian
+  // residency status (i.e. currently residing outside Australia).
+  const showMarch2027 =
+    f.where_are_you_applying_from === "Offshore" &&
+    f.residency_status === "None - Currently residing outside Australia"
+  const AVAILABLE_INTAKES = (hideSeptember
     ? INTAKES.filter(i => !i.label.startsWith("September"))
     : INTAKES
+  ).filter(i => showMarch2027 || !i.label.startsWith("March"))
   const isAviation = AVIATION_COURSES.includes(f.course_name_australia)
   const CAMPUSES_FILTERED = isAviation ? ["Melbourne"] : CAMPUSES
   const showPlacementType = WWCC_COURSES.includes(f.course_name_australia)
