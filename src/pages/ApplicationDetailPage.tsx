@@ -13,6 +13,25 @@ import {
 import { formatDate, formatDateTime, formatIntake, BADGE_CLASSES as BC, initials } from "../lib/utils"
 import { fetchDealAssociatedFiles } from "../lib/dealFiles"
 import { fetchCloudFilesAttachments } from "../lib/cloudFiles"
+
+// Loads JSZip from a CDN via a plain <script> tag (not an ES import), so the
+// build's TypeScript step never needs to resolve it as a module. Cached on
+// window after first load. Declared `any` since JSZip ships its own types
+// we're intentionally not pulling in for this staff-only, occasional feature.
+declare global { interface Window { JSZip?: any } }
+let jsZipLoadPromise: Promise<any> | null = null
+function loadJSZip(): Promise<any> {
+  if (window.JSZip) return Promise.resolve(window.JSZip)
+  if (jsZipLoadPromise) return jsZipLoadPromise
+  jsZipLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script")
+    script.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+    script.onload = () => resolve(window.JSZip)
+    script.onerror = () => reject(new Error("Failed to load JSZip"))
+    document.head.appendChild(script)
+  })
+  return jsZipLoadPromise
+}
 const titleCase = (s: string) => s
   ? s.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase())
   : s
@@ -515,13 +534,11 @@ export default function ApplicationDetailPage() {
                           onClick={async () => {
                             setZipping(true)
                             try {
-                              // Load JSZip from CDN on demand — avoids adding a new
-                              // build dependency for a staff-only, occasional-use feature.
-                              const JSZipMod: any = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm")
-                              const JSZip = JSZipMod.default || JSZipMod
+                              const JSZip = await loadJSZip()
                               const zip = new JSZip()
                               const token = sessionStorage.getItem("holmes_session_token") || ""
-                              let ok = 0, failed: string[] = []
+                              let ok = 0
+                              const failed: string[] = []
                               for (const f of files) {
                                 if (!f.url) { failed.push(f.name); continue }
                                 try {
@@ -539,7 +556,6 @@ export default function ApplicationDetailPage() {
                                   } else {
                                     blob = await res.blob()
                                   }
-                                  // Avoid name collisions in the zip (e.g. multiple "Document")
                                   let zipName = f.name || `Document-${f.id}`
                                   if (zip.file(zipName)) zipName = `${f.id}-${zipName}`
                                   zip.file(zipName, blob)
