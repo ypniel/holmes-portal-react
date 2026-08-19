@@ -137,6 +137,7 @@ export default function ApplicationDetailPage() {
   const [notes, setNotes] = useState<Note[]>([])
   const [owners, setOwners] = useState<Record<string, string>>({})
   const [files, setFiles] = useState<FileItem[]>([])
+  const [zipping, setZipping] = useState(false)
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
   const location = useLocation()
@@ -505,8 +506,73 @@ export default function ApplicationDetailPage() {
                   </div>
                   {/* Upload area */}
                   {isStaff ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 text-center">
-                      ⚠️ Holmes staff are in view-only mode. Document upload is disabled.
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 text-center flex flex-col items-center gap-2">
+                      <span>⚠️ Holmes staff are in view-only mode. Document upload is disabled.</span>
+                      {files.length > 0 && (
+                        <button
+                          type="button"
+                          disabled={zipping}
+                          onClick={async () => {
+                            setZipping(true)
+                            try {
+                              // Load JSZip from CDN on demand — avoids adding a new
+                              // build dependency for a staff-only, occasional-use feature.
+                              const JSZipMod: any = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm")
+                              const JSZip = JSZipMod.default || JSZipMod
+                              const zip = new JSZip()
+                              const token = sessionStorage.getItem("holmes_session_token") || ""
+                              let ok = 0, failed: string[] = []
+                              for (const f of files) {
+                                if (!f.url) { failed.push(f.name); continue }
+                                try {
+                                  const res = await fetch(f.url, { headers: { "Authorization": `Bearer ${token}` } })
+                                  if (!res.ok) { failed.push(f.name); continue }
+                                  const contentType = res.headers.get("content-type") || ""
+                                  let blob: Blob
+                                  if (contentType.includes("application/json")) {
+                                    // CloudFiles-native: JSON gives a signed URL, fetch that directly
+                                    const { redirectUrl } = await res.json()
+                                    if (!redirectUrl) { failed.push(f.name); continue }
+                                    const fileRes = await fetch(redirectUrl)
+                                    if (!fileRes.ok) { failed.push(f.name); continue }
+                                    blob = await fileRes.blob()
+                                  } else {
+                                    blob = await res.blob()
+                                  }
+                                  // Avoid name collisions in the zip (e.g. multiple "Document")
+                                  let zipName = f.name || `Document-${f.id}`
+                                  if (zip.file(zipName)) zipName = `${f.id}-${zipName}`
+                                  zip.file(zipName, blob)
+                                  ok += 1
+                                } catch {
+                                  failed.push(f.name)
+                                }
+                              }
+                              if (ok === 0) {
+                                alert("No files could be downloaded.")
+                                return
+                              }
+                              const zipBlob = await zip.generateAsync({ type: "blob" })
+                              const blobUrl = URL.createObjectURL(zipBlob)
+                              const a = document.createElement("a")
+                              a.href = blobUrl
+                              a.download = `${deal?.studentName || "Application"}-Documents.zip`
+                              a.click()
+                              URL.revokeObjectURL(blobUrl)
+                              if (failed.length > 0) {
+                                alert(`Zipped ${ok} file(s). ${failed.length} could not be downloaded: ${failed.join(", ")}`)
+                              }
+                            } catch (e) {
+                              alert("Failed to create zip. Please try again.")
+                            } finally {
+                              setZipping(false)
+                            }
+                          }}
+                          className="mt-1 px-4 py-1.5 text-xs font-semibold rounded-lg bg-amber-800 text-white hover:bg-amber-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {zipping ? "Zipping…" : `Download All as ZIP (${files.length})`}
+                        </button>
+                      )}
                     </div>
                   ) : (
                   <DocumentUploader dealId={deal.id} onUploaded={() => {
