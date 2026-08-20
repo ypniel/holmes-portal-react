@@ -187,12 +187,25 @@ export async function fetchNotes(dealId: string): Promise<Note[]> {
         .replace(/&nbsp;/g, " ")
         .replace(/\n{3,}/g, "\n\n")
         .trim()
-      const disclaimerIndex = body.search(/please do not reply to this email/i)
-      if (disclaimerIndex > 0) body = body.substring(0, disclaimerIndex).trim()
-      const sigIndex = body.search(/kind regards|holmes education group|holmes institute/i)
-      if (sigIndex > 0) body = body.substring(0, sigIndex).trim()
-      const unsubIndex = body.search(/prefer fewer emails|unsubscribe/i)
-      if (unsubIndex > 0) body = body.substring(0, unsubIndex).trim()
+      // Strip a trailing signature/disclaimer block — but ONLY using phrases that
+      // never legitimately appear inside real message content, and ONLY when the
+      // phrase starts its own line (a genuine sign-off), not mid-sentence.
+      // "holmes institute" / "holmes education group" were removed as triggers:
+      // they're the org's own name and appear constantly in real staff messages
+      // (e.g. discussing policy), which was truncating genuine content — this is
+      // exactly the bug that cut off a legitimate Advanced Standing Policy message.
+      const stripAtLineStart = (re: RegExp) => {
+        const m = body.match(re)
+        if (m && typeof m.index === "number") {
+          const idx = m.index
+          const before = body.slice(0, idx)
+          const isLineStart = idx === 0 || /\n\s*$/.test(before)
+          if (isLineStart) body = before.trim()
+        }
+      }
+      stripAtLineStart(/please do not reply to this email/i)
+      stripAtLineStart(/^kind regards,?/im)
+      stripAtLineStart(/prefer fewer emails|unsubscribe/i)
 
       if (!body) continue
       if (!isChatterImport && body.includes("File uploaded")) continue
