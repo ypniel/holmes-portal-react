@@ -72,6 +72,31 @@ type Tab = "course" | "student" | "agent" | "chatter" | "documents"
 const PORTAL_ALLOWED_FILE_EXT = ["pdf", "jpg", "jpeg", "png"]
 const PORTAL_MAX_FILE_SIZE = 5 * 1024 * 1024
 
+// Message bubble body with expand/collapse for long messages. Rather than
+// silently cutting or hiding text, everything is always fully preserved and
+// reachable via "Show more" — a long message is truncated visually only,
+// never in the underlying data.
+const MESSAGE_PREVIEW_LIMIT = 400
+function MessageBody({ body }: { body: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const isLong = body.length > MESSAGE_PREVIEW_LIMIT
+  const shown = expanded || !isLong ? body : body.slice(0, MESSAGE_PREVIEW_LIMIT).trim() + "…"
+  return (
+    <div>
+      <div>{shown}</div>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="mt-1.5 text-xs font-semibold text-red-600 hover:text-red-700"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  )
+}
+
 function getFileExt(fileName: string) {
   return fileName.split(".").pop()?.toLowerCase() || ""
 }
@@ -469,8 +494,8 @@ export default function ApplicationDetailPage() {
                               <span className="text-sm font-semibold text-gray-800">{author}</span>
                               <span className="text-xs text-gray-400">{formatDateTime(note.createdAt)}</span>
                             </div>
-                            <div className="bg-stone-50 rounded-xl rounded-tl-none px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words border border-stone-100 max-w-full overflow-hidden">
-                              {note.body}
+                            <div className="bg-stone-50 rounded-xl rounded-tl-none px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words border border-stone-100 max-w-full">
+                              <MessageBody body={note.body} />
                             </div>
                           </div>
                         </div>
