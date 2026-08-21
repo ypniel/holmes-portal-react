@@ -13,6 +13,7 @@ import {
 import { formatDate, formatDateTime, formatIntake, BADGE_CLASSES as BC, initials } from "../lib/utils"
 import { fetchDealAssociatedFiles } from "../lib/dealFiles"
 import { fetchCloudFilesAttachments } from "../lib/cloudFiles"
+import { fetchSharePointFiles } from "../lib/sharePointFiles"
 
 // Loads JSZip from a CDN via a plain <script> tag (not an ES import), so the
 // build's TypeScript step never needs to resolve it as a module. Cached on
@@ -225,6 +226,21 @@ export default function ApplicationDetailPage() {
       withDealFiles.forEach(x => seenIds.add(x.id))
       const mergedFiles = sortFilesByNewest([...withDealFiles, ...(cf || []).filter(x => !seenIds.has(x.id))])
       setDeal(d); setNotes(n); setOwners(o); setFiles(mergedFiles); setCompany(c)
+
+      // SharePoint files are keyed by Application Reference, not dealId, so
+      // they can only be fetched once the deal itself has loaded. Runs as a
+      // non-blocking follow-up — the page renders with everything else first,
+      // and SharePoint files merge in a moment later once they arrive.
+      if (d?.applicationReference) {
+        fetchSharePointFiles(d.applicationReference).then((sp) => {
+          if (!sp || sp.length === 0) return
+          setFiles(prev => {
+            const existingIds = new Set(prev.map(x => x.id))
+            const newOnes = sp.filter(x => !existingIds.has(x.id))
+            return newOnes.length ? sortFilesByNewest([...prev, ...newOnes]) : prev
+          })
+        })
+      }
     }).finally(() => setLoading(false))
   }, [id])
 
@@ -617,11 +633,18 @@ export default function ApplicationDetailPage() {
                     </div>
                   ) : (
                   <DocumentUploader dealId={deal.id} onUploaded={() => {
-                    Promise.all([fetchFiles(deal.id), fetchDealAssociatedFiles(deal.id), fetchCloudFilesAttachments(deal.id)]).then(([f, df, cf]) => {
+                    Promise.all([
+                      fetchFiles(deal.id),
+                      fetchDealAssociatedFiles(deal.id),
+                      fetchCloudFilesAttachments(deal.id),
+                      fetchSharePointFiles(deal.applicationReference),
+                    ]).then(([f, df, cf, sp]) => {
                       const seenIds = new Set((f || []).map(x => x.id))
                       const withDealFiles = [...(f || []), ...(df || []).filter(x => !seenIds.has(x.id))]
                       withDealFiles.forEach(x => seenIds.add(x.id))
-                      setFiles(sortFilesByNewest([...withDealFiles, ...(cf || []).filter(x => !seenIds.has(x.id))]))
+                      const withCf = [...withDealFiles, ...(cf || []).filter(x => !seenIds.has(x.id))]
+                      withCf.forEach(x => seenIds.add(x.id))
+                      setFiles(sortFilesByNewest([...withCf, ...(sp || []).filter(x => !seenIds.has(x.id))]))
                     })
                   }} onOptimisticFile={(f) => setFiles(prev => sortFilesByNewest([f, ...prev]))} />
                   )}
