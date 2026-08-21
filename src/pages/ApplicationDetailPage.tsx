@@ -686,7 +686,13 @@ export default function ApplicationDetailPage() {
                                   type="button"
                                   onClick={async () => {
                                     const token = sessionStorage.getItem("holmes_session_token") || ""
-                                    const url = `/.netlify/functions/download-file?fileId=${encodeURIComponent(f.id)}&dealId=${encodeURIComponent(id || "")}`
+                                    // Files already carry their own download endpoint (e.g. SharePoint
+                                    // files point at sharepoint-files.js) — use that if present, rather
+                                    // than always reconstructing a HubSpot download-file URL, which
+                                    // silently sent every file through the wrong backend.
+                                    const url = f.url && f.url.startsWith("/.netlify/functions/")
+                                      ? f.url
+                                      : `/.netlify/functions/download-file?fileId=${encodeURIComponent(f.id)}&dealId=${encodeURIComponent(id || "")}`
                                     try {
                                       const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } })
                                       if (!res.ok) { alert("You do not have permission to access this file."); return }
