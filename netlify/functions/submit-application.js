@@ -7,6 +7,11 @@ const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN
 const PIPELINE_ID = "789344406"
 const STAGE_ID = "1155257364" // New Application Received
 
+const SHAREPOINT_TENANT_ID = process.env.SHAREPOINT_TENANT_ID
+const SHAREPOINT_CLIENT_ID = process.env.SHAREPOINT_CLIENT_ID
+const SHAREPOINT_CLIENT_SECRET = process.env.SHAREPOINT_CLIENT_SECRET
+const SHAREPOINT_SITE_ID = "holmesedug.sharepoint.com,461a99da-664c-41d3-b2cb-d83784fbbfb1,9c112f1c-e736-4ff3-a906-f78f7cb25873"
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type",
@@ -54,6 +59,83 @@ function hs(path, method, body) {
     if (data) req.write(data)
     req.end()
   })
+}
+
+// ── SharePoint / Microsoft Graph helpers ──────────────────────────────────────
+function getSharePointToken() {
+  const body =
+    `client_id=${encodeURIComponent(SHAREPOINT_CLIENT_ID)}` +
+    `&client_secret=${encodeURIComponent(SHAREPOINT_CLIENT_SECRET)}` +
+    `&scope=${encodeURIComponent("https://graph.microsoft.com/.default")}` +
+    `&grant_type=client_credentials`
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: "login.microsoftonline.com",
+      path: `/${SHAREPOINT_TENANT_ID}/oauth2/v2.0/token`,
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "Content-Length": Buffer.byteLength(body) },
+    }, (res) => {
+      const chunks = []
+      res.on("data", (c) => chunks.push(c))
+      res.on("end", () => {
+        try {
+          const parsed = JSON.parse(Buffer.concat(chunks).toString())
+          if (res.statusCode === 200 && parsed.access_token) resolve(parsed.access_token)
+          else reject(new Error(`SharePoint auth failed: ${res.statusCode}`))
+        } catch (e) { reject(e) }
+      })
+    })
+    req.on("error", reject)
+    req.write(body)
+    req.end()
+  })
+}
+
+function hsGraph(accessToken, method, path, body) {
+  return new Promise((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : ""
+    const req = https.request({
+      hostname: "graph.microsoft.com", path, method,
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(data),
+      },
+    }, (res) => {
+      const chunks = []
+      res.on("data", (c) => chunks.push(c))
+      res.on("end", () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(Buffer.concat(chunks).toString() || "{}") }) }
+        catch { resolve({ status: res.statusCode, body: {} }) }
+      })
+    })
+    req.on("error", reject)
+    if (data) req.write(data)
+    req.end()
+  })
+}
+
+// Proactively creates Holmes-Deals/{applicationReference}/ in SharePoint so
+// the folder link works immediately — without this, the folder wouldn't
+// exist until someone actually uploads a file there, and clicking the link
+// early would hit "This item isn't available."
+async function ensureSharePointFolder(applicationReference) {
+  const safeRef = String(applicationReference).replace(/[^a-zA-Z0-9_-]/g, "")
+  const accessToken = await getSharePointToken()
+  // PATCH-via-PUT trick: creating a folder needs a POST to the parent's
+  // children endpoint (not a PUT like file upload), so this is a distinct call.
+  const result = await hsGraph(
+    accessToken,
+    "POST",
+    `/v1.0/sites/${SHAREPOINT_SITE_ID}/drive/root:/Holmes-Deals:/children`,
+    {
+      name: safeRef,
+      folder: {},
+      "@microsoft.graph.conflictBehavior": "replace",
+    }
+  )
+  return result
 }
 
 exports.handler = async (event) => {
@@ -229,6 +311,13 @@ exports.handler = async (event) => {
     const applicationReference = await generateUniqueReference()
     dealProps.portal_application_reference = applicationReference
 
+    // Native, free deal property — a direct link to this application's
+    // SharePoint folder. The folder is created proactively (right below) so
+    // the link works immediately, rather than only after a file is uploaded.
+    dealProps.sharepoint_folder_url =
+      `https://holmesedug.sharepoint.com/sites/AgentPortal/Shared%20Documents/Forms/AllItems.aspx` +
+      `?id=%2Fsites%2FAgentPortal%2FShared%20Documents%2FHolmes%2DDeals%2F${encodeURIComponent(applicationReference)}`
+
     // ── Create deal ─────────────────────────────────────────────────────────
     const dealRes = await hs("/crm/v3/objects/deals", "POST", { properties: dealProps })
     if (dealRes.status !== 201) {
@@ -236,6 +325,18 @@ exports.handler = async (event) => {
       return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "Failed to create deal", detail: dealRes.body }) }
     }
     const dealId = dealRes.body.id
+
+    // ── Proactively create the SharePoint folder ─────────────────────────────
+    // Non-fatal: if SharePoint is briefly unreachable, the application still
+    // succeeds. The folder will simply get created the first time someone
+    // uploads a file there instead (Graph API creates missing folders on PUT).
+    try {
+      if (SHAREPOINT_TENANT_ID && SHAREPOINT_CLIENT_ID && SHAREPOINT_CLIENT_SECRET) {
+        await ensureSharePointFolder(applicationReference)
+      }
+    } catch (e) {
+      console.error("SharePoint folder creation failed (non-fatal):", e.message)
+    }
 
     // ── Associate deal with contact (agent or student) ──────────────────────
     if (contactId) {
