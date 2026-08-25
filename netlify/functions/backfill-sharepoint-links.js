@@ -95,13 +95,16 @@ exports.handler = async (event) => {
         continue
       }
 
-      const ref = dealRes.body?.properties?.portal_application_reference
+      const rawRef = dealRes.body?.properties?.portal_application_reference
       const existingUrl = dealRes.body?.properties?.sharepoint_folder_url
+      // Match migrate-cloudfiles-to-sharepoint.js's fallback exactly: deals
+      // with no Application Reference had their files migrated under
+      // DEAL-{dealId} instead. Without this same fallback here, those
+      // deals' links would never point at the folder their files actually
+      // live in — which is exactly what caused files to go missing from
+      // the portal after migration.
+      const ref = (rawRef && rawRef.trim()) ? rawRef.trim() : `DEAL-${dealId}`
 
-      if (!ref) {
-        results.push({ dealId, status: "skipped", reason: "No Application Reference on this deal" })
-        continue
-      }
       if (existingUrl) {
         results.push({ dealId, status: "skipped", reason: "sharepoint_folder_url already set", existingUrl })
         continue
