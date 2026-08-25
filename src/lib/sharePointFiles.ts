@@ -37,11 +37,22 @@ export interface SharePointFile {
  * @param applicationReference  The deal's portal_application_reference.
  * @returns                     Array of files (may be empty). Never throws.
  */
-export async function fetchSharePointFiles(applicationReference: string | undefined | null): Promise<SharePointFile[]> {
-  if (!applicationReference) return []
+export async function fetchSharePointFiles(
+  applicationReference: string | undefined | null,
+  dealId?: string | undefined | null
+): Promise<SharePointFile[]> {
+  // Deals with no real Application Reference had their files migrated under
+  // Holmes-Deals/DEAL-{dealId}/ instead (matches the migration script's own
+  // fallback). Without this same fallback here, migrated files for those
+  // deals would never be found by the portal.
+  const ref = (applicationReference && applicationReference.trim())
+    ? applicationReference.trim()
+    : (dealId ? `DEAL-${dealId}` : null)
+
+  if (!ref) return []
 
   try {
-    const url = `/.netlify/functions/sharepoint-files?action=list&applicationRef=${encodeURIComponent(applicationReference)}`
+    const url = `/.netlify/functions/sharepoint-files?action=list&applicationRef=${encodeURIComponent(ref)}`
     const res = await fetch(url, { headers: { "Content-Type": "application/json" } })
     if (!res.ok) return []
 
