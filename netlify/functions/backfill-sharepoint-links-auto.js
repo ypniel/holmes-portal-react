@@ -76,12 +76,16 @@ exports.handler = async (event) => {
   const dryRun = payload.dryRun !== false
 
   try {
-    // Search for deals with a reference set but the URL missing.
-    // HubSpot search API: HAS_PROPERTY on reference, NOT_HAS_PROPERTY on url.
+    // Search for ANY deal missing the URL — regardless of whether it has a
+    // real Application Reference. Deals without one fall back to
+    // DEAL-{dealId}, matching the same convention used by the migration
+    // script and every other SharePoint tool in this project. Earlier
+    // versions of this search required portal_application_reference to be
+    // set, which silently skipped the majority of migrated deals (most of
+    // which have no real reference) — this fixes that gap.
     const searchBody = {
       filterGroups: [{
         filters: [
-          { propertyName: "portal_application_reference", operator: "HAS_PROPERTY" },
           { propertyName: "sharepoint_folder_url", operator: "NOT_HAS_PROPERTY" },
         ],
       }],
@@ -101,12 +105,8 @@ exports.handler = async (event) => {
 
     for (const deal of deals) {
       const dealId = deal.id
-      const ref = deal.properties?.portal_application_reference
-
-      if (!ref) {
-        results.push({ dealId, status: "skipped", reason: "No reference (unexpected — filter should exclude this)" })
-        continue
-      }
+      const rawRef = deal.properties?.portal_application_reference
+      const ref = (rawRef && rawRef.trim()) ? rawRef.trim() : `DEAL-${dealId}`
 
       const newUrl = buildSharePointUrl(ref)
 
