@@ -227,12 +227,13 @@ export default function ApplicationDetailPage() {
       const mergedFiles = sortFilesByNewest([...withDealFiles, ...(cf || []).filter(x => !seenIds.has(x.id))])
       setDeal(d); setNotes(n); setOwners(o); setFiles(mergedFiles); setCompany(c)
 
-      // SharePoint files are keyed by Application Reference, not dealId, so
-      // they can only be fetched once the deal itself has loaded. Runs as a
-      // non-blocking follow-up — the page renders with everything else first,
-      // and SharePoint files merge in a moment later once they arrive.
-      if (d?.applicationReference) {
-        fetchSharePointFiles(d.applicationReference).then((sp) => {
+      // SharePoint files are keyed by Application Reference (or DEAL-{id} as
+      // a fallback for deals without one — matches the migration script's
+      // own convention), so they can only be fetched once the deal itself
+      // has loaded. Runs as a non-blocking follow-up — the page renders with
+      // everything else first, and SharePoint files merge in a moment later.
+      if (d?.dealId || d?.applicationReference) {
+        fetchSharePointFiles(d.applicationReference, d.dealId).then((sp) => {
           if (!sp || sp.length === 0) return
           setFiles(prev => {
             const existingIds = new Set(prev.map(x => x.id))
@@ -637,7 +638,7 @@ export default function ApplicationDetailPage() {
                       fetchFiles(deal.id),
                       fetchDealAssociatedFiles(deal.id),
                       fetchCloudFilesAttachments(deal.id),
-                      fetchSharePointFiles(deal.applicationReference),
+                      fetchSharePointFiles(deal.applicationReference, deal.dealId),
                     ]).then(([f, df, cf, sp]) => {
                       const seenIds = new Set((f || []).map(x => x.id))
                       const withDealFiles = [...(f || []), ...(df || []).filter(x => !seenIds.has(x.id))]
