@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import { fetchDeal, fetchNotes, fetchFiles, fetchOwners, createNote } from "../lib/hubspot"
 import { fetchDealAssociatedFiles } from "../lib/dealFiles"
-import { fetchCloudFilesAttachments } from "../lib/cloudFiles"
+import { fetchSharePointFiles } from "../lib/sharePointFiles"
 import { FileText, MessageSquare, Paperclip, Send, LogOut, ExternalLink, Download } from "lucide-react"
 import { formatDate, formatDateTime } from "../lib/utils"
 
@@ -137,13 +137,27 @@ export default function StudentApplicationPage() {
     if (!studentSession.dealId) { navigate("/student"); return }
     if (id !== studentSession.dealId) { navigate(`/student/application/${studentSession.dealId}`); return }
     if (!id) return
-    Promise.all([fetchDeal(id), fetchNotes(id), fetchFiles(id), fetchOwners(), fetchDealAssociatedFiles(id), fetchCloudFilesAttachments(id)])
-      .then(([d, n, f, , df, cf]) => {
+    Promise.all([fetchDeal(id), fetchNotes(id), fetchFiles(id), fetchOwners(), fetchDealAssociatedFiles(id)])
+      .then(([d, n, f, , df]) => {
         setDeal(d); setNotes(n)
         const seenIds = new Set((f || []).map((x: any) => x.id))
         const withDealFiles = [...(f || []), ...(df || []).filter((x: any) => !seenIds.has(x.id))]
         withDealFiles.forEach((x: any) => seenIds.add(x.id))
-        setFiles(sortFilesByNewest([...withDealFiles, ...(cf || []).filter((x: any) => !seenIds.has(x.id))]))
+        setFiles(sortFilesByNewest(withDealFiles))
+
+        // SharePoint files are keyed by Application Reference (or DEAL-{id}
+        // as a fallback) — fetched as a non-blocking follow-up, same pattern
+        // as the agent/staff detail page.
+        if (d?.dealId || d?.applicationReference) {
+          fetchSharePointFiles(d.applicationReference, d.dealId).then((sp) => {
+            if (!sp || sp.length === 0) return
+            setFiles(prev => {
+              const existingIds = new Set(prev.map((x: any) => x.id))
+              const newOnes = sp.filter((x: any) => !existingIds.has(x.id))
+              return newOnes.length ? sortFilesByNewest([...prev, ...newOnes]) : prev
+            })
+          })
+        }
       })
       .finally(() => setLoading(false))
   }, [id])
