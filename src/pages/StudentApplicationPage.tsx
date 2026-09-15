@@ -569,7 +569,14 @@ export default function StudentApplicationPage() {
                             type="button"
                             onClick={async () => {
                               const token = sessionStorage.getItem("holmes_student_token") || sessionStorage.getItem("holmes_session_token") || ""
-                              const url = `/.netlify/functions/download-file?fileId=${encodeURIComponent(file.id)}&dealId=${encodeURIComponent(id || "")}`
+                              // Files already carry their own download endpoint (e.g. SharePoint
+                              // files point at sharepoint-files.js) — use that if present, rather
+                              // than always reconstructing a HubSpot download-file URL, which
+                              // silently sent every file through the wrong backend and produced a
+                              // false "You do not have permission" error for SharePoint files.
+                              const url = file.url && file.url.startsWith("/.netlify/functions/")
+                                ? file.url
+                                : `/.netlify/functions/download-file?fileId=${encodeURIComponent(file.id)}&dealId=${encodeURIComponent(id || "")}`
                               try {
                                 const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } })
                                 if (!res.ok) { alert("You do not have permission to access this file."); return }
