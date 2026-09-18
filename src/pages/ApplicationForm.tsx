@@ -580,11 +580,8 @@ export default function ApplicationForm({ mode, sessionToken, prefillEmail, pref
   // ── Derived logic flags ───────────────────────────────────────────────────
   const showWWCC = WWCC_COURSES.includes(f.course_name_australia)
   const hideSeptember = NO_SEPT_COURSES.includes(f.course_name_australia)
-  // March 2027 is only offered to offshore applicants with no Australian
-  // residency status (i.e. currently residing outside Australia).
-  const showMarch2027 =
-    f.where_are_you_applying_from === "Offshore" &&
-    f.residency_status === "None - Currently residing outside Australia"
+  // March 2027 is now open to all applicants, regardless of residency status.
+  const showMarch2027 = true
   const AVAILABLE_INTAKES = (hideSeptember
     ? INTAKES.filter(i => !i.label.startsWith("September"))
     : INTAKES
