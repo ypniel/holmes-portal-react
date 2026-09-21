@@ -234,7 +234,7 @@ export default function ApplicationsPage() {
 
   function exportXLSX() {
     const rows = [
-      ["Reference","Student Name","Country","Residency","Course Name","Intake","Campus","Response Status","Case Status","Date Added","Last Modified"],
+      ["Reference","Student Name","Nationality","Residency","Course Name","Intake","Campus","Response Status","Case Status","Date Added","Last Modified"],
       ...filtered.map(d => [
         d.applicationReference || d.dealId, d.studentName, d.nationality, d.residencyStatus, d.courseName,
         d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.createdAt), formatDate(d.lastModified)
@@ -347,7 +347,7 @@ export default function ApplicationsPage() {
             <FilterDropdown label="Case Status"      value={statusFilter}      options={stages}       onSelect={v => { setStatusFilter(v);      setPage(1) }} open={openDropdown==="status"}      onToggle={() => setOpenDropdown(openDropdown==="status"      ? null : "status")} />
             <FilterDropdown label="Campus"           value={campusFilter}      options={campuses}     onSelect={v => { setCampusFilter(v);      setPage(1) }} open={openDropdown==="campus"}      onToggle={() => setOpenDropdown(openDropdown==="campus"      ? null : "campus")} />
             <FilterDropdown label="Response Status"  value={responseFilter}    options={["Holmes Received","Waiting on Agent"]} onSelect={v => { setResponseFilter(v); setPage(1) }} open={openDropdown==="response"} onToggle={() => setOpenDropdown(openDropdown==="response" ? null : "response")} />
-            <FilterDropdown label="Country"          value={nationalityFilter} options={nationalities} onSelect={v => { setNationalityFilter(v); setPage(1) }} open={openDropdown==="nationality"} onToggle={() => setOpenDropdown(openDropdown==="nationality" ? null : "nationality")} />
+            <FilterDropdown label="Nationality"       value={nationalityFilter} options={nationalities} onSelect={v => { setNationalityFilter(v); setPage(1) }} open={openDropdown==="nationality"} onToggle={() => setOpenDropdown(openDropdown==="nationality" ? null : "nationality")} />
             <FilterDropdown label="Residency"        value={residencyFilter}   options={residencies}  onSelect={v => { setResidencyFilter(v);   setPage(1) }} open={openDropdown==="residency"}   onToggle={() => setOpenDropdown(openDropdown==="residency"   ? null : "residency")} />
             <FilterDropdown label="Course"           value={courseFilter}      options={courses}      onSelect={v => { setCourseFilter(v);      setPage(1) }} open={openDropdown==="course"}      onToggle={() => setOpenDropdown(openDropdown==="course"      ? null : "course")} />
             <FilterDropdown label="Intake"           value={intakeFilter}      options={intakes}      onSelect={v => { setIntakeFilter(v);      setPage(1) }} open={openDropdown==="intake"}      onToggle={() => setOpenDropdown(openDropdown==="intake"      ? null : "intake")} labelFn={formatIntake} />
@@ -386,7 +386,7 @@ export default function ApplicationsPage() {
                     { key: "studentName" as SortKey, label: "Student Name" },
                     { key: null, label: "Reference" },
                     { key: null, label: "Passport" },
-                    { key: null, label: "Country" },
+                    { key: null, label: "Nationality" },
                     { key: null, label: "Residency" },
                     { key: null, label: "Course Name" },
                     { key: "intake" as SortKey, label: "Intake" },
