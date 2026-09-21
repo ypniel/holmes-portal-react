@@ -341,7 +341,7 @@ export default function ApplicationDetailPage() {
               {/* ID pills */}
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
-                  <span className="text-white/50 text-[10px] uppercase tracking-widest">Reference</span>
+                  <span className="text-white/50 text-[10px] uppercase tracking-widest">Case ID</span>
                   <span>{deal.applicationReference || deal.dealId}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 bg-white/10 text-white px-3 py-1.5 rounded-full border border-white/20 font-medium">
