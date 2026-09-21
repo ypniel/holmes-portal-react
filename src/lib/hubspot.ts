@@ -261,6 +261,26 @@ export async function fetchOwners(): Promise<Record<string, string>> {
   } catch { return {} }
 }
 
+// ── Fetch Representatives (for the "Contact your Holmes representative"
+// modal) — same /crm/v3/owners source as fetchOwners, but keeps email and
+// filters out deactivated owners so the list only shows people students and
+// agents can actually reach. ───────────────────────────────────────────────
+export interface Representative { id: string; name: string; email: string }
+export async function fetchRepresentatives(): Promise<Representative[]> {
+  try {
+    const data = await hsFetch("/crm/v3/owners")
+    return (data.results || [])
+      .filter((o: any) => !o.archived)
+      .map((o: any) => ({
+        id: String(o.id),
+        name: `${o.firstName || ""} ${o.lastName || ""}`.trim(),
+        email: o.email || "",
+      }))
+      .filter((o: Representative) => o.name && o.email)
+      .sort((a: Representative, b: Representative) => a.name.localeCompare(b.name))
+  } catch { return [] }
+}
+
 // ── Fetch Main Agent Email ────────────────────────────────────────────────────
 export async function fetchMainAgentEmail(subAgentEmail: string): Promise<string | null> {
   try {
