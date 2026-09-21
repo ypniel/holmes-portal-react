@@ -5,7 +5,7 @@ import {
   Search, ChevronDown, ChevronsUpDown, ChevronUp, Calendar, Download
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
-import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail, fetchRepresentatives, Representative } from "../lib/hubspot"
+import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail } from "../lib/hubspot"
 import { isAussizzEmail, getAussizzDeals } from "../lib/aussizz"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
 import { useAuth, isHolmesStaff } from "../lib/auth"
@@ -14,6 +14,13 @@ import { StatCardSkeleton, TableRowSkeleton } from "../components/Skeleton"
 type SortKey = "studentName" | "intake" | "campus" | "stageLabel" | "dateAdded" | "lastModified"
 type SortDir  = "asc" | "desc"
 
+// Same curated representative list used on HomePage/LoginPage/AgentLoginPage —
+// kept in sync with those, rather than the broader HubSpot "owners" list.
+const MARKETERS = [
+  { name: "Indra Adhikari",  title: "Victoria Representative",       email: "iadhikari@holmes.edu.au", phone: "0414 813 163" },
+  { name: "Dinesh Chetwani", title: "Queensland Representative",      email: "dchetwani@holmes.edu.au", phone: "0449 536 879" },
+  { name: "Don Kauffman",    title: "New South Wales Representative", email: "dkauffman@holmes.edu.au", phone: "0450 224 845" },
+]
 
 export default function ApplicationsPage() {
   const navigate = useNavigate()
@@ -22,17 +29,9 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  // "Contact your Holmes representative" modal — lists everyone already
-  // set up as a HubSpot owner, fetched fresh each time the modal opens
-  // rather than kept in sync separately.
+  // "Contact your Holmes representative" modal — same static, curated list
+  // used across the login pages, not the broader HubSpot owners list.
   const [showRepModal, setShowRepModal] = useState(false)
-  const [reps, setReps] = useState<Representative[]>([])
-  const [repsLoading, setRepsLoading] = useState(false)
-  const openRepModal = () => {
-    setShowRepModal(true)
-    setRepsLoading(true)
-    fetchRepresentatives().then(setReps).finally(() => setRepsLoading(false))
-  }
 
   const urlSearch = new URLSearchParams(location.search).get("search") || ""
   const [search, setSearch] = useState(urlSearch)
@@ -269,7 +268,7 @@ export default function ApplicationsPage() {
             <p className="text-xs text-gray-400 mt-0.5">
               Please note: applications for the March 2026 intake and earlier have not been imported into this portal.
               For more information, please contact your{" "}
-              <button type="button" onClick={openRepModal} className="underline hover:text-gray-600 transition-colors">
+              <button type="button" onClick={() => setShowRepModal(true)} className="underline hover:text-gray-600 transition-colors">
                 Holmes representative
               </button>.
             </p>
@@ -371,7 +370,7 @@ export default function ApplicationsPage() {
           <p className="text-gray-400 text-xs mt-2">
             Applications for the March 2026 intake and earlier have not been imported into this portal.
             For more information, please contact your{" "}
-            <button type="button" onClick={openRepModal} className="underline hover:text-gray-600 transition-colors">
+            <button type="button" onClick={() => setShowRepModal(true)} className="underline hover:text-gray-600 transition-colors">
               Holmes representative
             </button>.
           </p>
@@ -486,27 +485,39 @@ export default function ApplicationsPage() {
     </PageContainer>
 
     {showRepModal && (
-      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowRepModal(false)}>
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-          <div className="px-5 py-4 border-b border-stone-200 flex items-center justify-between">
-            <h3 className="text-base font-semibold text-gray-700">Holmes representatives</h3>
-            <button type="button" onClick={() => setShowRepModal(false)} className="text-stone-400 hover:text-stone-600 text-xl leading-none">&times;</button>
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowRepModal(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="px-6 py-5 border-b border-stone-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">Contact Your Holmes Representative</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Click an email to open in your mail app</p>
+            </div>
+            <button onClick={() => setShowRepModal(false)} className="text-stone-400 hover:text-stone-600 p-1 text-xl leading-none">&times;</button>
           </div>
-          <div className="overflow-y-auto px-5 py-3">
-            {repsLoading ? (
-              <p className="text-sm text-gray-500 py-4 text-center">Loading representatives...</p>
-            ) : reps.length === 0 ? (
-              <p className="text-sm text-gray-500 py-4 text-center">No representatives found.</p>
-            ) : (
-              <ul className="divide-y divide-stone-100">
-                {reps.map(rep => (
-                  <li key={rep.id} className="py-3 flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium text-gray-700">{rep.name}</span>
-                    <a href={`mailto:${rep.email}`} className="text-sm text-red-600 hover:text-red-700 underline shrink-0">{rep.email}</a>
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div className="p-4 space-y-3">
+            {MARKETERS.map(m => (
+              <a
+                key={m.email}
+                href={`mailto:${m.email}`}
+                className="flex items-center gap-4 p-4 rounded-xl border border-stone-100 hover:border-red-200 hover:bg-red-50 transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm flex-shrink-0">
+                  {m.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{m.name}</p>
+                  <p className="text-xs text-gray-500">{m.title}</p>
+                  <p className="text-xs text-red-600 mt-0.5">{m.email}</p>
+                  {m.phone && <p className="text-xs text-gray-500 mt-0.5">📞 {m.phone}</p>}
+                </div>
+                <span className="text-lg">✉️</span>
+              </a>
+            ))}
+          </div>
+          <div className="px-6 py-4 border-t border-stone-100">
+            <button onClick={() => setShowRepModal(false)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+              Close
+            </button>
           </div>
         </div>
       </div>
