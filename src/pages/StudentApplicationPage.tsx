@@ -331,7 +331,7 @@ export default function StudentApplicationPage() {
             )}
             {(deal.applicationReference || deal.dealId) && (
               <div className="bg-white/10 rounded-lg p-3">
-                <p className="text-xs text-red-300">Reference</p>
+                <p className="text-xs text-red-300">Case ID</p>
                 <p className="text-sm font-medium mt-0.5">{deal.applicationReference || deal.dealId}</p>
               </div>
             )}
