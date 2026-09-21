@@ -266,7 +266,7 @@ export default function ApplicationsPage() {
             <h1 className="text-2xl font-bold text-gray-700">Applications</h1>
             <p className="text-gray-500 mt-1">Australia Admissions Pipeline</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              Please note: applications for the March 2026 intake and earlier have not been imported into this portal.
+              Please note: applications for the March 2026 intake and earlier are not and will not be imported into this portal.
               For more information, please contact your{" "}
               <button type="button" onClick={() => setShowRepModal(true)} className="underline hover:text-gray-600 transition-colors">
                 Holmes representative
@@ -368,7 +368,7 @@ export default function ApplicationsPage() {
           <h3 className="text-lg font-semibold text-gray-700">No applications found</h3>
           <p className="text-gray-500 text-sm">Try adjusting your filters.</p>
           <p className="text-gray-400 text-xs mt-2">
-            Applications for the March 2026 intake and earlier have not been imported into this portal.
+            Applications for the March 2026 intake and earlier are not and will not be imported into this portal.
             For more information, please contact your{" "}
             <button type="button" onClick={() => setShowRepModal(true)} className="underline hover:text-gray-600 transition-colors">
               Holmes representative
@@ -384,14 +384,14 @@ export default function ApplicationsPage() {
                   {[
                     { key: "studentName" as SortKey, label: "Student Name" },
                     { key: null, label: "Reference" },
+                    { key: null, label: "Response Status" },
+                    { key: "stageLabel" as SortKey, label: "Case Status" },
                     { key: null, label: "Passport" },
                     { key: null, label: "Nationality" },
                     { key: null, label: "Residency" },
                     { key: null, label: "Course Name" },
                     { key: "intake" as SortKey, label: "Intake" },
                     { key: "campus" as SortKey, label: "Campus" },
-                    { key: null, label: "Response Status" },
-                    { key: "stageLabel" as SortKey, label: "Case Status" },
                     { key: "dateAdded" as SortKey, label: "Date Added" },
                     { key: "lastModified" as SortKey, label: "Last Modified" },
                     { key: null, label: "Submitted By" },
@@ -433,16 +433,6 @@ export default function ApplicationsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3.5"><span className="text-xs font-semibold text-red-700 bg-red-50 px-2 py-0.5 rounded">{deal.applicationReference || deal.dealId}</span></td>
-                      <td className="px-4 py-3.5"><span className="text-xs text-stone-600">{deal.passport || "—"}</span></td>
-                      <td className="px-4 py-3.5 text-sm text-stone-600"><span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-stone-400" />{deal.nationality || "—"}</span></td>
-                      <td className="px-4 py-3.5">
-                        {deal.residencyStatus
-                          ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-stone-100 text-stone-700 border-stone-200">{deal.residencyStatus}</span>
-                          : <span className="text-stone-400">—</span>}
-                      </td>
-                      <td className="px-4 py-3.5 text-sm text-stone-600 max-w-[200px] truncate" title={deal.courseName}>{deal.courseName || "—"}</td>
-                      <td className="px-4 py-3.5 text-sm text-stone-600"><span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-stone-400" />{formatIntake(deal.intake)}</span></td>
-                      <td className="px-4 py-3.5 text-sm text-stone-600"><span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-stone-400" />{deal.campus || "—"}</span></td>
                       <td className="px-4 py-3.5">
                         {deal.responseStatus
                           ? <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border ${respColor}`}>{deal.responseStatus}</span>
@@ -453,6 +443,16 @@ export default function ApplicationsPage() {
                           {deal.stageLabel}
                         </span>
                       </td>
+                      <td className="px-4 py-3.5"><span className="text-xs text-stone-600">{deal.passport || "—"}</span></td>
+                      <td className="px-4 py-3.5 text-sm text-stone-600"><span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-stone-400" />{deal.nationality || "—"}</span></td>
+                      <td className="px-4 py-3.5">
+                        {deal.residencyStatus
+                          ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-stone-100 text-stone-700 border-stone-200">{deal.residencyStatus}</span>
+                          : <span className="text-stone-400">—</span>}
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-stone-600 max-w-[200px] truncate" title={deal.courseName}>{deal.courseName || "—"}</td>
+                      <td className="px-4 py-3.5 text-sm text-stone-600"><span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-stone-400" />{formatIntake(deal.intake)}</span></td>
+                      <td className="px-4 py-3.5 text-sm text-stone-600"><span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-stone-400" />{deal.campus || "—"}</span></td>
                       <td className="px-4 py-3.5 text-sm text-stone-500">{formatDate(deal.createdAt)}</td>
                       <td className="px-4 py-3.5 text-sm text-stone-500">{formatDate(deal.lastModified)}</td>
                       <td className="px-4 py-3.5">
