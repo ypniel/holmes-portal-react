@@ -5,7 +5,7 @@ import {
   Search, ChevronDown, ChevronsUpDown, ChevronUp, Calendar, Download
 } from "lucide-react"
 import { PageContainer } from "../components/Layout"
-import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail } from "../lib/hubspot"
+import { fetchDeals, fetchDealsByIds, fetchDealsByCompanyId, Deal, fetchMainAgentEmail, fetchRepresentatives, Representative } from "../lib/hubspot"
 import { isAussizzEmail, getAussizzDeals } from "../lib/aussizz"
 import { initials, formatDate, formatIntake, BADGE_CLASSES as BC } from "../lib/utils"
 import { useAuth, isHolmesStaff } from "../lib/auth"
@@ -21,6 +21,18 @@ export default function ApplicationsPage() {
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+
+  // "Contact your Holmes representative" modal — lists everyone already
+  // set up as a HubSpot owner, fetched fresh each time the modal opens
+  // rather than kept in sync separately.
+  const [showRepModal, setShowRepModal] = useState(false)
+  const [reps, setReps] = useState<Representative[]>([])
+  const [repsLoading, setRepsLoading] = useState(false)
+  const openRepModal = () => {
+    setShowRepModal(true)
+    setRepsLoading(true)
+    fetchRepresentatives().then(setReps).finally(() => setRepsLoading(false))
+  }
 
   const urlSearch = new URLSearchParams(location.search).get("search") || ""
   const [search, setSearch] = useState(urlSearch)
@@ -246,6 +258,7 @@ export default function ApplicationsPage() {
   if (error) return <PageContainer><div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center"><p className="text-red-700">Failed to load. Check your HubSpot connection.</p></div></PageContainer>
 
   return (
+    <>
     <PageContainer className="min-w-0 max-w-full overflow-x-hidden">
       
       <div className="mb-6">
@@ -253,7 +266,13 @@ export default function ApplicationsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-700">Applications</h1>
             <p className="text-gray-500 mt-1">Australia Admissions Pipeline</p>
-            <p className="text-xs text-gray-400 mt-0.5">Please note: this portal contains applications for upcoming intakes only.</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Please note: applications for the March 2026 intake and earlier have not been imported into this portal.
+              For more information, please contact your{" "}
+              <button type="button" onClick={openRepModal} className="underline hover:text-gray-600 transition-colors">
+                Holmes representative
+              </button>.
+            </p>
           </div>
           <div className="flex gap-2">
             <button onClick={exportXLSX}
@@ -349,7 +368,13 @@ export default function ApplicationsPage() {
           <FileText className="h-8 w-8 text-stone-400 mx-auto mb-3" />
           <h3 className="text-lg font-semibold text-gray-700">No applications found</h3>
           <p className="text-gray-500 text-sm">Try adjusting your filters.</p>
-          <p className="text-gray-400 text-xs mt-2">This portal contains applications for upcoming intakes only.</p>
+          <p className="text-gray-400 text-xs mt-2">
+            Applications for the March 2026 intake and earlier have not been imported into this portal.
+            For more information, please contact your{" "}
+            <button type="button" onClick={openRepModal} className="underline hover:text-gray-600 transition-colors">
+              Holmes representative
+            </button>.
+          </p>
         </div>
       ) : (
         <div className="bg-white border border-stone-200 rounded-b-xl overflow-hidden">
@@ -459,6 +484,34 @@ export default function ApplicationsPage() {
         </div>
       )}
     </PageContainer>
+
+    {showRepModal && (
+      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowRepModal(false)}>
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="px-5 py-4 border-b border-stone-200 flex items-center justify-between">
+            <h3 className="text-base font-semibold text-gray-700">Holmes representatives</h3>
+            <button type="button" onClick={() => setShowRepModal(false)} className="text-stone-400 hover:text-stone-600 text-xl leading-none">&times;</button>
+          </div>
+          <div className="overflow-y-auto px-5 py-3">
+            {repsLoading ? (
+              <p className="text-sm text-gray-500 py-4 text-center">Loading representatives...</p>
+            ) : reps.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4 text-center">No representatives found.</p>
+            ) : (
+              <ul className="divide-y divide-stone-100">
+                {reps.map(rep => (
+                  <li key={rep.id} className="py-3 flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-gray-700">{rep.name}</span>
+                    <a href={`mailto:${rep.email}`} className="text-sm text-red-600 hover:text-red-700 underline shrink-0">{rep.email}</a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 
