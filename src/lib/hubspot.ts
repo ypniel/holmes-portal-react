@@ -80,6 +80,7 @@ export const STAGE_LABELS: Record<string, string> = {
   "1363564956": "Conditional Offer Issued",
   "1363564957": "Application Refused",
   "1412847149": "COE Conditional",
+  "1393375022": "Refund",
 }
 
 export const PIPELINE_STAGES = [
@@ -87,7 +88,7 @@ export const PIPELINE_STAGES = [
   "GS Checking in Process","Credit Assessment Team","English Placement Test",
   "Offer Letter Requested","Offer Issued","Second Agent Application","Receipting",
   "COE Request","COE Team","COE Conditional","Application Complete","Application Closed","Enrolled",
-  "Duplicate","Interview","GTE in Process","Conditional Offer Issued","Application Refused",
+  "Duplicate","Interview","GTE in Process","Conditional Offer Issued","Application Refused","Refund",
 ]
 
 export const STAGE_COLORS: Record<string, string> = {
@@ -112,6 +113,7 @@ export const STAGE_COLORS: Record<string, string> = {
   "1363564956": "indigo",
   "1363564957": "red",
   "1412847149": "red",
+  "1393375022": "red",
 }
 
 // ── Fetch Deals ────────────────────────────────────────────────────────────────
@@ -642,7 +644,7 @@ function mapDeal(raw: any): Deal {
     ownerId: g("hubspot_owner_id"),
     createdAt: g("createdate"),
     lastModified: g("hs_lastmodifieddate"),
-    nationality: g("nationality", "nationality_", "country"),
+    nationality: g("country", "nationality_", "nationality"),
     residencyStatus: g("residency_status_australia", "residency_status_", "residency_status"),
     dob: g("date_of_birth"),
     passport: g("passport_number"),
