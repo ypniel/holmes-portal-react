@@ -384,6 +384,7 @@ export default function ApplicationsPage() {
                   {[
                     { key: "studentName" as SortKey, label: "Student Name" },
                     { key: null, label: "Reference" },
+                    { key: null, label: "Student ID" },
                     { key: null, label: "Response Status" },
                     { key: "stageLabel" as SortKey, label: "Case Status" },
                     { key: null, label: "Passport" },
@@ -433,6 +434,7 @@ export default function ApplicationsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3.5"><span className="text-xs font-semibold text-red-700 bg-red-50 px-2 py-0.5 rounded">{deal.applicationReference || deal.dealId}</span></td>
+                      <td className="px-4 py-3.5 text-sm text-stone-600">{deal.studentId || "—"}</td>
                       <td className="px-4 py-3.5">
                         {deal.responseStatus
                           ? <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border ${respColor}`}>{deal.responseStatus}</span>
