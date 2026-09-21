@@ -644,7 +644,7 @@ function mapDeal(raw: any): Deal {
     ownerId: g("hubspot_owner_id"),
     createdAt: g("createdate"),
     lastModified: g("hs_lastmodifieddate"),
-    nationality: g("country", "nationality_", "nationality"),
+    nationality: g("nationality", "nationality_", "country"),
     residencyStatus: g("residency_status_australia", "residency_status_", "residency_status"),
     dob: g("date_of_birth"),
     passport: g("passport_number"),
