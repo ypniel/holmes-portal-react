@@ -233,7 +233,7 @@ export default function ApplicationsPage() {
 
   function exportXLSX() {
     const rows = [
-      ["Reference","Student Name","Nationality","Residency","Course Name","Intake","Campus","Response Status","Case Status","Date Added","Last Modified"],
+      ["Case ID","Student Name","Nationality","Residency","Course Name","Intake","Campus","Response Status","Case Status","Date Added","Last Modified"],
       ...filtered.map(d => [
         d.applicationReference || d.dealId, d.studentName, d.nationality, d.residencyStatus, d.courseName,
         d.intake, d.campus, d.responseStatus, d.stageLabel, formatDate(d.createdAt), formatDate(d.lastModified)
@@ -383,7 +383,7 @@ export default function ApplicationsPage() {
                 <tr className="border-b border-stone-200 bg-stone-50/50">
                   {[
                     { key: "studentName" as SortKey, label: "Student Name" },
-                    { key: null, label: "Reference" },
+                    { key: null, label: "Case ID" },
                     { key: null, label: "Student ID" },
                     { key: null, label: "Response Status" },
                     { key: "stageLabel" as SortKey, label: "Case Status" },
