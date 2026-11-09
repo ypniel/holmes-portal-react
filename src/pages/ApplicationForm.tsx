@@ -55,17 +55,22 @@ const COURSES = [
 
 const CAMPUSES = ["Melbourne", "Sydney", "Brisbane", "Gold Coast"]
 
+// `date` is the intake start date. `closes` is the last moment applications
+// are accepted through the form — normally the start date, but November 2026
+// stays open until its census date (30 Nov 2026, end of day Melbourne time,
+// written with an explicit +11:00 offset so it doesn't depend on the
+// visitor's browser timezone).
 const ALL_INTAKES = [
-  { value: "July_2026_20_07_2026",     label: "July 2026",     date: new Date("2026-07-20") },
-  { value: "September 2026",           label: "September 2026", date: new Date("2026-09-07") },
-  { value: "November_2026_09_11_2026", label: "November 2026", date: new Date("2026-11-09") },
-  { value: "March_2027_22_03_2027",    label: "March 2027",    date: new Date("2027-03-22") },
+  { value: "July_2026_20_07_2026",     label: "July 2026",      date: new Date("2026-07-20"), closes: new Date("2026-07-20") },
+  { value: "September 2026",           label: "September 2026", date: new Date("2026-09-07"), closes: new Date("2026-09-07") },
+  { value: "November_2026_09_11_2026", label: "November 2026",  date: new Date("2026-11-09"), closes: new Date("2026-11-30T23:59:59+11:00") },
+  { value: "March_2027_22_03_2027",    label: "March 2027",     date: new Date("2027-03-22"), closes: new Date("2027-03-22") },
 ]
 // Fixed cutoff: keep a just-passed intake (e.g. July) selectable up until
 // this date, rather than hiding it the moment its own date passes. After
-// this cutoff, an intake only shows if its own date is still upcoming.
+// this cutoff, an intake only shows until its own `closes` date.
 const APPLICATION_CUTOFF_DATE = new Date("2026-08-10")
-const INTAKES = ALL_INTAKES.filter(i => i.date >= new Date() || new Date() <= APPLICATION_CUTOFF_DATE)
+const INTAKES = ALL_INTAKES.filter(i => i.closes >= new Date() || new Date() <= APPLICATION_CUTOFF_DATE)
 
 const ENGLISH_TESTS = [
   { value: "IELTS", label: "IELTS" },
