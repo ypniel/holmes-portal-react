@@ -1,9 +1,8 @@
 # TEST BRANCH ONLY - do not merge into main.
-# Experiment 1: pin the build's Node version to the exact one that built the
-# last working deploy (22 Sep, node v22.23.2). Today's builds float to 22.23.4.
-[build.environment]
-  NODE_VERSION = "22.23.2"
-
+# Experiment 2: use the esbuild bundler for ALL functions (currently only
+# "upload" does), instead of relying on Netlify's default bundler, which may
+# have changed with the new build tooling. No Node pin (Experiment 1 showed
+# pinning Node does not fix it).
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/hubspot"
@@ -15,6 +14,7 @@
   status = 200
 
 [functions]
+  node_bundler = "esbuild"
   included_files = ["netlify/functions/**"]
 
 [functions."upload"]
