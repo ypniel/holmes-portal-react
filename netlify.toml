@@ -1,3 +1,9 @@
+# TEST BRANCH ONLY - do not merge into main.
+# Experiment 1: pin the build's Node version to the exact one that built the
+# last working deploy (22 Sep, node v22.23.2). Today's builds float to 22.23.4.
+[build.environment]
+  NODE_VERSION = "22.23.2"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/hubspot"
