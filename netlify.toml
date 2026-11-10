@@ -1,3 +1,10 @@
+# Functions are bundled with esbuild on purpose.
+# On 10 Nov 2026 Netlify's updated build tooling (build image ea89202..,
+# @netlify/build 37.7.6) built these same functions with its default bundler and
+# every function crashed at start-up ("Internal Error. ID: ..."), while an
+# explicit esbuild bundle works. Do not remove this without first testing a
+# Deploy Preview (open a pull request, then request
+# /.netlify/functions/sharepoint-test on the preview URL).
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/hubspot"
@@ -9,6 +16,7 @@
   status = 200
 
 [functions]
+  node_bundler = "esbuild"
   included_files = ["netlify/functions/**"]
 
 [functions."upload"]
