@@ -1,8 +1,10 @@
-# TEST BRANCH ONLY - do not merge into main.
-# Experiment 2: use the esbuild bundler for ALL functions (currently only
-# "upload" does), instead of relying on Netlify's default bundler, which may
-# have changed with the new build tooling. No Node pin (Experiment 1 showed
-# pinning Node does not fix it).
+# Functions are bundled with esbuild on purpose.
+# On 10 Nov 2026 Netlify's updated build tooling (build image ea89202..,
+# @netlify/build 37.7.6) built these same functions with its default bundler and
+# every function crashed at start-up ("Internal Error. ID: ..."), while an
+# explicit esbuild bundle works. Do not remove this without first testing a
+# Deploy Preview (open a pull request, then request
+# /.netlify/functions/sharepoint-test on the preview URL).
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/hubspot"
